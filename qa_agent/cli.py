@@ -3,7 +3,22 @@
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Optional
+
+# Resolve the project root once at import time (the directory that contains
+# pyproject.toml / .git), walking up from this file's location.  This means
+# default output directories are always anchored to the project root regardless
+# of the working directory from which the command is invoked.
+def _find_project_root() -> Path:
+    candidate = Path(__file__).resolve().parent
+    while candidate != candidate.parent:
+        if (candidate / "pyproject.toml").exists() or (candidate / ".git").exists():
+            return candidate
+        candidate = candidate.parent
+    return Path(__file__).resolve().parent.parent  # fallback
+
+_PROJECT_ROOT = _find_project_root()
 
 from .config import (
     TestConfig,
@@ -126,8 +141,8 @@ Examples:
     )
     parser.add_argument(
         "--output-dir",
-        default="./qa_reports",
-        help="Directory for output files (default: ./qa_reports)",
+        default=str(_PROJECT_ROOT / "qa_reports"),
+        help="Directory for output files (default: <project-root>/qa_reports)",
     )
     
     # Browser options
@@ -214,8 +229,8 @@ Examples:
     )
     parser.add_argument(
         "--screenshot-dir",
-        default="./screenshots",
-        help="Directory for screenshots (default: ./screenshots)",
+        default=str(_PROJECT_ROOT / "screenshots"),
+        help="Directory for screenshots (default: <project-root>/screenshots)",
     )
     parser.add_argument(
         "--full-page",
@@ -229,8 +244,8 @@ Examples:
     )
     parser.add_argument(
         "--recording-dir",
-        default="./recordings",
-        help="Directory for recordings (default: ./recordings)",
+        default=str(_PROJECT_ROOT / "recordings"),
+        help="Directory for recordings (default: <project-root>/recordings)",
     )
     
     args = parser.parse_args()

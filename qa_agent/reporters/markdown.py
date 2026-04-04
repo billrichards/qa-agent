@@ -25,6 +25,7 @@ class MarkdownReporter(BaseReporter):
         
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(content)
+            f.write("\n")
         
         return filepath
 
@@ -57,20 +58,20 @@ class MarkdownReporter(BaseReporter):
             lines.append("### Findings by Severity")
             lines.append("")
             lines.append("| Severity | Count |")
-            lines.append("|----------|-------|")
+            lines.append("| --- | --- |")
             for severity in ["critical", "high", "medium", "low", "info"]:
                 count = session.findings_by_severity.get(severity, 0)
                 if count > 0:
                     emoji = self._severity_emoji(severity)
                     lines.append(f"| {emoji} {severity.upper()} | {count} |")
             lines.append("")
-        
+
         # Category breakdown
         if session.findings_by_category:
             lines.append("### Findings by Category")
             lines.append("")
             lines.append("| Category | Count |")
-            lines.append("|----------|-------|")
+            lines.append("| --- | --- |")
             for category, count in sorted(session.findings_by_category.items(), key=lambda x: -x[1]):
                 if count > 0:
                     emoji = self._category_emoji(category)
@@ -154,9 +155,9 @@ class MarkdownReporter(BaseReporter):
         
         if finding.expected_behavior or finding.actual_behavior:
             lines.append("| Expected | Actual |")
-            lines.append("|----------|--------|")
-            expected = finding.expected_behavior or "-"
-            actual = finding.actual_behavior or "-"
+            lines.append("| --- | --- |")
+            expected = (finding.expected_behavior or "-").replace("|", "\\|")
+            actual = (finding.actual_behavior or "-").replace("|", "\\|")
             lines.append(f"| {expected} | {actual} |")
             lines.append("")
         
@@ -171,23 +172,25 @@ class MarkdownReporter(BaseReporter):
             lines.append("")
         
         if finding.raw_error:
-            lines.append("<details>")
-            lines.append("<summary>Raw Error</summary>")
+            lines.append("**Raw Error:**")
             lines.append("")
             lines.append("```")
             lines.append(finding.raw_error[:500])
             lines.append("```")
-            lines.append("</details>")
             lines.append("")
-        
+
         if finding.metadata:
-            lines.append("<details>")
-            lines.append("<summary>Additional Details</summary>")
+            lines.append("**Additional Details:**")
             lines.append("")
             lines.append("```json")
             import json
             lines.append(json.dumps(finding.metadata, indent=2, default=str))
             lines.append("```")
-            lines.append("</details>")
-        
+            lines.append("")
+
+        # Strip trailing blank lines — the caller appends exactly one blank
+        # between findings, so we avoid producing double blank lines.
+        while lines and lines[-1] == "":
+            lines.pop()
+
         return lines

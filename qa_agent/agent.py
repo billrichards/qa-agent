@@ -34,7 +34,14 @@ class QAAgent:
         self.error_detector: Optional[ErrorDetector] = None
         self.visited_urls: set[str] = set()
         self.urls_to_visit: list[str] = []
-        
+
+        # Generate the session ID here so all output paths can be organized
+        # under a session-specific subdirectory before reporters are created.
+        self.session_id = str(uuid.uuid4())[:8]
+        config.output_dir = os.path.join(config.output_dir, self.session_id)
+        config.screenshots.output_dir = os.path.join(config.screenshots.output_dir, self.session_id)
+        config.recording.output_dir = os.path.join(config.recording.output_dir, self.session_id)
+
         # Initialize reporters
         self.reporters = []
         if OutputFormat.CONSOLE in config.output_formats:
@@ -52,7 +59,7 @@ class QAAgent:
     def run(self) -> TestSession:
         """Run the complete QA test session."""
         self.session = TestSession(
-            session_id=str(uuid.uuid4())[:8],
+            session_id=self.session_id,
             start_time=datetime.now(),
             config_summary={
                 "mode": self.config.mode.value,
