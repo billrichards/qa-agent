@@ -46,8 +46,9 @@ Guidelines for writing good test steps:
 - Assign severity based on impact: "critical" for auth/data-loss flows, "high" for broken
   core features, "medium" for degraded UX, "low" for cosmetic issues, "info" for
   informational observations
-- Include suggested_urls for paths likely relevant to the instructions (login page,
-  settings page, specific feature routes, etc.)
+- Leave suggested_urls empty. The URLs to test are provided by the user; do not construct
+  or guess URLs. All navigation must happen through browser interactions (clicks, form
+  submissions, keyboard) — never by constructing a URL and navigating directly to it.
 
 Return ONLY valid JSON matching the schema — no markdown, no commentary."""
 
@@ -104,7 +105,6 @@ _TEST_PLAN_SCHEMA = {
                                         "hover",
                                         "press_key",
                                         "wait",
-                                        "navigate",
                                         "scroll",
                                     ],
                                 },
@@ -118,7 +118,6 @@ _TEST_PLAN_SCHEMA = {
                                         "For 'fill': text to type. "
                                         "For 'press_key': key name (e.g. 'Enter', 'Tab'). "
                                         "For 'wait': milliseconds as a string. "
-                                        "For 'navigate': destination URL. "
                                         "For 'scroll': 'down' or 'up'."
                                     ),
                                 },
@@ -172,7 +171,7 @@ _TEST_PLAN_SCHEMA = {
         "suggested_urls": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Additional URLs to include in the test run, relative or absolute.",
+            "description": "Always return an empty array. URLs are provided by the user; do not construct or guess any URLs.",
         },
         "notes": {
             "type": "string",
@@ -299,6 +298,6 @@ class AIPlannerClient:
             summary=data.get("summary", ""),
             focus_areas=data.get("focus_areas", []),
             custom_steps=custom_steps,
-            suggested_urls=data.get("suggested_urls", []),
+            suggested_urls=[],  # Never trust AI-constructed URLs; user supplies all URLs
             notes=data.get("notes", ""),
         )
