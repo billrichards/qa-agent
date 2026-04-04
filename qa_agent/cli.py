@@ -238,6 +238,25 @@ Examples:
         action="store_true",
         help="Record browser session as video",
     )
+
+    # Agentic testing options
+    parser.add_argument(
+        "--instructions",
+        help=(
+            "Natural language instructions for agentic testing: a feature description, "
+            "bug report, or testing guidance. Claude will interpret these and generate "
+            "custom test steps to run alongside the standard test suite."
+        ),
+    )
+    parser.add_argument(
+        "--instructions-file",
+        help="Path to a text file containing natural language testing instructions.",
+    )
+    parser.add_argument(
+        "--ai-model",
+        default="claude-opus-4-6",
+        help="Claude model to use for instruction interpretation (default: claude-opus-4-6)",
+    )
     args = parser.parse_args()
     
     # Parse output formats
@@ -293,6 +312,16 @@ Examples:
             else:
                 auth_config = AuthConfig(headers=headers)
     
+    # Resolve natural language instructions (inline or from file)
+    instructions: Optional[str] = None
+    if args.instructions_file:
+        try:
+            instructions = Path(args.instructions_file).read_text(encoding="utf-8").strip()
+        except Exception as e:
+            print(f"Error reading instructions file: {e}", file=sys.stderr)
+    elif args.instructions:
+        instructions = args.instructions.strip() or None
+
     # Build configuration
     config = TestConfig(
         urls=args.urls,
@@ -323,6 +352,8 @@ Examples:
         ),
         ignore_patterns=args.ignore,
         same_domain_only=not args.allow_external,
+        instructions=instructions,
+        ai_model=args.ai_model,
     )
     
     # Run the agent

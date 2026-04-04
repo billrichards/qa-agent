@@ -11,13 +11,14 @@ from urllib.parse import urljoin, urlparse
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 
 from .config import TestConfig, TestMode, OutputFormat, AuthConfig
-from .models import TestSession, PageAnalysis, Finding
+from .models import TestPlan, TestSession, PageAnalysis, Finding
 from .testers import (
     KeyboardTester,
     MouseTester,
     FormTester,
     AccessibilityTester,
     ErrorDetector,
+    CustomTester,
 )
 from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter, PDFReporter
 
@@ -47,6 +48,7 @@ class QAAgent:
         self.error_detector: Optional[ErrorDetector] = None
         self.visited_urls: set[str] = set()
         self.urls_to_visit: list[str] = []
+        self.test_plan: Optional[TestPlan] = None
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -89,6 +91,10 @@ class QAAgent:
             }
         )
         
+        # Generate AI test plan if instructions were provided
+        if self.config.instructions:
+            self._generate_test_plan()
+
         with sync_playwright() as playwright:
             self._setup_browser(playwright)
             
@@ -112,6 +118,43 @@ class QAAgent:
         self._generate_reports()
         
         return self.session
+
+    def _generate_test_plan(self):
+        """Call the AI planner to interpret instructions and build a TestPlan."""
+        from .ai_planner import AIPlannerClient
+
+        self.console.print_progress(
+            f"Generating AI test plan using {self.config.ai_model}…"
+        )
+        try:
+            planner = AIPlannerClient(model=self.config.ai_model)
+            base_url = self.config.urls[0] if self.config.urls else ""
+            self.test_plan = planner.plan(self.config.instructions, base_url)
+
+            self.console.print_progress(f"Test plan: {self.test_plan.summary}")
+            if self.test_plan.focus_areas:
+                self.console.print_progress(
+                    "Focus areas: " + ", ".join(self.test_plan.focus_areas)
+                )
+            self.console.print_progress(
+                f"Generated {len(self.test_plan.custom_steps)} custom test step(s)."
+            )
+
+            # Append AI-suggested URLs to the test queue (deduplicated)
+            existing = set(self.config.urls)
+            for url in self.test_plan.suggested_urls:
+                if url and url not in existing:
+                    self.config.urls.append(url)
+                    existing.add(url)
+
+            if self.test_plan.notes:
+                self.console.print_progress(f"Notes: {self.test_plan.notes}")
+
+        except Exception as exc:
+            self.console.print_progress(
+                f"Warning: AI planning failed ({exc}). Continuing with standard tests only."
+            )
+            self.test_plan = None
 
     def _setup_browser(self, playwright):
         """Set up browser and context."""
@@ -288,14 +331,22 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-            
+
             error_summary = self.error_detector.get_summary()
             page_analysis.console_errors = [
-                m["text"] for m in self.error_detector.console_messages 
+                m["text"] for m in self.error_detector.console_messages
                 if m["type"] == "error"
             ]
             page_analysis.network_errors = self.error_detector.network_errors
-        
+
+        if self.test_plan and self.test_plan.custom_steps:
+            self.console.print_test_category("custom AI steps")
+            tester = CustomTester(self.page, self.config, self.test_plan)
+            findings = tester.run()
+            all_findings.extend(findings)
+            for f in findings:
+                self.console.print_finding(f)
+
         # Take screenshot if there were errors
         if all_findings and self.config.screenshots.on_error:
             screenshot_path = self._take_screenshot(f"page_{len(self.visited_urls)}")
