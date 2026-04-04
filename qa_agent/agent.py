@@ -19,7 +19,7 @@ from .testers import (
     AccessibilityTester,
     ErrorDetector,
 )
-from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter
+from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter, PDFReporter
 
 
 def _extract_domain(url: str) -> str:
@@ -67,6 +67,8 @@ class QAAgent:
             self.reporters.append(MarkdownReporter(config.output_dir))
         if OutputFormat.JSON in config.output_formats:
             self.reporters.append(JSONReporter(config.output_dir))
+        if OutputFormat.PDF in config.output_formats:
+            self.reporters.append(PDFReporter(config.output_dir))
         
         self.console = next(
             (r for r in self.reporters if isinstance(r, ConsoleReporter)),
@@ -424,3 +426,9 @@ class QAAgent:
             elif isinstance(reporter, JSONReporter):
                 filepath = reporter.generate(self.session)
                 self.console.print_progress(f"JSON report saved: {filepath}")
+            elif isinstance(reporter, PDFReporter):
+                try:
+                    filepath = reporter.generate(self.session)
+                    self.console.print_progress(f"PDF report saved: {filepath}")
+                except ImportError as e:
+                    self.console.print_progress(f"PDF report skipped: {e}")

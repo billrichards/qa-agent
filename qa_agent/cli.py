@@ -80,7 +80,7 @@ Examples:
   qa-agent --auth "user:pass@https://example.com/login" https://example.com/dashboard
 
   # Custom output formats
-  qa-agent --output json,markdown https://example.com
+  qa-agent --output json,markdown,pdf https://example.com
 
   # With screenshots and recording
   qa-agent --screenshots --record https://example.com
@@ -137,7 +137,7 @@ Examples:
     parser.add_argument(
         "-o", "--output",
         default="console,markdown",
-        help="Output formats, comma-separated: console,markdown,json (default: console,markdown)",
+        help="Output formats, comma-separated: console,markdown,json,pdf (default: console,markdown)",
     )
     parser.add_argument(
         "--output-dir",
@@ -250,6 +250,8 @@ Examples:
             output_formats.append(OutputFormat.MARKDOWN)
         elif fmt == "json":
             output_formats.append(OutputFormat.JSON)
+        elif fmt == "pdf":
+            output_formats.append(OutputFormat.PDF)
         else:
             print(f"Unknown output format: {fmt}", file=sys.stderr)
     

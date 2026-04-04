@@ -16,6 +16,7 @@ class OutputFormat(Enum):
     CONSOLE = "console"
     MARKDOWN = "markdown"
     JSON = "json"
+    PDF = "pdf"
 
 
 @dataclass
