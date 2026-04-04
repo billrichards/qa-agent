@@ -128,8 +128,8 @@ class CustomStep:
     description: str
     actions: list[StepAction] = field(default_factory=list)
     assertions: list[StepAssertion] = field(default_factory=list)
-    severity: "Severity" = field(default_factory=lambda: Severity.MEDIUM)
-    category: "FindingCategory" = field(default_factory=lambda: FindingCategory.UNEXPECTED_BEHAVIOR)
+    severity: Severity = field(default_factory=lambda: Severity.MEDIUM)
+    category: FindingCategory = field(default_factory=lambda: FindingCategory.UNEXPECTED_BEHAVIOR)
 
 
 @dataclass

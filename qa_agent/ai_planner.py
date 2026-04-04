@@ -241,12 +241,6 @@ class AIPlannerClient:
             max_tokens=4096,
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message}],
-            output_config={
-                "format": {
-                    "type": "json_schema",
-                    "schema": _TEST_PLAN_SCHEMA,
-                }
-            },
         )
 
         text = next((b.text for b in response.content if b.type == "text"), None)

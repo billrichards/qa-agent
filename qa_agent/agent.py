@@ -142,10 +142,16 @@ class QAAgent:
 
             # Append AI-suggested URLs to the test queue (deduplicated)
             existing = set(self.config.urls)
+            added: list[str] = []
             for url in self.test_plan.suggested_urls:
                 if url and url not in existing:
                     self.config.urls.append(url)
                     existing.add(url)
+                    added.append(url)
+            if added:
+                self.console.print_progress(
+                    "AI suggested additional URL(s) to test: " + ", ".join(added)
+                )
 
             if self.test_plan.notes:
                 self.console.print_progress(f"Notes: {self.test_plan.notes}")

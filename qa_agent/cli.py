@@ -239,8 +239,9 @@ Examples:
         help="Record browser session as video",
     )
 
-    # Agentic testing options
-    parser.add_argument(
+    # Agentic testing options (--instructions and --instructions-file are mutually exclusive)
+    instruct_group = parser.add_mutually_exclusive_group()
+    instruct_group.add_argument(
         "--instructions",
         help=(
             "Natural language instructions for agentic testing: a feature description, "
@@ -248,7 +249,7 @@ Examples:
             "custom test steps to run alongside the standard test suite."
         ),
     )
-    parser.add_argument(
+    instruct_group.add_argument(
         "--instructions-file",
         help="Path to a text file containing natural language testing instructions.",
     )
