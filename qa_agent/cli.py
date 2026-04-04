@@ -258,7 +258,16 @@ Examples:
         default="claude-sonnet-4-6",
         help="Claude model to use for instruction interpretation (default: claude-sonnet-4-6)",
     )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Bypass the test plan cache and always call the AI. Only valid with --instructions or --instructions-file.",
+    )
     args = parser.parse_args()
+
+    # Validate: --no-cache requires instructions
+    if args.no_cache and not (args.instructions or args.instructions_file):
+        parser.error("--no-cache can only be used with --instructions or --instructions-file")
     
     # Parse output formats
     output_formats = []
@@ -355,6 +364,7 @@ Examples:
         same_domain_only=not args.allow_external,
         instructions=instructions,
         ai_model=args.ai_model,
+        use_plan_cache=not args.no_cache,
     )
     
     # Run the agent

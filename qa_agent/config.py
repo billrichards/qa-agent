@@ -95,3 +95,4 @@ class TestConfig:
     # Agentic testing: natural language instructions interpreted by Claude
     instructions: Optional[str] = None
     ai_model: str = "claude-sonnet-4-6"
+    use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls

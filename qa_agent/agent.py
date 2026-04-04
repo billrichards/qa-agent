@@ -120,8 +120,26 @@ class QAAgent:
         return self.session
 
     def _generate_test_plan(self):
-        """Call the AI planner to interpret instructions and build a TestPlan."""
+        """Call the AI planner to interpret instructions and build a TestPlan.
+
+        Results are stored in a filesystem cache (keyed by instructions + URLs)
+        and reused on subsequent runs with identical inputs unless
+        ``config.use_plan_cache`` is False.
+        """
         from .ai_planner import AIPlannerClient
+        from .plan_cache import PlanCache
+
+        cache = PlanCache() if self.config.use_plan_cache else None
+        cache_key = PlanCache.make_key(self.config.instructions, self.config.urls) if cache else None
+
+        # Try cache first
+        if cache and cache_key:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                self.console.print_progress("Using cached AI test plan (pass --no-cache to regenerate).")
+                self.test_plan = cached
+                self._apply_test_plan()
+                return
 
         self.console.print_progress(
             f"Generating AI test plan using {self.config.ai_model}…"
@@ -131,36 +149,42 @@ class QAAgent:
             base_url = self.config.urls[0] if self.config.urls else ""
             self.test_plan = planner.plan(self.config.instructions, base_url)
 
-            self.console.print_progress(f"Test plan: {self.test_plan.summary}")
-            if self.test_plan.focus_areas:
-                self.console.print_progress(
-                    "Focus areas: " + ", ".join(self.test_plan.focus_areas)
-                )
-            self.console.print_progress(
-                f"Generated {len(self.test_plan.custom_steps)} custom test step(s)."
-            )
+            if cache and cache_key:
+                cache.set(cache_key, self.test_plan)
 
-            # Append AI-suggested URLs to the test queue (deduplicated)
-            existing = set(self.config.urls)
-            added: list[str] = []
-            for url in self.test_plan.suggested_urls:
-                if url and url not in existing:
-                    self.config.urls.append(url)
-                    existing.add(url)
-                    added.append(url)
-            if added:
-                self.console.print_progress(
-                    "AI suggested additional URL(s) to test: " + ", ".join(added)
-                )
-
-            if self.test_plan.notes:
-                self.console.print_progress(f"Notes: {self.test_plan.notes}")
+            self._apply_test_plan()
 
         except Exception as exc:
             self.console.print_progress(
                 f"Warning: AI planning failed ({exc}). Continuing with standard tests only."
             )
             self.test_plan = None
+
+    def _apply_test_plan(self):
+        """Print the test plan summary and enqueue any suggested URLs."""
+        self.console.print_progress(f"Test plan: {self.test_plan.summary}")
+        if self.test_plan.focus_areas:
+            self.console.print_progress(
+                "Focus areas: " + ", ".join(self.test_plan.focus_areas)
+            )
+        self.console.print_progress(
+            f"Custom test steps: {len(self.test_plan.custom_steps)}"
+        )
+
+        existing = set(self.config.urls)
+        added: list[str] = []
+        for url in self.test_plan.suggested_urls:
+            if url and url not in existing:
+                self.config.urls.append(url)
+                existing.add(url)
+                added.append(url)
+        if added:
+            self.console.print_progress(
+                "AI suggested additional URL(s) to test: " + ", ".join(added)
+            )
+
+        if self.test_plan.notes:
+            self.console.print_progress(f"Notes: {self.test_plan.notes}")
 
     def _setup_browser(self, playwright):
         """Set up browser and context."""
