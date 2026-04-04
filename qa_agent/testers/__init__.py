@@ -1,15 +1,17 @@
 """Test modules for different input methods and checks."""
 
+from .accessibility import AccessibilityTester
+from .custom import CustomTester
+from .errors import ErrorDetector
+from .forms import FormTester
 from .keyboard import KeyboardTester
 from .mouse import MouseTester
-from .forms import FormTester
-from .accessibility import AccessibilityTester
-from .errors import ErrorDetector
 
 __all__ = [
     "KeyboardTester",
-    "MouseTester", 
+    "MouseTester",
     "FormTester",
     "AccessibilityTester",
     "ErrorDetector",
+    "CustomTester",
 ]

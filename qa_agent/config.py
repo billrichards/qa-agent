@@ -88,6 +88,10 @@ class TestConfig:
     
     # Ignore patterns (URLs to skip in explore mode)
     ignore_patterns: list[str] = field(default_factory=list)
-    
+
     # Stay within same domain in explore mode
     same_domain_only: bool = True
+
+    # Agentic testing: natural language instructions interpreted by Claude
+    instructions: Optional[str] = None
+    ai_model: str = "claude-opus-4-6"
