@@ -25,6 +25,7 @@ An automated exploratory testing tool that performs comprehensive QA testing on 
   - Real-time console output with colors
   - Markdown reports
   - JSON reports (for CI/CD integration)
+  - PDF reports (professional formatted reports)
 
 - **Screenshots & Recording:**
   - Automatic screenshots on errors
@@ -38,6 +39,9 @@ pip install -e .
 
 # Install Playwright browsers
 playwright install chromium
+
+# Optional: Install PDF support
+pip install -e ".[pdf]"
 ```
 
 ## Quick Start
@@ -99,9 +103,17 @@ qa-agent --header "Authorization: Bearer token123" https://example.com
 # Specify output formats
 qa-agent --output console,markdown,json https://example.com
 
+# Generate PDF report (requires pdf extra)
+qa-agent --output pdf https://example.com
+
+# Multiple formats including PDF
+qa-agent --output console,markdown,pdf https://example.com
+
 # Custom output directory
 qa-agent --output-dir ./my-reports https://example.com
 ```
+
+> **Note:** PDF output requires the `weasyprint` library. Install with `pip install -e ".[pdf]"`. If not installed, PDF output will automatically fall back to Markdown.
 
 ### Screenshots & Recording
 
@@ -173,7 +185,7 @@ from qa_agent import QAAgent, TestConfig, TestMode, OutputFormat
 config = TestConfig(
     urls=["https://example.com"],
     mode=TestMode.EXPLORE,
-    output_formats=[OutputFormat.CONSOLE, OutputFormat.JSON],
+    output_formats=[OutputFormat.CONSOLE, OutputFormat.JSON, OutputFormat.PDF],
     max_depth=2,
     max_pages=10,
 )
