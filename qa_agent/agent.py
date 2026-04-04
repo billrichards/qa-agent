@@ -431,4 +431,7 @@ class QAAgent:
                     filepath = reporter.generate(self.session)
                     self.console.print_progress(f"PDF report saved: {filepath}")
                 except ImportError as e:
-                    self.console.print_progress(f"PDF report skipped: {e}")
+                    self.console.print_progress(f"PDF not available ({e}), falling back to Markdown")
+                    fallback = MarkdownReporter(reporter.output_dir)
+                    filepath = fallback.generate(self.session)
+                    self.console.print_progress(f"Markdown report saved: {filepath}")
