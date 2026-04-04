@@ -223,7 +223,6 @@ class TestSession:
                 finding.title,
                 finding.category.value,
                 finding.severity.value,
-                _normalize_url(finding.url),
             )
             groups.setdefault(key, []).append(finding)
 
@@ -256,5 +255,5 @@ class TestSession:
             "findings_by_severity": self.findings_by_severity,
             "findings_by_category": self.findings_by_category,
             "recording_path": self.recording_path,
-            "findings": [f.to_dict() for f in self.get_all_findings()],
+            "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
         }
