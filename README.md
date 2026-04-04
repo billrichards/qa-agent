@@ -105,11 +105,11 @@ If the Claude API call fails for any reason, a warning is printed and the run co
 
 ### Model selection
 
-By default the agent uses `claude-opus-4-6`. Override with `--ai-model`:
+By default the agent uses `claude-sonnet-4-6`. Override with `--ai-model`:
 
 ```bash
 qa-agent --instructions "Test the checkout flow" \
-  --ai-model claude-sonnet-4-6 \
+  --ai-model claude-opus-4-6 \
   https://shop.example.com
 ```
 
