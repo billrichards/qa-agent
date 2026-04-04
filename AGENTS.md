@@ -10,14 +10,17 @@ QA Agent is an automated exploratory testing tool built with Python and Playwrig
 pip install -e .
 playwright install chromium
 
+# Install with PDF support
+pip install -e ".[pdf]"
+
 # Run tests
 python -m qa_agent https://example.com
 
 # Explore mode
 python -m qa_agent --mode explore --max-pages 10 https://example.com
 
-# Full test with all outputs
-python -m qa_agent --output console,json,markdown --screenshots https://example.com
+# Full test with all outputs (including PDF)
+python -m qa_agent --output console,json,markdown,pdf --screenshots https://example.com
 ```
 
 ## Architecture
@@ -41,7 +44,8 @@ qa_agent/
     ├── base.py          # Base reporter class
     ├── console.py       # Real-time console output
     ├── markdown.py      # Markdown report
-    └── json_reporter.py # JSON report
+    ├── json_reporter.py # JSON report
+    └── pdf.py           # PDF report (requires weasyprint)
 ```
 
 ## Test Categories
@@ -120,7 +124,11 @@ Key settings:
 - Console: Real-time colored output
 - Markdown: Human-readable report with tables
 - JSON: Machine-readable for CI/CD integration
+- PDF: Professional PDF report (requires `weasyprint` - install with `pip install -e ".[pdf]"`)
 
 ## Dependencies
 - playwright>=1.40.0 (browser automation)
 - Python 3.10+
+
+### Optional Dependencies
+- weasyprint>=60.0 (PDF output support)
