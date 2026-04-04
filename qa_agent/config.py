@@ -94,4 +94,4 @@ class TestConfig:
 
     # Agentic testing: natural language instructions interpreted by Claude
     instructions: Optional[str] = None
-    ai_model: str = "claude-opus-4-6"
+    ai_model: str = "claude-sonnet-4-6"

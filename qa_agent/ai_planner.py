@@ -208,7 +208,7 @@ _CATEGORY_MAP: dict[str, FindingCategory] = {
 class AIPlannerClient:
     """Calls the Claude API to turn natural language instructions into a ``TestPlan``."""
 
-    def __init__(self, model: str = "claude-opus-4-6") -> None:
+    def __init__(self, model: str = "claude-sonnet-4-6") -> None:
         self.model = model
         self._client = anthropic.Anthropic()
 

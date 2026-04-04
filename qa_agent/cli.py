@@ -255,8 +255,8 @@ Examples:
     )
     parser.add_argument(
         "--ai-model",
-        default="claude-opus-4-6",
-        help="Claude model to use for instruction interpretation (default: claude-opus-4-6)",
+        default="claude-sonnet-4-6",
+        help="Claude model to use for instruction interpretation (default: claude-sonnet-4-6)",
     )
     args = parser.parse_args()
     
