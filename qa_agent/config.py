@@ -38,14 +38,14 @@ class ScreenshotConfig:
     on_error: bool = True  # Capture on errors
     on_interaction: bool = False  # Capture on each interaction
     full_page: bool = False
-    output_dir: str = "./screenshots"
+    output_dir: str = "./output"
 
 
 @dataclass
 class RecordingConfig:
     """Session recording configuration."""
     enabled: bool = False
-    output_dir: str = "./recordings"
+    output_dir: str = "./output"
     video_size: dict = field(default_factory=lambda: {"width": 1280, "height": 720})
 
 
@@ -57,7 +57,7 @@ class TestConfig:
     output_formats: list[OutputFormat] = field(
         default_factory=lambda: [OutputFormat.CONSOLE, OutputFormat.MARKDOWN]
     )
-    output_dir: str = "./qa_reports"
+    output_dir: str = "./output"
     
     # Browser settings
     headless: bool = True

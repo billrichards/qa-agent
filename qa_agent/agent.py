@@ -22,6 +22,19 @@ from .testers import (
 from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter
 
 
+def _extract_domain(url: str) -> str:
+    """Return a filesystem-safe domain (including subdomain) from a URL.
+
+    e.g. ``https://www.example.com/path`` → ``www.example.com``
+    """
+    netloc = urlparse(url).netloc
+    # Strip port number if present
+    netloc = netloc.split(":")[0]
+    # Sanitise: keep alphanumerics, dots, and hyphens; replace anything else
+    safe = re.sub(r"[^\w.\-]", "_", netloc)
+    return safe or "unknown"
+
+
 class QAAgent:
     """Main QA Agent that orchestrates exploratory testing."""
 
@@ -38,9 +51,13 @@ class QAAgent:
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
         self.session_id = str(uuid.uuid4())[:8]
-        config.output_dir = os.path.join(config.output_dir, self.session_id)
-        config.screenshots.output_dir = os.path.join(config.screenshots.output_dir, self.session_id)
-        config.recording.output_dir = os.path.join(config.recording.output_dir, self.session_id)
+
+        # Build the session base: output/{domain}/{session_id}/
+        domain = _extract_domain(config.urls[0]) if config.urls else "unknown"
+        session_base = os.path.join(config.output_dir, domain, self.session_id)
+        config.output_dir = os.path.join(session_base, "qa_reports")
+        config.screenshots.output_dir = os.path.join(session_base, "screenshots")
+        config.recording.output_dir = os.path.join(session_base, "recordings")
 
         # Initialize reporters
         self.reporters = []

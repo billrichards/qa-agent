@@ -89,10 +89,19 @@ class MarkdownReporter(BaseReporter):
         lines.append("")
         
         # Detailed findings
-        findings = session.get_all_findings()
+        findings = session.get_deduplicated_findings()
+        raw_count = session.total_findings
+        dedup_count = len(findings)
         if findings:
             lines.append("## Detailed Findings")
             lines.append("")
+            if dedup_count < raw_count:
+                lines.append(
+                    f"> **Note:** {raw_count} raw findings were consolidated into "
+                    f"{dedup_count} unique issues by grouping identical problems "
+                    f"across URL variants (e.g. `/widget/{{id}}`)."
+                )
+                lines.append("")
             
             # Group by severity
             severity_order = ["critical", "high", "medium", "low", "info"]
@@ -133,26 +142,36 @@ class MarkdownReporter(BaseReporter):
         return "\n".join(lines)
 
     def _format_finding(self, finding: "Finding", index: int, emoji: str) -> list[str]:
-        """Format a single finding as Markdown."""
+        """Format a single finding as Markdown, with screenshot paths relative to the report file."""
         lines = []
-        
+
         lines.append(f"#### {index}. {emoji} {finding.title}")
         lines.append("")
         lines.append(f"**Description:** {finding.description}")
         lines.append("")
-        
+
         if finding.url:
-            lines.append(f"**URL:** [{finding.url}]({finding.url})")
+            if finding.affected_urls:
+                lines.append(f"**URL Pattern:** `{finding.url}` — affects {len(finding.affected_urls)} pages")
+                lines.append("")
+                lines.append("<details><summary>Affected pages</summary>")
+                lines.append("")
+                for u in finding.affected_urls:
+                    lines.append(f"- [{u}]({u})")
+                lines.append("")
+                lines.append("</details>")
+            else:
+                lines.append(f"**URL:** [{finding.url}]({finding.url})")
             lines.append("")
-        
+
         if finding.element_selector:
             lines.append(f"**Element:** `{finding.element_selector}`")
             lines.append("")
-        
+
         if finding.element_text:
             lines.append(f"**Element Text:** {finding.element_text}")
             lines.append("")
-        
+
         if finding.expected_behavior or finding.actual_behavior:
             lines.append("| Expected | Actual |")
             lines.append("| --- | --- |")
@@ -160,17 +179,26 @@ class MarkdownReporter(BaseReporter):
             actual = (finding.actual_behavior or "-").replace("|", "\\|")
             lines.append(f"| {expected} | {actual} |")
             lines.append("")
-        
+
         if finding.steps_to_reproduce:
             lines.append("**Steps to Reproduce:**")
             for step in finding.steps_to_reproduce:
                 lines.append(f"1. {step}")
             lines.append("")
-        
+
         if finding.screenshot_path:
-            lines.append(f"**Screenshot:** ![Screenshot]({finding.screenshot_path})")
+            # Make screenshot path relative to the markdown file location
+            from pathlib import Path
+            report_dir = Path(self.output_dir)
+            screenshot_path = Path(finding.screenshot_path)
+            try:
+                rel_path = screenshot_path.relative_to(report_dir)
+            except ValueError:
+                # If not a subpath, fall back to os.path.relpath
+                rel_path = os.path.relpath(str(screenshot_path), str(report_dir))
+            lines.append(f"**Screenshot:** ![Screenshot]({rel_path})")
             lines.append("")
-        
+
         if finding.raw_error:
             lines.append("**Raw Error:**")
             lines.append("")
@@ -180,12 +208,14 @@ class MarkdownReporter(BaseReporter):
             lines.append("")
 
         if finding.metadata:
-            lines.append("**Additional Details:**")
+            import json
+            lines.append("<details><summary><strong>Additional Details</strong></summary>")
             lines.append("")
             lines.append("```json")
-            import json
             lines.append(json.dumps(finding.metadata, indent=2, default=str))
             lines.append("```")
+            lines.append("")
+            lines.append("</details>")
             lines.append("")
 
         # Strip trailing blank lines — the caller appends exactly one blank

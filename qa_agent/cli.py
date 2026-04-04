@@ -141,8 +141,9 @@ Examples:
     )
     parser.add_argument(
         "--output-dir",
-        default=str(_PROJECT_ROOT / "qa_reports"),
-        help="Directory for output files (default: <project-root>/qa_reports)",
+        default=str(_PROJECT_ROOT / "output"),
+        help="Base directory for all output (default: <project-root>/output). "
+             "Results are written to output/{domain}/{session_id}/qa_reports|screenshots|recordings",
     )
     
     # Browser options
@@ -228,11 +229,6 @@ Examples:
         help="Take screenshot after each interaction",
     )
     parser.add_argument(
-        "--screenshot-dir",
-        default=str(_PROJECT_ROOT / "screenshots"),
-        help="Directory for screenshots (default: <project-root>/screenshots)",
-    )
-    parser.add_argument(
         "--full-page",
         action="store_true",
         help="Take full page screenshots",
@@ -242,12 +238,6 @@ Examples:
         action="store_true",
         help="Record browser session as video",
     )
-    parser.add_argument(
-        "--recording-dir",
-        default=str(_PROJECT_ROOT / "recordings"),
-        help="Directory for recordings (default: <project-root>/recordings)",
-    )
-    
     args = parser.parse_args()
     
     # Parse output formats
@@ -325,11 +315,9 @@ Examples:
             on_error=args.screenshots or args.screenshots_all,
             on_interaction=args.screenshots_all,
             full_page=args.full_page,
-            output_dir=args.screenshot_dir,
         ),
         recording=RecordingConfig(
             enabled=args.record,
-            output_dir=args.recording_dir,
         ),
         ignore_patterns=args.ignore,
         same_domain_only=not args.allow_external,

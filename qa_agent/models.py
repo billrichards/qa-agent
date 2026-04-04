@@ -1,5 +1,6 @@
 """Data models for QA Agent findings and results."""
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -45,6 +46,8 @@ class Finding:
     actual_behavior: Optional[str] = None
     raw_error: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Populated during deduplication: all URLs where this issue was seen
+    affected_urls: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convert finding to dictionary."""
@@ -63,6 +66,7 @@ class Finding:
             "actual_behavior": self.actual_behavior,
             "raw_error": self.raw_error,
             "metadata": self.metadata,
+            "affected_urls": self.affected_urls,
         }
 
 
@@ -96,6 +100,41 @@ class PageAnalysis:
     timestamp: datetime = field(default_factory=datetime.now)
 
 
+# ---------------------------------------------------------------------------
+# URL normalisation for deduplication
+# ---------------------------------------------------------------------------
+
+# Patterns replaced from left to right in the URL *path* segment.
+_URL_NORM_PATTERNS: list[tuple[re.Pattern, str]] = [
+    # UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)
+    (re.compile(
+        r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+        re.IGNORECASE,
+    ), '{id}'),
+    # Pure numeric segment (e.g. /123 or /456/)
+    (re.compile(r'(?<=/)\d+(?=/|$)'), '{id}'),
+    # Slug-style alphanumeric ID that ends a path segment and starts with a digit
+    # (e.g. /products/123-blue-widget) – only when the segment *starts* with digits
+    (re.compile(r'(?<=/)\d[\w-]*(?=/|$)'), '{id}'),
+]
+
+
+def _normalize_url(url: str) -> str:
+    """Return a normalised URL with variable path segments replaced by ``{id}``.
+
+    Only the path is modified; the scheme, host, and query string are left
+    intact so that issues on genuinely different pages are not incorrectly
+    merged.
+    """
+    from urllib.parse import urlparse, urlunparse
+    parsed = urlparse(url)
+    path = parsed.path
+    for pattern, replacement in _URL_NORM_PATTERNS:
+        path = pattern.sub(replacement, path)
+    normalised = urlunparse(parsed._replace(path=path))
+    return normalised
+
+
 @dataclass
 class TestSession:
     """Complete test session results."""
@@ -119,12 +158,49 @@ class TestSession:
             self.findings_by_severity[sev] = self.findings_by_severity.get(sev, 0) + 1
             self.findings_by_category[cat] = self.findings_by_category.get(cat, 0) + 1
 
-    def get_all_findings(self) -> list[Finding]:
+    def get_all_findings(self) -> list["Finding"]:
         """Get all findings across all pages."""
         findings = []
         for page in self.pages_tested:
             findings.extend(page.findings)
         return findings
+
+    def get_deduplicated_findings(self) -> list["Finding"]:
+        """Return findings with URL-pattern duplicates collapsed.
+
+        Findings that share the same title, category, severity, and normalized
+        URL pattern (e.g. ``/widget/{id}``) are merged into a single entry.
+        The merged finding's ``affected_urls`` lists every distinct URL where
+        the issue occurred; ``url`` is set to the normalized pattern so it is
+        still informative.  Findings that appear on only one URL are returned
+        unchanged (``affected_urls`` stays empty).
+        """
+        groups: dict[tuple, list["Finding"]] = {}
+        for finding in self.get_all_findings():
+            key = (
+                finding.title,
+                finding.category.value,
+                finding.severity.value,
+                _normalize_url(finding.url),
+            )
+            groups.setdefault(key, []).append(finding)
+
+        deduped: list["Finding"] = []
+        for (title, cat, sev, norm_url), group in groups.items():
+            if len(group) == 1:
+                deduped.append(group[0])
+                continue
+
+            # Merge: use the first finding as the representative, update url
+            # and affected_urls.  Preserve the original object so screenshots
+            # and other metadata from the first occurrence are kept.
+            import copy
+            merged = copy.copy(group[0])
+            merged.url = norm_url
+            merged.affected_urls = sorted({f.url for f in group})
+            deduped.append(merged)
+
+        return deduped
 
     def to_dict(self) -> dict:
         """Convert session to dictionary."""

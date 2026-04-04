@@ -50,6 +50,7 @@ class JSONReporter(BaseReporter):
             "summary": {
                 "pages_tested": len(session.pages_tested),
                 "total_findings": session.total_findings,
+                "unique_findings": len(session.get_deduplicated_findings()),
                 "findings_by_severity": session.findings_by_severity,
                 "findings_by_category": session.findings_by_category,
             },
@@ -69,7 +70,7 @@ class JSONReporter(BaseReporter):
                 }
                 for page in session.pages_tested
             ],
-            "findings": [finding.to_dict() for finding in session.get_all_findings()],
+            "findings": [finding.to_dict() for finding in session.get_deduplicated_findings()],
         }
 
     def get_json_string(self, session: "TestSession") -> str:
