@@ -589,6 +589,14 @@ def _build_config(body: dict) -> TestConfig:
     ss_data = body.get("screenshots") or {}
     rec_data = body.get("recording") or {}
 
+    # Enforce screenshot dependencies matching CLI behaviour:
+    #   on_error and full_page require enabled
+    #   on_interaction requires on_error (mirrors --screenshots-all coupling)
+    ss_enabled = bool(ss_data.get("enabled", True))
+    ss_on_error = bool(ss_data.get("on_error", True)) and ss_enabled
+    ss_on_interaction = bool(ss_data.get("on_interaction", False)) and ss_on_error
+    ss_full_page = bool(ss_data.get("full_page", False)) and ss_enabled
+
     return TestConfig(
         urls=urls,
         mode=mode,
@@ -614,10 +622,10 @@ def _build_config(body: dict) -> TestConfig:
         use_plan_cache=bool(body.get("use_plan_cache", True)),
         auth=auth,
         screenshots=ScreenshotConfig(
-            enabled=bool(ss_data.get("enabled", True)),
-            on_error=bool(ss_data.get("on_error", True)),
-            on_interaction=bool(ss_data.get("on_interaction", False)),
-            full_page=bool(ss_data.get("full_page", False)),
+            enabled=ss_enabled,
+            on_error=ss_on_error,
+            on_interaction=ss_on_interaction,
+            full_page=ss_full_page,
         ),
         recording=RecordingConfig(
             enabled=bool(rec_data.get("enabled", False)),

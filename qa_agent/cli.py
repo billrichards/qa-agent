@@ -286,7 +286,11 @@ Examples:
     
     if not output_formats:
         output_formats = [OutputFormat.CONSOLE, OutputFormat.MARKDOWN]
-    
+
+    # Always include JSON so sessions are discoverable in the web interface
+    if OutputFormat.JSON not in output_formats:
+        output_formats.append(OutputFormat.JSON)
+
     # Parse viewport
     try:
         width, height = map(int, args.viewport.split("x"))
