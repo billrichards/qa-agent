@@ -310,6 +310,9 @@ details[open] .section-title { border-bottom: 1px solid var(--border); }
   background: var(--surface-2);
 }
 .log-title { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; flex: 1; }
+.log-filter-group { display: flex; gap: 0.25rem; }
+.log-filter { padding: 0.2rem 0.55rem; font-size: 0.75rem; border-radius: 4px; }
+.log-filter.active { background: var(--accent); color: #fff; }
 
 .log {
   font-family: var(--font-mono);

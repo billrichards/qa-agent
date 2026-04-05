@@ -25,7 +25,11 @@
     <span class="stat-label">Findings</span>
   </div>
   <div class="stat">
-    <span class="stat-value" id="stat-url" class="text-muted" style="font-size:0.8rem;word-break:break-all"></span>
+    <span class="stat-value" id="stat-elapsed">0:00</span>
+    <span class="stat-label">Elapsed</span>
+  </div>
+  <div class="stat stat-url-wrap">
+    <span class="stat-value text-muted" id="stat-url" style="font-size:0.8rem;word-break:break-all"></span>
     <span class="stat-label">Current URL</span>
   </div>
 </div>
@@ -44,6 +48,11 @@
 <div class="card log-card">
   <div class="log-toolbar">
     <span class="log-title">Output</span>
+    <div class="log-filter-group" role="group" aria-label="Log filter">
+      <button type="button" class="btn btn-ghost small log-filter active" data-filter="all">All</button>
+      <button type="button" class="btn btn-ghost small log-filter" data-filter="finding">Findings</button>
+      <button type="button" class="btn btn-ghost small log-filter" data-filter="error">Errors</button>
+    </div>
     <label class="check-label small">
       <input type="checkbox" id="autoscroll" checked> Auto-scroll
     </label>
@@ -99,8 +108,67 @@
     fetch('/api/stop/' + JOB_ID, { method: 'POST' }).catch(() => {});
   });
 
+  // ── Elapsed timer ────────────────────────────────────────────────────────────
+  const statElapsed = document.getElementById('stat-elapsed');
+  let startTime = null;
+  let elapsedInterval = null;
+
+  function startTimer() {
+    if (elapsedInterval) return;
+    startTime = Date.now();
+    elapsedInterval = setInterval(() => {
+      const secs = Math.floor((Date.now() - startTime) / 1000);
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      statElapsed.textContent = m + ':' + String(s).padStart(2, '0');
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (elapsedInterval) {
+      clearInterval(elapsedInterval);
+      elapsedInterval = null;
+    }
+  }
+
+  // ── Log filtering ─────────────────────────────────────────────────────────────
+  let activeFilter = 'all';
+
+  document.querySelectorAll('.log-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.filter;
+      document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Show/hide existing lines
+      log.querySelectorAll('.log-line').forEach(line => {
+        line.style.display = lineMatchesFilter(line, activeFilter) ? '' : 'none';
+      });
+      if (autoscroll.checked) log.scrollTop = log.scrollHeight;
+    });
+  });
+
+  function lineMatchesFilter(line, filter) {
+    if (filter === 'all') return true;
+    if (filter === 'finding') return line.classList.contains('log-finding');
+    if (filter === 'error') return line.classList.contains('log-error') || line.classList.contains('log-finding') && line.classList.contains('log-critical') || line.classList.contains('log-finding') && line.classList.contains('log-high');
+    return true;
+  }
+
+  // Override appendLog to respect active filter
+  const _origAppendLog = appendLog;
+  function appendLog(msg, cls) {
+    const line = document.createElement('div');
+    line.className = 'log-line' + (cls ? ' ' + cls : '');
+    line.textContent = msg;
+    line.style.display = lineMatchesFilter(line, activeFilter) ? '' : 'none';
+    log.appendChild(line);
+    if (autoscroll.checked && line.style.display !== 'none') log.scrollTop = log.scrollHeight;
+  }
+
+  // ── SSE stream ────────────────────────────────────────────────────────────────
   const es = new EventSource('/api/stream/' + JOB_ID);
   setStatus('running');
+  startTimer();
 
   es.addEventListener('log', e => {
     const data = JSON.parse(e.data);
@@ -125,6 +193,7 @@
   es.addEventListener('complete', e => {
     const data = JSON.parse(e.data);
     es.close();
+    stopTimer();
     setStatus(data.status || 'completed');
     statFindings.textContent = data.total_findings || findingCount;
     if (data.status === 'stopped') {
@@ -146,6 +215,7 @@
     if (e.data) {
       const data = JSON.parse(e.data);
       es.close();
+      stopTimer();
       setStatus('failed');
       errorBanner.style.display = '';
       errorBanner.textContent = 'Error: ' + data.message;
@@ -155,6 +225,7 @@
   es.onerror = () => {
     // SSE connection dropped — poll status
     es.close();
+    stopTimer();
     fetch('/api/status/' + JOB_ID)
       .then(r => r.json())
       .then(d => {

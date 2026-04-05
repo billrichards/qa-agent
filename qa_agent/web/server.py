@@ -313,6 +313,31 @@ def api_stop(job_id: str):
     return jsonify({"job_id": job_id, "status": "stopping"})
 
 
+@app.route("/api/jobs")
+def api_jobs():
+    """Return all active (non-completed) in-memory jobs."""
+    with _jobs_lock:
+        jobs_snapshot = list(_jobs.values())
+
+    result = []
+    for job in jobs_snapshot:
+        result.append({
+            "job_id": job["job_id"],
+            "status": job["status"],
+            "session_id": job["session_id"],
+            "domain": job["domain"],
+            "total_findings": job["total_findings"],
+            "pages_tested": job["pages_tested"],
+            "current_url": job["current_url"],
+            "error": job["error"],
+            "created_at": job["created_at"],
+        })
+
+    # Most recent first
+    result.sort(key=lambda j: j["created_at"], reverse=True)
+    return jsonify({"jobs": result})
+
+
 @app.route("/api/sessions")
 def api_sessions():
     domain = request.args.get("domain")
