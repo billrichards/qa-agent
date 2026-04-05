@@ -29,6 +29,10 @@ dependencies = [
 pdf = [
     "weasyprint>=60.0",
 ]
+web = [
+    "flask>=3.0",
+    "markdown>=3.5",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-playwright>=0.4.0",
@@ -37,11 +41,12 @@ dev = [
     "mypy>=1.0.0",
 ]
 all = [
-    "qa-agent[pdf,dev]",
+    "qa-agent[pdf,web,dev]",
 ]
 
 [project.scripts]
 qa-agent = "qa_agent.cli:main"
+qa-agent-web = "qa_agent.web.server:serve_web_cli"
 
 [project.urls]
 "Homepage" = "https://github.com/example/qa-agent"

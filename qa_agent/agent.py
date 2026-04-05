@@ -2,6 +2,7 @@
 
 import os
 import re
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -49,6 +50,7 @@ class QAAgent:
         self.visited_urls: set[str] = set()
         self.urls_to_visit: list[str] = []
         self.test_plan: Optional[TestPlan] = None
+        self.stop_event: Optional[threading.Event] = None  # Set by web server to request graceful stop
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -259,9 +261,11 @@ class QAAgent:
     def _run_focused_mode(self):
         """Run tests on specific URLs only."""
         for url in self.config.urls:
+            if self.stop_event and self.stop_event.is_set():
+                break
             if url in self.visited_urls:
                 continue
-            
+
             self._test_page(url)
             self.visited_urls.add(url)
 
@@ -272,8 +276,10 @@ class QAAgent:
         depth_map = {url: 0 for url in self.urls_to_visit}
         
         while self.urls_to_visit and len(self.visited_urls) < self.config.max_pages:
+            if self.stop_event and self.stop_event.is_set():
+                break
             url = self.urls_to_visit.pop(0)
-            
+
             if url in self.visited_urls:
                 continue
             

@@ -47,12 +47,48 @@ playwright install chromium
 
 # Optional: Install PDF support
 pip install -e ".[pdf]"
+
+# Optional: Install web interface support
+pip install -e ".[web]"
 ```
 
 > **Agentic testing** requires an Anthropic API key. Set the `ANTHROPIC_API_KEY` environment variable before using `--instructions`.
 > ```bash
 > export ANTHROPIC_API_KEY=sk-ant-...
 > ```
+
+## Web Interface
+
+A browser-based UI for configuring test runs, watching live output, and browsing past sessions.
+
+```bash
+# Install web dependencies
+pip install -e ".[web]"
+
+# Start the server (opens at http://127.0.0.1:5000)
+python -m qa_agent web
+
+# Or use the dedicated entry point
+qa-agent-web
+
+# Bind to a different host/port
+qa-agent-web --host 0.0.0.0 --port 8080
+```
+
+**Features:**
+
+- Configuration form with all test options (collapsible sections, preset save/load)
+- Real-time streaming output via Server-Sent Events
+- Stop a running test mid-run
+- Browse all past sessions grouped by domain
+- Session detail view: findings table, severity breakdown, screenshots gallery, report downloads
+- Serve Markdown/JSON/PDF reports and screenshots directly in the browser
+
+All test output is written to `output/` in the project directory. Sessions launched from the CLI are also visible in the web UI as long as JSON output format was used.
+
+> The web interface has no authentication — it is intended for local or internal DevOps use only.
+
+---
 
 ## Quick Start
 

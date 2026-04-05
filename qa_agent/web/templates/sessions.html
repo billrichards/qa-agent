@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Sessions — QA Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Test Sessions</h1>
+  <div class="page-header-actions">
+    <input type="search" id="search" class="search-input" placeholder="Filter by domain or URL…">
+    <a href="/" class="btn btn-primary">New Test</a>
+  </div>
+</div>
+
+<div id="sessions-container">
+  <div class="spinner"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const container = document.getElementById('sessions-container');
+  const search = document.getElementById('search');
+
+  const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
+
+  function severityBadge(sev, count) {
+    return count > 0
+      ? `<span class="badge badge-${sev}" title="${sev}">${count}</span>`
+      : '';
+  }
+
+  function formatDuration(secs) {
+    if (!secs) return '—';
+    if (secs < 60) return Math.round(secs) + 's';
+    return Math.floor(secs / 60) + 'm ' + Math.round(secs % 60) + 's';
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString();
+  }
+
+  function renderSessions(sessions) {
+    if (!sessions.length) {
+      container.innerHTML = `<div class="empty-state">
+        <p>No sessions found. <a href="/">Run a test</a> to get started.</p>
+      </div>`;
+      return;
+    }
+
+    // Group by domain
+    const grouped = {};
+    sessions.forEach(s => {
+      (grouped[s.domain] = grouped[s.domain] || []).push(s);
+    });
+
+    let html = '';
+    Object.keys(grouped).sort().forEach(domain => {
+      html += `<details class="domain-group" open>
+        <summary class="domain-title">
+          <span class="domain-name">${domain}</span>
+          <span class="domain-count">${grouped[domain].length} session${grouped[domain].length !== 1 ? 's' : ''}</span>
+        </summary>
+        <div class="session-list">`;
+
+      grouped[domain].forEach(s => {
+        const severityBadges = SEVERITY_ORDER
+          .map(sev => severityBadge(sev, s.findings_by_severity?.[sev] || 0))
+          .join('');
+        const urls = (s.urls || []).map(u => `<span class="url-tag">${u}</span>`).join('');
+
+        html += `<a class="session-card" href="/session/${s.domain}/${s.session_id}">
+          <div class="session-card-main">
+            <code class="session-id">${s.session_id}</code>
+            <div class="session-urls">${urls}</div>
+          </div>
+          <div class="session-card-meta">
+            <span class="text-muted">${formatDate(s.start_time)}</span>
+            <span class="text-muted">${formatDuration(s.duration_seconds)}</span>
+            <span class="findings-count ${s.total_findings > 0 ? 'has-findings' : ''}">${s.total_findings} finding${s.total_findings !== 1 ? 's' : ''}</span>
+            <div class="severity-badges">${severityBadges}</div>
+          </div>
+        </a>`;
+      });
+
+      html += '</div></details>';
+    });
+
+    container.innerHTML = html;
+  }
+
+  function load(query) {
+    const url = '/api/sessions?limit=200' + (query ? '&domain=' + encodeURIComponent(query) : '');
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        let sessions = data.sessions;
+        if (query) {
+          const q = query.toLowerCase();
+          sessions = sessions.filter(s =>
+            s.domain.toLowerCase().includes(q) ||
+            (s.urls || []).some(u => u.toLowerCase().includes(q))
+          );
+        }
+        renderSessions(sessions);
+      })
+      .catch(() => {
+        container.innerHTML = '<div class="alert alert-error">Failed to load sessions.</div>';
+      });
+  }
+
+  load();
+
+  let debounce;
+  search.addEventListener('input', () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => load(search.value.trim()), 300);
+  });
+}());
+</script>
+{% endblock %}
