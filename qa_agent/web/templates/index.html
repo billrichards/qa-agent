@@ -117,10 +117,13 @@
     <summary class="section-title">Screenshots &amp; Recording</summary>
     <div class="section-body">
       <div class="checkbox-group grid-2">
-        <label class="check-label"><input type="checkbox" name="screenshots_enabled" checked> Screenshots enabled</label>
-        <label class="check-label"><input type="checkbox" name="screenshots_on_error" checked> Screenshot on error</label>
-        <label class="check-label"><input type="checkbox" name="screenshots_on_interaction"> Screenshot on interaction</label>
-        <label class="check-label"><input type="checkbox" name="screenshots_full_page"> Full page screenshots</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_enabled" id="ss_enabled" checked> Screenshots enabled</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_on_error" id="ss_on_error" checked> Screenshot on error</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_on_interaction" id="ss_on_interaction" disabled>
+          Screenshot on interaction
+          <span class="hint" style="display:inline">(requires "on error")</span>
+        </label>
+        <label class="check-label"><input type="checkbox" name="screenshots_full_page" id="ss_full_page"> Full page screenshots</label>
         <label class="check-label"><input type="checkbox" name="recording_enabled"> Record session video</label>
       </div>
     </div>
@@ -185,6 +188,10 @@
       <div class="field">
         <label for="instructions">Natural Language Instructions</label>
         <textarea id="instructions" name="instructions" rows="3" placeholder="Test the checkout flow, verify form validation, check that error messages are accessible..."></textarea>
+        <div style="margin-top:0.4rem">
+          <label for="instructions_file" style="font-weight:normal;font-size:0.85em;color:var(--text-muted,#888)">Or load from file:</label>
+          <input type="file" id="instructions_file" accept=".txt,.md" style="font-size:0.85em">
+        </div>
       </div>
       <div class="field-row">
         <div class="field">
@@ -226,6 +233,50 @@
       document.getElementById('explore-section').style.display =
         document.querySelector('input[name="mode"]:checked').value === 'explore' ? '' : 'none';
     });
+  });
+
+  // Screenshot dependency logic (mirrors CLI coupling):
+  //   on_error and full_page require screenshots_enabled
+  //   on_interaction requires on_error  (matches --screenshots-all behaviour)
+  (function () {
+    const ssEnabled     = document.getElementById('ss_enabled');
+    const ssOnError     = document.getElementById('ss_on_error');
+    const ssOnInteract  = document.getElementById('ss_on_interaction');
+    const ssFullPage    = document.getElementById('ss_full_page');
+
+    function syncScreenshots() {
+      const enabled = ssEnabled.checked;
+      const onError = ssOnError.checked;
+
+      ssOnError.disabled    = !enabled;
+      ssFullPage.disabled   = !enabled;
+      ssOnInteract.disabled = !enabled || !onError;
+
+      if (!enabled) {
+        ssOnError.checked   = false;
+        ssFullPage.checked  = false;
+        ssOnInteract.checked = false;
+      }
+      if (!onError) {
+        ssOnInteract.checked = false;
+      }
+    }
+
+    ssEnabled.addEventListener('change', syncScreenshots);
+    ssOnError.addEventListener('change', syncScreenshots);
+    syncScreenshots(); // set initial disabled state
+  })();
+
+  // Load instructions from a local text/markdown file into the textarea
+  document.getElementById('instructions_file')?.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('instructions').value = e.target.result;
+    };
+    reader.readAsText(file);
+    this.value = ''; // reset so same file can be reloaded
   });
 </script>
 {% endblock %}
