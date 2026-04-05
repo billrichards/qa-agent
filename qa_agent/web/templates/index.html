@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Run Test — QA Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Run Test</h1>
+  <p class="text-muted">Configure and launch an automated QA test run.</p>
+</div>
+
+<form id="run-form" class="card">
+
+  <!-- Section 1: Basic Configuration -->
+  <details open>
+    <summary class="section-title">Basic Configuration</summary>
+    <div class="section-body">
+      <div class="field">
+        <label for="urls">URLs to Test <span class="required">*</span></label>
+        <textarea id="urls" name="urls" rows="3" placeholder="https://example.com&#10;https://example.com/about" required></textarea>
+        <span class="hint">One URL per line</span>
+      </div>
+
+      <div class="field">
+        <label>Test Mode</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="mode" value="focused" checked>
+            <span>Focused — test only the given URLs</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="mode" value="explore">
+            <span>Explore — crawl and discover pages</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Output Formats</label>
+        <div class="checkbox-group">
+          <label class="check-label"><input type="checkbox" name="output_formats" value="console" checked> Console</label>
+          <label class="check-label"><input type="checkbox" name="output_formats" value="markdown" checked> Markdown</label>
+          <label class="check-label"><input type="checkbox" name="output_formats" value="json" checked> JSON</label>
+          <label class="check-label"><input type="checkbox" name="output_formats" value="pdf"> PDF</label>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Section 2: Test Categories -->
+  <details open>
+    <summary class="section-title">Test Categories</summary>
+    <div class="section-body">
+      <div class="checkbox-group grid-2">
+        <label class="check-label"><input type="checkbox" name="test_keyboard" checked> Keyboard Navigation</label>
+        <label class="check-label"><input type="checkbox" name="test_mouse" checked> Mouse Interaction</label>
+        <label class="check-label"><input type="checkbox" name="test_forms" checked> Form Handling</label>
+        <label class="check-label"><input type="checkbox" name="test_accessibility" checked> Accessibility</label>
+        <label class="check-label"><input type="checkbox" name="test_console_errors" checked> Console Errors</label>
+        <label class="check-label"><input type="checkbox" name="test_network_errors" checked> Network Errors</label>
+      </div>
+    </div>
+  </details>
+
+  <!-- Section 3: Browser Settings -->
+  <details>
+    <summary class="section-title">Browser Settings</summary>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="viewport_width">Viewport Width</label>
+          <input type="number" id="viewport_width" name="viewport_width" value="1280" min="320" max="3840">
+        </div>
+        <div class="field">
+          <label for="viewport_height">Viewport Height</label>
+          <input type="number" id="viewport_height" name="viewport_height" value="720" min="240" max="2160">
+        </div>
+        <div class="field">
+          <label for="timeout">Timeout (ms)</label>
+          <input type="number" id="timeout" name="timeout" value="30000" min="1000" max="300000">
+        </div>
+      </div>
+      <div class="field">
+        <label class="check-label"><input type="checkbox" name="headless" checked> Headless mode</label>
+      </div>
+    </div>
+  </details>
+
+  <!-- Section 4: Explore Mode Settings -->
+  <details id="explore-section" style="display:none">
+    <summary class="section-title">Explore Mode Settings</summary>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="max_depth">Max Depth</label>
+          <input type="number" id="max_depth" name="max_depth" value="3" min="1" max="10">
+        </div>
+        <div class="field">
+          <label for="max_pages">Max Pages</label>
+          <input type="number" id="max_pages" name="max_pages" value="20" min="1" max="500">
+        </div>
+        <div class="field">
+          <label for="max_interactions">Max Interactions/Page</label>
+          <input type="number" id="max_interactions" name="max_interactions_per_page" value="50" min="1" max="500">
+        </div>
+      </div>
+      <div class="field">
+        <label class="check-label"><input type="checkbox" name="same_domain_only" checked> Stay within same domain</label>
+      </div>
+      <div class="field">
+        <label for="ignore_patterns">Ignore URL Patterns</label>
+        <textarea id="ignore_patterns" name="ignore_patterns" rows="2" placeholder="One regex per line, e.g. /admin/.*"></textarea>
+      </div>
+    </div>
+  </details>
+
+  <!-- Section 5: Screenshots & Recording -->
+  <details>
+    <summary class="section-title">Screenshots &amp; Recording</summary>
+    <div class="section-body">
+      <div class="checkbox-group grid-2">
+        <label class="check-label"><input type="checkbox" name="screenshots_enabled" checked> Screenshots enabled</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_on_error" checked> Screenshot on error</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_on_interaction"> Screenshot on interaction</label>
+        <label class="check-label"><input type="checkbox" name="screenshots_full_page"> Full page screenshots</label>
+        <label class="check-label"><input type="checkbox" name="recording_enabled"> Record session video</label>
+      </div>
+    </div>
+  </details>
+
+  <!-- Section 6: Authentication -->
+  <details>
+    <summary class="section-title">Authentication</summary>
+    <div class="section-body">
+      <div class="field-row">
+        <div class="field">
+          <label for="auth_url">Auth URL</label>
+          <input type="url" id="auth_url" name="auth_url" placeholder="https://example.com/login">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="auth_username">Username</label>
+          <input type="text" id="auth_username" name="auth_username" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="auth_password">Password</label>
+          <input type="password" id="auth_password" name="auth_password" autocomplete="new-password">
+        </div>
+      </div>
+      <details class="subsection">
+        <summary class="subsection-title">Advanced</summary>
+        <div class="subsection-body">
+          <div class="field-row">
+            <div class="field">
+              <label for="auth_username_selector">Username Selector</label>
+              <input type="text" id="auth_username_selector" name="auth_username_selector" placeholder="CSS selector">
+            </div>
+            <div class="field">
+              <label for="auth_password_selector">Password Selector</label>
+              <input type="text" id="auth_password_selector" name="auth_password_selector" placeholder="CSS selector">
+            </div>
+            <div class="field">
+              <label for="auth_submit_selector">Submit Selector</label>
+              <input type="text" id="auth_submit_selector" name="auth_submit_selector" placeholder="CSS selector">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="auth_cookies">Cookies (JSON)</label>
+              <textarea id="auth_cookies" name="auth_cookies" rows="2" placeholder='{"session": "abc123"}'></textarea>
+            </div>
+            <div class="field">
+              <label for="auth_headers">Headers (JSON)</label>
+              <textarea id="auth_headers" name="auth_headers" rows="2" placeholder='{"Authorization": "Bearer token"}'></textarea>
+            </div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <!-- Section 7: AI Instructions -->
+  <details>
+    <summary class="section-title">AI Instructions</summary>
+    <div class="section-body">
+      <div class="field">
+        <label for="instructions">Natural Language Instructions</label>
+        <textarea id="instructions" name="instructions" rows="3" placeholder="Test the checkout flow, verify form validation, check that error messages are accessible..."></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="ai_model">AI Model</label>
+          <select id="ai_model" name="ai_model">
+            <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6</option>
+            <option value="claude-opus-4-6">claude-opus-4-6</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001</option>
+          </select>
+        </div>
+        <div class="field" style="align-self:flex-end">
+          <label class="check-label"><input type="checkbox" name="use_plan_cache" checked> Use plan cache</label>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Form actions -->
+  <div class="form-actions">
+    <div class="preset-controls">
+      <select id="preset-select" title="Load a saved preset">
+        <option value="">Load preset…</option>
+      </select>
+      <button type="button" id="save-preset-btn" class="btn btn-secondary">Save Preset</button>
+      <button type="button" id="reset-btn" class="btn btn-ghost">Reset</button>
+    </div>
+    <button type="submit" class="btn btn-primary">Run Test</button>
+  </div>
+
+  <div id="form-error" class="alert alert-error" style="display:none"></div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Show/hide explore section based on mode
+  document.querySelectorAll('input[name="mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.getElementById('explore-section').style.display =
+        document.querySelector('input[name="mode"]:checked').value === 'explore' ? '' : 'none';
+    });
+  });
+</script>
+{% endblock %}

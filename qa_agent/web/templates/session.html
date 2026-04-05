@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Session {{ session.session_id }} — QA Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="breadcrumb"><a href="/sessions">Sessions</a> / {{ domain }}</div>
+    <h1>Session <code class="job-id">{{ session.session_id }}</code></h1>
+    <p class="text-muted">{{ session.start_time }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/" id="rerun-btn" class="btn btn-secondary">Re-run with same config</a>
+  </div>
+</div>
+
+<!-- Summary stats -->
+<div class="stats-row">
+  <div class="stat-card">
+    <span class="stat-value">{{ session.pages_tested }}</span>
+    <span class="stat-label">Pages tested</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ session.total_findings }}</span>
+    <span class="stat-label">Total findings</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-value">{{ session.unique_findings }}</span>
+    <span class="stat-label">Unique findings</span>
+  </div>
+  {% if session.duration_seconds %}
+  <div class="stat-card">
+    <span class="stat-value">
+      {% set d = session.duration_seconds | int %}
+      {% if d < 60 %}{{ d }}s{% else %}{{ d // 60 }}m {{ d % 60 }}s{% endif %}
+    </span>
+    <span class="stat-label">Duration</span>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Severity breakdown -->
+{% if session.findings_by_severity %}
+<div class="card severity-breakdown">
+  <h2>Findings by Severity</h2>
+  <div class="severity-bars">
+    {% for sev in ['critical', 'high', 'medium', 'low', 'info'] %}
+      {% set count = session.findings_by_severity.get(sev, 0) %}
+      {% if count > 0 %}
+      <div class="severity-bar-row">
+        <span class="badge badge-{{ sev }}">{{ sev }}</span>
+        <div class="severity-bar">
+          <div class="severity-bar-fill badge-{{ sev }}" style="width: {{ (count / session.total_findings * 100) | int }}%"></div>
+        </div>
+        <span class="severity-count">{{ count }}</span>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Reports -->
+{% if session.reports %}
+<div class="card">
+  <h2>Reports</h2>
+  <div class="report-links">
+    {% for fmt, url in session.reports.items() %}
+    <a href="{{ url }}" target="_blank" class="report-link">
+      <span class="report-icon">{% if fmt == 'markdown' %}📄{% elif fmt == 'json' %}{ }{% elif fmt == 'pdf' %}📑{% endif %}</span>
+      {{ fmt | upper }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Findings table -->
+{% if session.findings %}
+<div class="card">
+  <h2>Findings</h2>
+  <div class="table-wrapper">
+    <table class="findings-table">
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>Category</th>
+          <th>Title</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in session.findings %}
+        <tr class="finding-row" onclick="this.classList.toggle('expanded')">
+          <td><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td>
+          <td class="text-muted">{{ f.category | replace('_', ' ') | title }}</td>
+          <td>
+            <div class="finding-title">{{ f.title }}</div>
+            <div class="finding-detail" style="display:none">
+              <p>{{ f.description }}</p>
+              {% if f.expected_behavior %}<p><strong>Expected:</strong> {{ f.expected_behavior }}</p>{% endif %}
+              {% if f.actual_behavior %}<p><strong>Actual:</strong> {{ f.actual_behavior }}</p>{% endif %}
+              {% if f.element_selector %}<p><strong>Selector:</strong> <code>{{ f.element_selector }}</code></p>{% endif %}
+              {% if f.steps_to_reproduce %}<p><strong>Steps:</strong> {{ f.steps_to_reproduce | join(' → ') }}</p>{% endif %}
+              {% if f.affected_urls %}
+              <p><strong>Affected URLs:</strong></p>
+              <ul>{% for u in f.affected_urls %}<li><code>{{ u }}</code></li>{% endfor %}</ul>
+              {% endif %}
+              {% if f.screenshot_path %}
+              <img src="/files/{{ f.screenshot_path }}" class="finding-screenshot" alt="Screenshot" loading="lazy">
+              {% endif %}
+            </div>
+          </td>
+          <td class="text-muted url-cell">{{ f.url }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <p class="empty-state">No findings recorded for this session.</p>
+</div>
+{% endif %}
+
+<!-- Screenshots gallery -->
+{% if session.screenshots %}
+<div class="card">
+  <h2>Screenshots</h2>
+  <div class="screenshot-gallery">
+    {% for shot in session.screenshots %}
+    <a href="{{ shot }}" target="_blank" class="screenshot-thumb">
+      <img src="{{ shot }}" alt="Screenshot" loading="lazy">
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Recording -->
+{% if session.recording %}
+<div class="card">
+  <h2>Recording</h2>
+  <video controls class="session-recording" preload="metadata">
+    <source src="{{ session.recording }}">
+    Your browser does not support video playback.
+  </video>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Toggle finding detail rows
+document.querySelectorAll('.finding-row').forEach(row => {
+  row.addEventListener('click', () => {
+    const detail = row.querySelector('.finding-detail');
+    if (detail) detail.style.display = detail.style.display === 'none' ? '' : 'none';
+  });
+});
+
+// Re-run with same config: pre-fill form
+(function() {
+  const config = {{ session.config_summary | tojson }};
+  document.getElementById('rerun-btn').addEventListener('click', e => {
+    e.preventDefault();
+    if (config.urls && config.urls.length) {
+      sessionStorage.setItem('qa_rerun_config', JSON.stringify(config));
+      window.location.href = '/';
+    }
+  });
+}());
+</script>
+{% endblock %}
