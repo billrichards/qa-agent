@@ -2,7 +2,7 @@
 
 Automated exploratory QA testing for web applications. Simulates real user interactions (mouse, keyboard, form input, accessibility checks) and optionally uses Claude to generate custom test steps from plain-English instructions.
 
-<!-- screenshot: console output showing a test run in progress -->
+![console output showing a test run in progress](./docs/console-output-showing-a-test-run-in-progress.png)
 
 ---
 
@@ -125,7 +125,7 @@ Generated test plans are cached by default; rerunning with the same instructions
 
 ## Web Interface
 
-<!-- screenshot: web UI configuration form -->
+![Web interface configuration form](./docs/web-UI-configuration-form.png)
 
 A browser-based dashboard for configuring and monitoring runs.
 
@@ -146,7 +146,7 @@ qa-agent-web --host 0.0.0.0 --port 8080
 - Browse past sessions grouped by domain
 - Session detail: findings table, severity breakdown, screenshot gallery, report downloads
 
-<!-- screenshot: session detail view showing findings table -->
+![Session detail view showing findings table](./docs/session-detail-view-showing-findings-table.png)
 
 > The web interface has no authentication — intended for local or internal use only.
 
@@ -294,7 +294,7 @@ Console errors and warnings · Network errors (4xx, 5xx) · JavaScript exception
 
 ### Console
 
-<!-- screenshot: colorized console output with summary table -->
+![./docs/colorized-console-output-with-summary-table.png](./docs/colorized-console-output-with-summary-table.png)
 
 ```
 ======================================================================

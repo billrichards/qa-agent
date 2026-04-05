@@ -227,7 +227,7 @@ class TestSession:
             groups.setdefault(key, []).append(finding)
 
         deduped: list["Finding"] = []
-        for (title, cat, sev, norm_url), group in groups.items():
+        for (title, cat, sev), group in groups.items():
             if len(group) == 1:
                 deduped.append(group[0])
                 continue
@@ -237,7 +237,7 @@ class TestSession:
             # and other metadata from the first occurrence are kept.
             import copy
             merged = copy.copy(group[0])
-            merged.url = norm_url
+            merged.url = _normalize_url(group[0].url)
             merged.affected_urls = sorted({f.url for f in group})
             deduped.append(merged)
 
