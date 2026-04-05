@@ -2,6 +2,7 @@
 
 import os
 import re
+import threading
 import time
 import uuid
 from datetime import datetime
@@ -11,13 +12,14 @@ from urllib.parse import urljoin, urlparse
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 
 from .config import TestConfig, TestMode, OutputFormat, AuthConfig
-from .models import TestSession, PageAnalysis, Finding
+from .models import TestPlan, TestSession, PageAnalysis, Finding
 from .testers import (
     KeyboardTester,
     MouseTester,
     FormTester,
     AccessibilityTester,
     ErrorDetector,
+    CustomTester,
 )
 from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter, PDFReporter
 
@@ -47,6 +49,8 @@ class QAAgent:
         self.error_detector: Optional[ErrorDetector] = None
         self.visited_urls: set[str] = set()
         self.urls_to_visit: list[str] = []
+        self.test_plan: Optional[TestPlan] = None
+        self.stop_event: Optional[threading.Event] = None  # Set by web server to request graceful stop
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -89,6 +93,10 @@ class QAAgent:
             }
         )
         
+        # Generate AI test plan if instructions were provided
+        if self.config.instructions:
+            self._generate_test_plan()
+
         with sync_playwright() as playwright:
             self._setup_browser(playwright)
             
@@ -112,6 +120,73 @@ class QAAgent:
         self._generate_reports()
         
         return self.session
+
+    def _generate_test_plan(self):
+        """Call the AI planner to interpret instructions and build a TestPlan.
+
+        Results are stored in a filesystem cache (keyed by instructions + URLs)
+        and reused on subsequent runs with identical inputs unless
+        ``config.use_plan_cache`` is False.
+        """
+        from .ai_planner import AIPlannerClient
+        from .plan_cache import PlanCache
+
+        cache = PlanCache() if self.config.use_plan_cache else None
+        cache_key = PlanCache.make_key(self.config.instructions, self.config.urls) if cache else None
+
+        # Try cache first
+        if cache and cache_key:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                self.console.print_progress("Using cached AI test plan (pass --no-cache to regenerate).")
+                self.test_plan = cached
+                self._apply_test_plan()
+                return
+
+        self.console.print_progress(
+            f"Generating AI test plan using {self.config.ai_model}…"
+        )
+        try:
+            planner = AIPlannerClient(model=self.config.ai_model)
+            base_url = self.config.urls[0] if self.config.urls else ""
+            self.test_plan = planner.plan(self.config.instructions, base_url)
+
+            if cache and cache_key:
+                cache.set(cache_key, self.test_plan)
+
+            self._apply_test_plan()
+
+        except Exception as exc:
+            self.console.print_progress(
+                f"Warning: AI planning failed ({exc}). Continuing with standard tests only."
+            )
+            self.test_plan = None
+
+    def _apply_test_plan(self):
+        """Print the test plan summary and enqueue any suggested URLs."""
+        self.console.print_progress(f"Test plan: {self.test_plan.summary}")
+        if self.test_plan.focus_areas:
+            self.console.print_progress(
+                "Focus areas: " + ", ".join(self.test_plan.focus_areas)
+            )
+        self.console.print_progress(
+            f"Custom test steps: {len(self.test_plan.custom_steps)}"
+        )
+
+        existing = set(self.config.urls)
+        added: list[str] = []
+        for url in self.test_plan.suggested_urls:
+            if url and url not in existing:
+                self.config.urls.append(url)
+                existing.add(url)
+                added.append(url)
+        if added:
+            self.console.print_progress(
+                "AI suggested additional URL(s) to test: " + ", ".join(added)
+            )
+
+        if self.test_plan.notes:
+            self.console.print_progress(f"Notes: {self.test_plan.notes}")
 
     def _setup_browser(self, playwright):
         """Set up browser and context."""
@@ -186,9 +261,11 @@ class QAAgent:
     def _run_focused_mode(self):
         """Run tests on specific URLs only."""
         for url in self.config.urls:
+            if self.stop_event and self.stop_event.is_set():
+                break
             if url in self.visited_urls:
                 continue
-            
+
             self._test_page(url)
             self.visited_urls.add(url)
 
@@ -199,8 +276,10 @@ class QAAgent:
         depth_map = {url: 0 for url in self.urls_to_visit}
         
         while self.urls_to_visit and len(self.visited_urls) < self.config.max_pages:
+            if self.stop_event and self.stop_event.is_set():
+                break
             url = self.urls_to_visit.pop(0)
-            
+
             if url in self.visited_urls:
                 continue
             
@@ -288,14 +367,22 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-            
+
             error_summary = self.error_detector.get_summary()
             page_analysis.console_errors = [
-                m["text"] for m in self.error_detector.console_messages 
+                m["text"] for m in self.error_detector.console_messages
                 if m["type"] == "error"
             ]
             page_analysis.network_errors = self.error_detector.network_errors
-        
+
+        if self.test_plan and self.test_plan.custom_steps:
+            self.console.print_test_category("custom AI steps")
+            tester = CustomTester(self.page, self.config, self.test_plan)
+            findings = tester.run()
+            all_findings.extend(findings)
+            for f in findings:
+                self.console.print_finding(f)
+
         # Take screenshot if there were errors
         if all_findings and self.config.screenshots.on_error:
             screenshot_path = self._take_screenshot(f"page_{len(self.visited_urls)}")

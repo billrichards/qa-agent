@@ -4,6 +4,11 @@ An automated exploratory testing tool that performs comprehensive QA testing on 
 
 ## Features
 
+- **Agentic Testing (powered by Claude):**
+  - Provide a feature description or bug report in plain English
+  - Claude generates custom test steps targeting your specific scenario
+  - Runs alongside the standard test suite automatically
+
 - **Two Testing Modes:**
   - **Focused Mode**: Tests only the specified URL(s)
   - **Explore Mode**: Discovers and tests additional pages by following links
@@ -42,7 +47,48 @@ playwright install chromium
 
 # Optional: Install PDF support
 pip install -e ".[pdf]"
+
+# Optional: Install web interface support
+pip install -e ".[web]"
 ```
+
+> **Agentic testing** requires an Anthropic API key. Set the `ANTHROPIC_API_KEY` environment variable before using `--instructions`.
+> ```bash
+> export ANTHROPIC_API_KEY=sk-ant-...
+> ```
+
+## Web Interface
+
+A browser-based UI for configuring test runs, watching live output, and browsing past sessions.
+
+```bash
+# Install web dependencies
+pip install -e ".[web]"
+
+# Start the server (opens at http://127.0.0.1:5000)
+python -m qa_agent web
+
+# Or use the dedicated entry point
+qa-agent-web
+
+# Bind to a different host/port
+qa-agent-web --host 0.0.0.0 --port 8080
+```
+
+**Features:**
+
+- Configuration form with all test options (collapsible sections, preset save/load)
+- Real-time streaming output via Server-Sent Events
+- Stop a running test mid-run
+- Browse all past sessions grouped by domain
+- Session detail view: findings table, severity breakdown, screenshots gallery, report downloads
+- Serve Markdown/JSON/PDF reports and screenshots directly in the browser
+
+All test output is written to `output/` in the project directory. Sessions launched from the CLI are also visible in the web UI as long as JSON output format was used.
+
+> The web interface has no authentication — it is intended for local or internal DevOps use only.
+
+---
 
 ## Quick Start
 
@@ -56,6 +102,69 @@ qa-agent https://example.com https://example.com/about
 # Explore mode - discover and test pages
 qa-agent --mode explore --max-depth 2 https://example.com
 ```
+
+## Agentic Testing
+
+Pass natural language instructions — a feature description, a bug report, or any testing guidance — and the agent will call Claude to interpret them and generate custom test steps to run on top of the standard suite.
+
+### From a bug report
+
+```bash
+qa-agent --instructions "The login button does nothing when email is left blank — no validation error is shown" \
+  https://example.com/login
+```
+
+### From a feature description
+
+```bash
+qa-agent --instructions "We added a 'Remember me' checkbox to the login form. \
+  It should persist the session across browser restarts and be unchecked by default." \
+  https://example.com/login
+```
+
+### From a file
+
+For longer specs or bug reports, put the text in a file:
+
+```bash
+qa-agent --instructions-file feature-spec.txt https://example.com
+```
+
+### What happens
+
+1. Before any browser testing, the agent calls Claude with your instructions and the target URL.
+2. Claude returns a structured test plan: a summary, focus areas, custom test steps (with Playwright actions and assertions), and suggested URLs to include.
+3. The agent prints the plan summary, then runs the custom steps on every tested page alongside the standard keyboard/mouse/form/accessibility/error testers.
+4. Any assertion failure becomes a finding in the report with the severity and category Claude assigned.
+
+If the Claude API call fails for any reason, a warning is printed and the run continues with the standard tests only.
+
+### Model selection
+
+By default the agent uses `claude-sonnet-4-6`. Override with `--ai-model`:
+
+```bash
+qa-agent --instructions "Test the checkout flow" \
+  --ai-model claude-opus-4-6 \
+  https://shop.example.com
+```
+
+### Programmatic usage with instructions
+
+```python
+from qa_agent import QAAgent, TestConfig
+
+config = TestConfig(
+    urls=["https://example.com/login"],
+    instructions="Verify the password reset flow sends an email and the link expires after 24 hours.",
+    ai_model="claude-opus-4-6",
+)
+
+agent = QAAgent(config)
+session = agent.run()
+```
+
+---
 
 ## Usage
 

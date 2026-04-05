@@ -101,6 +101,48 @@ class PageAnalysis:
 
 
 # ---------------------------------------------------------------------------
+# AI-generated test plan models
+# ---------------------------------------------------------------------------
+
+@dataclass
+class StepAction:
+    """A single action to perform during a custom test step."""
+    type: str  # "click", "fill", "hover", "press_key", "wait", "navigate", "scroll"
+    selector: Optional[str] = None
+    value: Optional[str] = None  # fill text, key name, wait ms, navigate URL, scroll direction
+    description: Optional[str] = None
+
+
+@dataclass
+class StepAssertion:
+    """An assertion to check after actions in a custom test step."""
+    type: str  # "visible", "hidden", "text_contains", "url_contains", "element_count"
+    selector: Optional[str] = None
+    value: Optional[str] = None  # expected text, URL fragment, or count
+    description: Optional[str] = None
+
+
+@dataclass
+class CustomStep:
+    """An AI-generated custom test step."""
+    description: str
+    actions: list[StepAction] = field(default_factory=list)
+    assertions: list[StepAssertion] = field(default_factory=list)
+    severity: Severity = field(default_factory=lambda: Severity.MEDIUM)
+    category: FindingCategory = field(default_factory=lambda: FindingCategory.UNEXPECTED_BEHAVIOR)
+
+
+@dataclass
+class TestPlan:
+    """An AI-generated test plan derived from user instructions."""
+    summary: str
+    focus_areas: list[str] = field(default_factory=list)
+    custom_steps: list[CustomStep] = field(default_factory=list)
+    suggested_urls: list[str] = field(default_factory=list)
+    notes: str = ""
+
+
+# ---------------------------------------------------------------------------
 # URL normalisation for deduplication
 # ---------------------------------------------------------------------------
 
@@ -181,7 +223,6 @@ class TestSession:
                 finding.title,
                 finding.category.value,
                 finding.severity.value,
-                _normalize_url(finding.url),
             )
             groups.setdefault(key, []).append(finding)
 
@@ -214,5 +255,5 @@ class TestSession:
             "findings_by_severity": self.findings_by_severity,
             "findings_by_category": self.findings_by_category,
             "recording_path": self.recording_path,
-            "findings": [f.to_dict() for f in self.get_all_findings()],
+            "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
         }

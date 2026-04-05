@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Run {{ job_id }} — QA Agent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="run-header">
+    <div>
+      <h1>Test Run <code class="job-id">{{ job_id }}</code></h1>
+      <div id="run-meta" class="text-muted"></div>
+    </div>
+    <div class="run-header-actions">
+      <span id="status-badge" class="badge badge-queued">Queued</span>
+      <button id="stop-btn" class="btn btn-danger" style="display:none">Stop</button>
+    </div>
+  </div>
+</div>
+
+<div class="run-stats card" id="run-stats" style="display:none">
+  <div class="stat">
+    <span class="stat-value" id="stat-pages">0</span>
+    <span class="stat-label">Pages tested</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value" id="stat-findings">0</span>
+    <span class="stat-label">Findings</span>
+  </div>
+  <div class="stat">
+    <span class="stat-value" id="stat-elapsed">0:00</span>
+    <span class="stat-label">Elapsed</span>
+  </div>
+  <div class="stat stat-url-wrap">
+    <span class="stat-value text-muted" id="stat-url" style="font-size:0.8rem;word-break:break-all"></span>
+    <span class="stat-label">Current URL</span>
+  </div>
+</div>
+
+<div id="complete-banner" class="alert alert-success" style="display:none">
+  Test complete. <a id="session-link" href="#">View session results →</a>
+</div>
+<div id="error-banner" class="alert alert-error" style="display:none"></div>
+<div id="stopped-banner" class="alert alert-warning" style="display:none">
+  Test stopped by user.
+  <span id="stopped-session-link" style="display:none">
+    <a id="stopped-link" href="#">View partial results →</a>
+  </span>
+</div>
+
+<div class="card log-card">
+  <div class="log-toolbar">
+    <span class="log-title">Output</span>
+    <div class="log-filter-group" role="group" aria-label="Log filter">
+      <button type="button" class="btn btn-ghost small log-filter active" data-filter="all">All</button>
+      <button type="button" class="btn btn-ghost small log-filter" data-filter="finding">Findings</button>
+      <button type="button" class="btn btn-ghost small log-filter" data-filter="error">Errors</button>
+    </div>
+    <label class="check-label small">
+      <input type="checkbox" id="autoscroll" checked> Auto-scroll
+    </label>
+    <button type="button" class="btn btn-ghost small" id="clear-log-btn">Clear</button>
+  </div>
+  <div id="log" class="log"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const JOB_ID = {{ job_id | tojson }};
+  const log = document.getElementById('log');
+  const statusBadge = document.getElementById('status-badge');
+  const stopBtn = document.getElementById('stop-btn');
+  const statsEl = document.getElementById('run-stats');
+  const statPages = document.getElementById('stat-pages');
+  const statFindings = document.getElementById('stat-findings');
+  const statUrl = document.getElementById('stat-url');
+  const completeBanner = document.getElementById('complete-banner');
+  const errorBanner = document.getElementById('error-banner');
+  const stoppedBanner = document.getElementById('stopped-banner');
+  const autoscroll = document.getElementById('autoscroll');
+  let findingCount = 0;
+  let pageCount = 0;
+
+  function appendLog(msg, cls) {
+    const line = document.createElement('div');
+    line.className = 'log-line' + (cls ? ' ' + cls : '');
+    line.textContent = msg;
+    log.appendChild(line);
+    if (autoscroll.checked) log.scrollTop = log.scrollHeight;
+  }
+
+  function setStatus(status) {
+    statusBadge.className = 'badge badge-' + status;
+    statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    if (status === 'running') {
+      stopBtn.style.display = '';
+      statsEl.style.display = '';
+    }
+    if (['completed', 'failed', 'stopped'].includes(status)) {
+      stopBtn.style.display = 'none';
+    }
+  }
+
+  document.getElementById('clear-log-btn').addEventListener('click', () => { log.innerHTML = ''; });
+
+  stopBtn.addEventListener('click', () => {
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Stopping…';
+    fetch('/api/stop/' + JOB_ID, { method: 'POST' }).catch(() => {});
+  });
+
+  // ── Elapsed timer ────────────────────────────────────────────────────────────
+  const statElapsed = document.getElementById('stat-elapsed');
+  let startTime = null;
+  let elapsedInterval = null;
+
+  function startTimer() {
+    if (elapsedInterval) return;
+    startTime = Date.now();
+    elapsedInterval = setInterval(() => {
+      const secs = Math.floor((Date.now() - startTime) / 1000);
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      statElapsed.textContent = m + ':' + String(s).padStart(2, '0');
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (elapsedInterval) {
+      clearInterval(elapsedInterval);
+      elapsedInterval = null;
+    }
+  }
+
+  // ── Log filtering ─────────────────────────────────────────────────────────────
+  let activeFilter = 'all';
+
+  document.querySelectorAll('.log-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeFilter = btn.dataset.filter;
+      document.querySelectorAll('.log-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      // Show/hide existing lines
+      log.querySelectorAll('.log-line').forEach(line => {
+        line.style.display = lineMatchesFilter(line, activeFilter) ? '' : 'none';
+      });
+      if (autoscroll.checked) log.scrollTop = log.scrollHeight;
+    });
+  });
+
+  function lineMatchesFilter(line, filter) {
+    if (filter === 'all') return true;
+    if (filter === 'finding') return line.classList.contains('log-finding');
+    if (filter === 'error') return line.classList.contains('log-error') || line.classList.contains('log-finding') && line.classList.contains('log-critical') || line.classList.contains('log-finding') && line.classList.contains('log-high');
+    return true;
+  }
+
+  // Override appendLog to respect active filter
+  const _origAppendLog = appendLog;
+  function appendLog(msg, cls) {
+    const line = document.createElement('div');
+    line.className = 'log-line' + (cls ? ' ' + cls : '');
+    line.textContent = msg;
+    line.style.display = lineMatchesFilter(line, activeFilter) ? '' : 'none';
+    log.appendChild(line);
+    if (autoscroll.checked && line.style.display !== 'none') log.scrollTop = log.scrollHeight;
+  }
+
+  // ── SSE stream ────────────────────────────────────────────────────────────────
+  const es = new EventSource('/api/stream/' + JOB_ID);
+  setStatus('running');
+  startTimer();
+
+  es.addEventListener('log', e => {
+    const data = JSON.parse(e.data);
+    appendLog(data.message);
+  });
+
+  es.addEventListener('progress', e => {
+    const data = JSON.parse(e.data);
+    pageCount++;
+    statPages.textContent = pageCount;
+    statUrl.textContent = data.url || '';
+    appendLog(data.message, 'log-progress');
+  });
+
+  es.addEventListener('finding', e => {
+    const data = JSON.parse(e.data);
+    findingCount++;
+    statFindings.textContent = findingCount;
+    appendLog('[' + data.severity.toUpperCase() + '] ' + data.title, 'log-finding log-' + data.severity);
+  });
+
+  es.addEventListener('complete', e => {
+    const data = JSON.parse(e.data);
+    es.close();
+    stopTimer();
+    setStatus(data.status || 'completed');
+    statFindings.textContent = data.total_findings || findingCount;
+    if (data.status === 'stopped') {
+      stoppedBanner.style.display = '';
+      if (data.session_id && data.domain) {
+        const link = document.getElementById('stopped-link');
+        link.href = '/session/' + data.domain + '/' + data.session_id;
+        document.getElementById('stopped-session-link').style.display = '';
+      }
+    } else {
+      completeBanner.style.display = '';
+      if (data.session_id && data.domain) {
+        document.getElementById('session-link').href = '/session/' + data.domain + '/' + data.session_id;
+      }
+    }
+  });
+
+  es.addEventListener('error', e => {
+    if (e.data) {
+      const data = JSON.parse(e.data);
+      es.close();
+      stopTimer();
+      setStatus('failed');
+      errorBanner.style.display = '';
+      errorBanner.textContent = 'Error: ' + data.message;
+    }
+  });
+
+  es.onerror = () => {
+    // SSE connection dropped — poll status
+    es.close();
+    stopTimer();
+    fetch('/api/status/' + JOB_ID)
+      .then(r => r.json())
+      .then(d => {
+        setStatus(d.status);
+        statFindings.textContent = d.total_findings || findingCount;
+        if (d.status === 'completed' && d.session_id) {
+          completeBanner.style.display = '';
+          document.getElementById('session-link').href = '/session/' + d.domain + '/' + d.session_id;
+        } else if (d.status === 'failed') {
+          errorBanner.style.display = '';
+          errorBanner.textContent = 'Error: ' + (d.error || 'Unknown error');
+        }
+      })
+      .catch(() => appendLog('Connection lost. Refresh to check status.', 'log-error'));
+  };
+}());
+</script>
+{% endblock %}
