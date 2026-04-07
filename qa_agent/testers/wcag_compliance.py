@@ -894,24 +894,64 @@ class WCAGComplianceTester(BaseTester):
     def _test_status_messages(self):
         """WCAG 4.1.3 — Status messages must be programmatically determinable.
 
-        Note: Detection relies on matching common CSS class name patterns (toast, snackbar,
-        notification, etc.). Custom naming conventions (e.g., 'success-banner', 'ui-message')
-        will not be detected. Conversely, non-notification elements whose class names happen
-        to match the pattern may produce false positives. This check should be treated as a
-        starting point, not a complete audit.
+        Uses three independent signals to identify probable notification elements, requiring
+        at least two to match before flagging (reduces both false positives and false negatives):
+          1. Class name matches common notification patterns (toast, snackbar, etc.)
+          2. Visual positioning: fixed/absolute, high z-index, small height (overlay-like)
+          3. Short text containing status keywords (success, error, saved, warning, etc.)
         """
         try:
             issues = self.page.evaluate("""() => {
-                const notifPatterns = /toast|snackbar|notification|alert-box|status-msg|flash-message|banner-message/i;
+                const classPattern = /toast|snackbar|notification|alert-box|status-msg|flash-message|banner-message/i;
+                const textPattern = /^(success|error|warning|saved|failed|updated|deleted|added|removed|sent|submitted|invalid|required)/i;
+                const liveRoles = new Set(['status', 'alert', 'log', 'marquee', 'timer']);
                 const issues = [];
-                document.querySelectorAll('[class]').forEach(el => {
-                    const cls = el.className || '';
-                    if (!notifPatterns.test(cls)) return;
+
+                document.querySelectorAll('*').forEach(el => {
+                    if (!el.offsetParent) return;
+                    // Skip elements that already have correct live region markup
                     const role = el.getAttribute('role');
                     const ariaLive = el.getAttribute('aria-live');
-                    const hasLiveRegion = ['status', 'alert', 'log', 'marquee', 'timer'].includes(role) || ariaLive;
-                    if (!hasLiveRegion) {
-                        issues.push({ classes: cls.slice(0, 60), role, ariaLive });
+                    if (liveRoles.has(role) || ariaLive) return;
+
+                    let signals = 0;
+                    const signals_detail = [];
+
+                    // Signal 1: class name pattern
+                    const cls = el.className || '';
+                    if (classPattern.test(cls)) {
+                        signals++;
+                        signals_detail.push('class-name');
+                    }
+
+                    // Signal 2: visual positioning (fixed/absolute, high z-index, bounded height)
+                    const style = window.getComputedStyle(el);
+                    const position = style.position;
+                    const zIndex = parseInt(style.zIndex, 10) || 0;
+                    const rect = el.getBoundingClientRect();
+                    const isOverlay = (position === 'fixed' || position === 'absolute') &&
+                                      zIndex > 100 &&
+                                      rect.height > 0 && rect.height < 200 &&
+                                      rect.width > 100;
+                    if (isOverlay) {
+                        signals++;
+                        signals_detail.push('overlay-positioning');
+                    }
+
+                    // Signal 3: short status-keyword text content
+                    const text = (el.textContent || '').trim();
+                    if (text.length > 0 && text.length < 150 && textPattern.test(text)) {
+                        signals++;
+                        signals_detail.push('status-text');
+                    }
+
+                    if (signals >= 2) {
+                        issues.push({
+                            classes: cls.slice(0, 60),
+                            signals: signals_detail,
+                            tag: el.tagName.toLowerCase(),
+                            text: text.slice(0, 60),
+                        });
                     }
                 });
                 return issues.slice(0, 10);
@@ -919,12 +959,12 @@ class WCAGComplianceTester(BaseTester):
 
             if issues:
                 self._add_finding(
-                    title="Notification elements missing live region",
-                    description=f"{len(issues)} notification-like element(s) lack role='status', role='alert', or aria-live",
+                    title="Probable notification elements missing live region",
+                    description=f"{len(issues)} element(s) detected as likely status messages (via class name, visual positioning, and/or text content) but lack role='status', role='alert', or aria-live",
                     severity=Severity.MEDIUM,
                     wcag_criterion="4.1.3",
                     expected_behavior="Dynamic status messages must use aria-live or role='status'/'alert' so screen readers announce them",
-                    actual_behavior="Notification elements found without live region markup",
+                    actual_behavior="Notification-like elements found without live region markup",
                     metadata={"elements": issues[:5]},
                 )
         except Exception as e:
