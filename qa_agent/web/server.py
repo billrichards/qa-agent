@@ -384,8 +384,9 @@ pre{{background:#1e1e1e;color:#d4d4d4;padding:1rem;overflow-x:auto;border-radius
         return Response(html, mimetype="text/html")
 
     if suffix == ".json":
+        import html as html_lib
         data = json.loads(abs_path.read_text(encoding="utf-8"))
-        pretty = json.dumps(data, indent=2)
+        pretty = html_lib.escape(json.dumps(data, indent=2))
         html = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>{abs_path.name}</title>
 <style>body{{background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:1rem;margin:0;}}
