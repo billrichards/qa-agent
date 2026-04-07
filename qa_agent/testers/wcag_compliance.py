@@ -296,7 +296,13 @@ class WCAGComplianceTester(BaseTester):
             logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_meaningful_sequence(self):
-        """WCAG 1.3.2 — CSS order/reverse-direction may alter reading sequence."""
+        """WCAG 1.3.2 — CSS order/reverse-direction may alter reading sequence.
+
+        Note: Only detects reordering applied via inline styles. Stylesheet- or
+        class-based reordering (e.g., @media queries that reverse a flex layout) is
+        not detected. This is an intentional performance tradeoff — the alternative
+        requires calling getComputedStyle on every element.
+        """
         try:
             reordered = self.page.evaluate("""() => {
                 const issues = [];
@@ -538,6 +544,10 @@ class WCAGComplianceTester(BaseTester):
         Uses static stylesheet analysis to avoid triggering real focus/blur events
         (which can cause side effects like form validation or analytics firing).
         Flags :focus rules that suppress outline without a replacement style.
+
+        Note: Can false-positive when a global rule suppresses outline (e.g., * { outline: none })
+        and a more specific rule provides a replacement (e.g., button:focus { box-shadow: ... }).
+        Static per-rule analysis cannot see across rule boundaries.
         """
         try:
             suppressed = self.page.evaluate("""() => {
@@ -903,16 +913,24 @@ class WCAGComplianceTester(BaseTester):
         try:
             issues = self.page.evaluate("""() => {
                 const classPattern = /toast|snackbar|notification|alert-box|status-msg|flash-message|banner-message/i;
-                const textPattern = /^(success|error|warning|saved|failed|updated|deleted|added|removed|sent|submitted|invalid|required)/i;
+                const textPattern = /\b(success|error|warning|saved|failed|updated|deleted|added|removed|sent|submitted|invalid|required)\b/i;
                 const liveRoles = new Set(['status', 'alert', 'log', 'marquee', 'timer']);
                 const issues = [];
+                const MAX_ELEMENTS = 500;
+                let checked = 0;
 
-                document.querySelectorAll('*').forEach(el => {
-                    if (!el.offsetParent) return;
+                for (const el of document.querySelectorAll('*')) {
+                    if (checked++ >= MAX_ELEMENTS) break;
+
+                    // Use computed style for visibility — offsetParent is null for position:fixed,
+                    // which is exactly what Signal 2 looks for, so we can't use it as the guard.
+                    const style = window.getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden') continue;
+
                     // Skip elements that already have correct live region markup
                     const role = el.getAttribute('role');
                     const ariaLive = el.getAttribute('aria-live');
-                    if (liveRoles.has(role) || ariaLive) return;
+                    if (liveRoles.has(role) || ariaLive) continue;
 
                     let signals = 0;
                     const signals_detail = [];
@@ -925,7 +943,6 @@ class WCAGComplianceTester(BaseTester):
                     }
 
                     // Signal 2: visual positioning (fixed/absolute, high z-index, bounded height)
-                    const style = window.getComputedStyle(el);
                     const position = style.position;
                     const zIndex = parseInt(style.zIndex, 10) || 0;
                     const rect = el.getBoundingClientRect();
@@ -938,7 +955,7 @@ class WCAGComplianceTester(BaseTester):
                         signals_detail.push('overlay-positioning');
                     }
 
-                    // Signal 3: short status-keyword text content
+                    // Signal 3: text containing status keywords anywhere in the message
                     const text = (el.textContent || '').trim();
                     if (text.length > 0 && text.length < 150 && textPattern.test(text)) {
                         signals++;
@@ -952,9 +969,10 @@ class WCAGComplianceTester(BaseTester):
                             tag: el.tagName.toLowerCase(),
                             text: text.slice(0, 60),
                         });
+                        if (issues.length >= 10) break;
                     }
-                });
-                return issues.slice(0, 10);
+                }
+                return issues;
             }""")
 
             if issues:
