@@ -1,15 +1,16 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "qa-agent"
 version = "0.1.0"
-description = "Automated exploratory testing tool using Playwright"
+description = "Agentic exploratory QA testing for web applications"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
-keywords = ["testing", "qa", "automation", "playwright", "exploratory-testing"]
+authors = [{name = "Bill Richards"}]
+keywords = ["qa", "testing", "playwright", "accessibility", "agentic", "automation", "exploratory-testing"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,6 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
+    "Environment :: Console",
+    "Environment :: Web Environment",
 ]
 dependencies = [
     "playwright>=1.40.0",
@@ -41,7 +44,7 @@ dev = [
     "mypy>=1.0.0",
 ]
 all = [
-    "qa-agent[pdf,web,dev]",
+    "qa-agent[pdf,web]",
 ]
 
 [project.scripts]
@@ -49,8 +52,10 @@ qa-agent = "qa_agent.cli:main"
 qa-agent-web = "qa_agent.web.server:serve_web_cli"
 
 [project.urls]
-"Homepage" = "https://github.com/example/qa-agent"
-"Bug Tracker" = "https://github.com/example/qa-agent/issues"
+Homepage = "https://github.com/billrichards/qa-agent"
+Repository = "https://github.com/billrichards/qa-agent"
+Issues = "https://github.com/billrichards/qa-agent/issues"
+Changelog = "https://github.com/billrichards/qa-agent/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]

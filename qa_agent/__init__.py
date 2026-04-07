@@ -5,4 +5,10 @@ A Python/Playwright-based QA agent that performs exploratory testing on web appl
 testing various input methods and detecting UX issues.
 """
 
-__version__ = "0.1.0"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("qa-agent")
+except PackageNotFoundError:
+    # Package not installed (e.g. running from source without install)
+    __version__ = "0.1.0"

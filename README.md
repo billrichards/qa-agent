@@ -41,20 +41,24 @@ Automated exploratory QA testing for web applications. Simulates real user inter
 
 ```bash
 # Core install
-pip install -e .
+pip install qa-agent
 playwright install chromium
 
 # PDF report support
-pip install -e ".[pdf]"
+pip install "qa-agent[pdf]"
 
 # Web UI support
-pip install -e ".[web]"
+pip install "qa-agent[web]"
 
 # Everything
-pip install -e ".[all]"
+pip install "qa-agent[all]"
+playwright install chromium
 ```
 
 **Requirements:** Python 3.10+, Playwright ≥ 1.40
+
+> **Note:** Playwright requires browser binaries installed separately after the Python package.
+> Run `playwright install chromium` (or `playwright install` for all browsers) once after install.
 
 **Agentic testing** requires an Anthropic API key:
 
