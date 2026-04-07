@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from . import __version__
+
 # Resolve the project root once at import time (the directory that contains
 # pyproject.toml / .git), walking up from this file's location.  This means
 # default output directories are always anchored to the project root regardless
@@ -86,7 +88,13 @@ Examples:
   qa-agent --screenshots --record https://example.com
         """,
     )
-    
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
+
     # Positional arguments
     parser.add_argument(
         "urls",
