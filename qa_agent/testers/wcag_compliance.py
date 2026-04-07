@@ -8,11 +8,15 @@ Covers WCAG criteria not already tested by AccessibilityTester, which handles:
 This module adds coverage for the remaining WCAG 2.1 AA criteria.
 """
 
+import logging
+
 from playwright.sync_api import Page
 
 from .base import BaseTester
 from ..models import Finding, FindingCategory, Severity
 from ..config import TestConfig
+
+logger = logging.getLogger(__name__)
 
 
 # ARIA roles and their required owned properties
@@ -43,35 +47,6 @@ _ARIA_REQUIRED_PARENTS: dict[str, list[str]] = {
     "gridcell": ["row"],
     "columnheader": ["row"],
     "rowheader": ["row"],
-}
-
-# Semantic HTML elements and the ARIA role they implicitly have (redundant to add)
-_REDUNDANT_ROLES: dict[str, str] = {
-    "button": "button",
-    "a": "link",
-    "nav": "navigation",
-    "header": "banner",
-    "footer": "contentinfo",
-    "main": "main",
-    "aside": "complementary",
-    "section": "region",
-    "form": "form",
-    "h1": "heading",
-    "h2": "heading",
-    "h3": "heading",
-    "h4": "heading",
-    "h5": "heading",
-    "h6": "heading",
-    "ul": "list",
-    "ol": "list",
-    "li": "listitem",
-    "table": "table",
-    "tr": "row",
-    "th": "columnheader",
-    "td": "cell",
-    "img": "img",
-    "input[type=checkbox]": "checkbox",
-    "input[type=radio]": "radio",
 }
 
 
@@ -221,15 +196,28 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Canvas found without accessible fallback",
                     metadata={"elements": canvas_issues[:5]},
                 )
-            if media_issues:
+            video_issues = [i for i in media_issues if i['tag'] == 'video']
+            audio_issues = [i for i in media_issues if i['tag'] == 'audio']
+
+            if video_issues:
                 self._add_finding(
-                    title="Video/audio missing captions track",
-                    description=f"{len(media_issues)} media element(s) have no <track kind='captions'>",
+                    title="Video elements missing captions track",
+                    description=f"{len(video_issues)} video element(s) have no <track kind='captions'>",
                     severity=Severity.HIGH,
-                    wcag_criterion="1.1.1",
-                    expected_behavior="Video and audio must provide captions or text alternatives",
-                    actual_behavior="Media element found without captions track",
-                    metadata={"elements": media_issues[:5]},
+                    wcag_criterion="1.2.2",
+                    expected_behavior="Prerecorded synchronized video must provide captions",
+                    actual_behavior="Video element found without captions track",
+                    metadata={"elements": video_issues[:5]},
+                )
+            if audio_issues:
+                self._add_finding(
+                    title="Audio elements missing text alternative",
+                    description=f"{len(audio_issues)} audio element(s) have no accessible transcript track",
+                    severity=Severity.HIGH,
+                    wcag_criterion="1.2.1",
+                    expected_behavior="Prerecorded audio must provide a text transcript",
+                    actual_behavior="Audio element found without a transcript or captions track",
+                    metadata={"elements": audio_issues[:5]},
                 )
             if icon_issues:
                 self._add_finding(
@@ -241,8 +229,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Icon element found without aria-hidden or accessible name",
                     metadata={"elements": icon_issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_info_and_relationships(self):
         """WCAG 1.3.1 — Info and relationships: tables, form groups."""
@@ -304,18 +292,22 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Input group found outside fieldset",
                     metadata={"groups": group_issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_meaningful_sequence(self):
         """WCAG 1.3.2 — CSS order/reverse-direction may alter reading sequence."""
         try:
             reordered = self.page.evaluate("""() => {
                 const issues = [];
-                document.querySelectorAll('*').forEach(el => {
-                    const style = window.getComputedStyle(el);
-                    const order = parseInt(style.order || '0', 10);
-                    const flexDir = style.flexDirection || '';
+                // Scope to elements with inline order/flex-direction styles to avoid
+                // iterating every DOM element via getComputedStyle (which is expensive).
+                document.querySelectorAll('[style*="order"], [style*="flex-direction"]').forEach(el => {
+                    const inlineStyle = el.getAttribute('style') || '';
+                    const orderMatch = inlineStyle.match(/(?:^|;)\\s*order\\s*:\\s*(-?\\d+)/);
+                    const order = orderMatch ? parseInt(orderMatch[1], 10) : 0;
+                    const flexDirMatch = inlineStyle.match(/flex-direction\\s*:\\s*([^;]+)/);
+                    const flexDir = flexDirMatch ? flexDirMatch[1].trim() : '';
                     if (order !== 0) {
                         issues.push({ element: el.tagName.toLowerCase(), order, text: el.textContent?.slice(0, 40) });
                     } else if (flexDir.includes('reverse') && el.children.length > 1) {
@@ -335,8 +327,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="CSS reordering detected — manual review recommended",
                     metadata={"elements": reordered[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_identify_input_purpose(self):
         """WCAG 1.3.5 — Personal info inputs should have autocomplete attributes."""
@@ -375,8 +367,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Personal info inputs found without autocomplete",
                     metadata={"inputs": missing[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_use_of_color(self):
         """WCAG 1.4.1 — Links in body text distinguished by color alone."""
@@ -409,7 +401,7 @@ class WCAGComplianceTester(BaseTester):
                 return issues.slice(0, 20);
             }""")
 
-            if len(issues) > 3:
+            if issues:
                 self._add_finding(
                     title="Links distinguished by color only",
                     description=f"{len(issues)} link(s) in body text have no underline or other non-color indicator",
@@ -419,8 +411,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Links found with no underline, border, or font-weight difference",
                     metadata={"links": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_non_text_contrast(self):
         """WCAG 1.4.11 — UI component contrast (input borders, focus indicators)."""
@@ -471,8 +463,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Input borders found with insufficient contrast",
                     metadata={"elements": low_contrast[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_content_on_hover_focus(self):
         """WCAG 1.4.13 — Native title tooltips are not dismissible or hoverable."""
@@ -491,7 +483,7 @@ class WCAGComplianceTester(BaseTester):
                 return els.slice(0, 20);
             }""")
 
-            if len(title_elements) > 2:
+            if title_elements:
                 self._add_finding(
                     title="Native title tooltips used for content",
                     description=f"{len(title_elements)} element(s) use the title attribute for tooltip content",
@@ -501,8 +493,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="title attribute used to convey content that may not be accessible",
                     metadata={"elements": title_elements[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     # -------------------------------------------------------------------------
     # OPERABLE (2.x)
@@ -537,59 +529,61 @@ class WCAGComplianceTester(BaseTester):
                     expected_behavior="Page title should describe the page's topic or purpose",
                     actual_behavior=f"Generic title used: '{title_info['title']}'",
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_focus_visible(self):
-        """WCAG 2.4.7 — Focus indicator must be visible on interactive elements."""
+        """WCAG 2.4.7 — Focus indicator must be visible on interactive elements.
+
+        Uses static stylesheet analysis to avoid triggering real focus/blur events
+        (which can cause side effects like form validation or analytics firing).
+        Flags :focus rules that suppress outline without a replacement style.
+        """
         try:
-            elements = self.page.locator(
-                'a:visible, button:visible, input:visible:not([type="hidden"]), select:visible, textarea:visible, [tabindex]:visible'
-            )
-            count = min(elements.count(), 15)
-            invisible_focus = []
+            suppressed = self.page.evaluate("""() => {
+                const issues = [];
+                try {
+                    for (const sheet of document.styleSheets) {
+                        try {
+                            for (const rule of sheet.cssRules) {
+                                if (!rule.selectorText) continue;
+                                const sel = rule.selectorText;
+                                // Target :focus rules but ignore :focus-visible (which is fine)
+                                if (!sel.includes(':focus') || sel.includes(':focus-visible') || sel.includes(':focus-within')) continue;
+                                const style = rule.style;
+                                const outline = style.outline || '';
+                                const outlineStyle = style.outlineStyle || '';
+                                const outlineWidth = style.outlineWidth || '';
+                                const suppressesOutline = (
+                                    outline === 'none' || outline === '0' ||
+                                    outlineStyle === 'none' ||
+                                    outlineWidth === '0px'
+                                );
+                                if (!suppressesOutline) continue;
+                                // Check if a visible replacement style is provided
+                                const hasReplacement = style.boxShadow || style.border || style.borderColor || style.backgroundColor;
+                                if (!hasReplacement) {
+                                    issues.push({ selector: sel.slice(0, 100) });
+                                }
+                            }
+                        } catch (e) { /* CORS-blocked stylesheet */ }
+                    }
+                } catch (e) {}
+                return issues.slice(0, 10);
+            }""")
 
-            for i in range(count):
-                el = elements.nth(i)
-                try:
-                    result = el.evaluate("""el => {
-                        const before = window.getComputedStyle(el);
-                        el.focus();
-                        const after = window.getComputedStyle(el);
-
-                        const outlineNone = after.outlineStyle === 'none' || after.outlineWidth === '0px';
-                        const boxShadowSame = before.boxShadow === after.boxShadow;
-                        const borderSame = before.borderColor === after.borderColor;
-                        const bgSame = before.backgroundColor === after.backgroundColor;
-
-                        const noVisibleFocusStyle = outlineNone && boxShadowSame && borderSame && bgSame;
-                        el.blur();
-
-                        return {
-                            noFocus: noVisibleFocusStyle,
-                            tag: el.tagName.toLowerCase(),
-                            type: el.type || '',
-                            text: el.textContent?.slice(0, 30) || el.value?.slice(0, 30) || '',
-                            outline: after.outline,
-                        };
-                    }""")
-                    if result and result.get("noFocus"):
-                        invisible_focus.append(result)
-                except Exception:
-                    continue
-
-            if invisible_focus:
+            if suppressed:
                 self._add_finding(
-                    title="Focus indicator not visible",
-                    description=f"{len(invisible_focus)} interactive element(s) show no visible focus style",
+                    title="Focus indicator suppressed without replacement",
+                    description=f"{len(suppressed)} CSS rule(s) remove the outline on :focus without providing a replacement focus style",
                     severity=Severity.HIGH,
                     wcag_criterion="2.4.7",
                     expected_behavior="All interactive elements must have a visible focus indicator",
-                    actual_behavior="Elements found with no outline, box-shadow, border, or background change on focus",
-                    metadata={"elements": invisible_focus[:5]},
+                    actual_behavior=":focus rules found that suppress outline with no box-shadow, border, or background replacement",
+                    metadata={"rules": suppressed[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_label_in_name(self):
         """WCAG 2.5.3 — Accessible name must contain visible label text."""
@@ -621,8 +615,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="aria-label found that differs from visible text content",
                     metadata={"elements": mismatches[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_target_size(self):
         """WCAG 2.5.5 / 2.5.8 — Interactive elements should meet minimum target size."""
@@ -656,15 +650,21 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Controls found below minimum target size",
                     metadata={"elements": small_targets[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     # -------------------------------------------------------------------------
     # UNDERSTANDABLE (3.x)
     # -------------------------------------------------------------------------
 
     def _test_language_of_parts(self):
-        """WCAG 3.1.2 — Content in a different language should have a lang attribute."""
+        """WCAG 3.1.2 — Content in a different language should have a lang attribute.
+
+        Note: This is a heuristic check using Unicode script ranges to detect probable
+        foreign-language content. It has a high false-positive risk for technical terms,
+        brand names, and code snippets. Findings are LOW severity and should be reviewed
+        manually before acting on them.
+        """
         try:
             result = self.page.evaluate("""() => {
                 const pageLang = (document.documentElement.lang || '').split('-')[0].toLowerCase();
@@ -694,16 +694,16 @@ class WCAGComplianceTester(BaseTester):
 
             if result:
                 self._add_finding(
-                    title="Text in different language missing lang attribute",
-                    description=f"{len(result)} element(s) appear to contain text in a different language without a lang attribute",
+                    title="Possible foreign-language text missing lang attribute",
+                    description=f"{len(result)} element(s) appear to contain text in a different language without a lang attribute — heuristic, manual review recommended",
                     severity=Severity.LOW,
                     wcag_criterion="3.1.2",
                     expected_behavior="Content in a different language should have lang attribute on the containing element",
-                    actual_behavior="Multi-language content found without lang attribute",
+                    actual_behavior="Probable multi-language content found without lang attribute (may include false positives for technical terms or brand names)",
                     metadata={"elements": result[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_form_labels(self):
         """WCAG 3.3.2 — All form inputs must have an accessible label."""
@@ -750,8 +750,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Inputs found without any label association",
                     metadata={"inputs": unlabeled[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_error_identification(self):
         """WCAG 3.3.1 — Error fields must have a programmatically associated error message."""
@@ -789,8 +789,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Invalid fields found without accessible error descriptions",
                     metadata={"fields": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     # -------------------------------------------------------------------------
     # ROBUST (4.x)
@@ -821,8 +821,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Duplicate IDs found, which break ARIA references and label associations",
                     metadata={"duplicates": duplicates[:10]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_name_role_value(self):
         """WCAG 4.1.2 — All UI components need an accessible name and role."""
@@ -888,11 +888,18 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Clickable elements found that are inaccessible to keyboard users",
                     metadata={"elements": click_issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_status_messages(self):
-        """WCAG 4.1.3 — Status messages must be programmatically determinable."""
+        """WCAG 4.1.3 — Status messages must be programmatically determinable.
+
+        Note: Detection relies on matching common CSS class name patterns (toast, snackbar,
+        notification, etc.). Custom naming conventions (e.g., 'success-banner', 'ui-message')
+        will not be detected. Conversely, non-notification elements whose class names happen
+        to match the pattern may produce false positives. This check should be treated as a
+        starting point, not a complete audit.
+        """
         try:
             issues = self.page.evaluate("""() => {
                 const notifPatterns = /toast|snackbar|notification|alert-box|status-msg|flash-message|banner-message/i;
@@ -920,8 +927,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Notification elements found without live region markup",
                     metadata={"elements": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     # -------------------------------------------------------------------------
     # ARIA PATTERN CHECKS
@@ -956,8 +963,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="ARIA roles found without required owned properties",
                     metadata={"elements": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_aria_widget_patterns(self):
         """ARIA spec — validate widget composition patterns (tabs, combobox, menu)."""
@@ -1007,8 +1014,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Widget pattern violations found (e.g., tablist without tabs, menu without items)",
                     metadata={"issues": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_aria_parent_child(self):
         """ARIA spec — certain roles require specific parent roles."""
@@ -1023,7 +1030,7 @@ class WCAGComplianceTester(BaseTester):
                         let found = false;
                         while (ancestor) {
                             const role = ancestor.getAttribute('role') || ancestor.tagName.toLowerCase();
-                            if (parentRoles.some(p => role === p || ancestor.getAttribute('role') === p)) {
+                            if (parentRoles.some(p => role === p)) {
                                 found = true;
                                 break;
                             }
@@ -1052,8 +1059,8 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Role elements found outside their required parent context",
                     metadata={"elements": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
 
     def _test_redundant_aria_roles(self):
         """ARIA spec — semantic HTML with redundant explicit ARIA roles adds noise."""
@@ -1096,5 +1103,5 @@ class WCAGComplianceTester(BaseTester):
                     actual_behavior="Redundant role attributes found (e.g., <button role='button'>)",
                     metadata={"elements": issues[:5]},
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WCAG test error in %s: %s", self.__class__.__name__, e)
