@@ -2,7 +2,6 @@
 
 import json
 import os
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .base import BaseReporter
@@ -21,16 +20,16 @@ class JSONReporter(BaseReporter):
     def generate(self, session: "TestSession") -> str:
         """Generate JSON report and save to file."""
         os.makedirs(self.output_dir, exist_ok=True)
-        
+
         timestamp = session.start_time.strftime("%Y%m%d_%H%M%S")
         filename = f"qa_report_{timestamp}.json"
         filepath = os.path.join(self.output_dir, filename)
-        
+
         report_data = self._build_report(session)
-        
+
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(report_data, f, indent=self.indent, default=str)
-        
+
         return filepath
 
     def _build_report(self, session: "TestSession") -> dict:

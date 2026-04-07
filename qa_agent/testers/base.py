@@ -2,11 +2,12 @@
 
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
+
 from playwright.sync_api import Page
 
 if TYPE_CHECKING:
-    from ..models import Finding, PageAnalysis
     from ..config import TestConfig
+    from ..models import Finding
 
 
 class BaseTester(ABC):
@@ -15,7 +16,7 @@ class BaseTester(ABC):
     def __init__(self, page: Page, config: "TestConfig"):
         self.page = page
         self.config = config
-        self.findings: list["Finding"] = []
+        self.findings: list[Finding] = []
 
     @abstractmethod
     def run(self) -> list["Finding"]:
@@ -35,7 +36,7 @@ class BaseTester(ABC):
             element = self.page.locator(selector).first
             if element.count() == 0:
                 return {"exists": False}
-            
+
             return {
                 "exists": True,
                 "visible": element.is_visible(),
@@ -50,15 +51,15 @@ class BaseTester(ABC):
         """Take a screenshot if enabled."""
         if not self.config.screenshots.enabled:
             return None
-        
+
         import os
         from datetime import datetime
-        
+
         os.makedirs(self.config.screenshots.output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{name}_{timestamp}.png"
         filepath = os.path.join(self.config.screenshots.output_dir, filename)
-        
+
         try:
             self.page.screenshot(
                 path=filepath,

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 
 class TestMode(Enum):
@@ -22,14 +21,14 @@ class OutputFormat(Enum):
 @dataclass
 class AuthConfig:
     """Authentication configuration."""
-    username: Optional[str] = None
-    password: Optional[str] = None
-    auth_url: Optional[str] = None  # URL to perform login
-    username_selector: Optional[str] = None  # Selector for username field
-    password_selector: Optional[str] = None  # Selector for password field
-    submit_selector: Optional[str] = None  # Selector for submit button
-    cookies: Optional[dict] = None  # Pre-set cookies for authentication
-    headers: Optional[dict] = None  # Custom headers (e.g., Bearer token)
+    username: str | None = None
+    password: str | None = None
+    auth_url: str | None = None  # URL to perform login
+    username_selector: str | None = None  # Selector for username field
+    password_selector: str | None = None  # Selector for password field
+    submit_selector: str | None = None  # Selector for submit button
+    cookies: dict | None = None  # Pre-set cookies for authentication
+    headers: dict | None = None  # Custom headers (e.g., Bearer token)
 
 
 @dataclass
@@ -59,18 +58,18 @@ class TestConfig:
         default_factory=lambda: [OutputFormat.CONSOLE, OutputFormat.MARKDOWN]
     )
     output_dir: str = "./output"
-    
+
     # Browser settings
     headless: bool = True
     viewport_width: int = 1280
     viewport_height: int = 720
     timeout: int = 30000  # ms
-    
+
     # Exploration settings
     max_depth: int = 3  # Max navigation depth in explore mode
     max_pages: int = 20  # Max pages to visit in explore mode
     max_interactions_per_page: int = 50  # Max interactions per page
-    
+
     # Test categories to run
     test_keyboard: bool = True
     test_mouse: bool = True
@@ -79,14 +78,14 @@ class TestConfig:
     test_console_errors: bool = True
     test_network_errors: bool = True
     test_wcag_compliance: bool = False  # Detailed WCAG 2.1 AA compliance (opt-in, intensive)
-    
+
     # Authentication
-    auth: Optional[AuthConfig] = None
-    
+    auth: AuthConfig | None = None
+
     # Screenshots and recording
     screenshots: ScreenshotConfig = field(default_factory=ScreenshotConfig)
     recording: RecordingConfig = field(default_factory=RecordingConfig)
-    
+
     # Ignore patterns (URLs to skip in explore mode)
     ignore_patterns: list[str] = field(default_factory=list)
 
@@ -94,6 +93,6 @@ class TestConfig:
     same_domain_only: bool = True
 
     # Agentic testing: natural language instructions interpreted by Claude
-    instructions: Optional[str] = None
+    instructions: str | None = None
     ai_model: str = "claude-sonnet-4-6"
     use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls

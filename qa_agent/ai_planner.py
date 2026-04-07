@@ -18,7 +18,6 @@ from .models import (
     TestPlan,
 )
 
-
 _SYSTEM_PROMPT = """You are an expert QA test planner for web applications.
 
 You will be given:

@@ -1,11 +1,10 @@
 """Keyboard navigation and input testing."""
 
-from datetime import datetime
-from playwright.sync_api import Page, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import Page
 
-from .base import BaseTester
-from ..models import Finding, FindingCategory, Severity
 from ..config import TestConfig
+from ..models import Finding, FindingCategory, Severity
+from .base import BaseTester
 
 
 class KeyboardTester(BaseTester):
@@ -19,7 +18,7 @@ class KeyboardTester(BaseTester):
     def run(self) -> list[Finding]:
         """Run all keyboard tests."""
         self.findings = []
-        
+
         self._test_tab_navigation()
         self._test_arrow_key_navigation()
         self._test_enter_activation()
@@ -27,7 +26,7 @@ class KeyboardTester(BaseTester):
         self._test_keyboard_traps()
         self._test_focus_visibility()
         self._test_shortcut_keys()
-        
+
         return self.findings
 
     def _test_tab_navigation(self):
@@ -36,11 +35,11 @@ class KeyboardTester(BaseTester):
             # Reset focus to body
             self.page.evaluate("document.body.focus()")
             self.page.keyboard.press("Tab")
-            
+
             visited_elements = []
             max_tabs = 100  # Prevent infinite loops
             tabs_pressed = 0
-            
+
             while tabs_pressed < max_tabs:
                 # Get currently focused element
                 focused = self.page.evaluate("""() => {
@@ -57,17 +56,17 @@ class KeyboardTester(BaseTester):
                         rect: el.getBoundingClientRect()
                     };
                 }""")
-                
+
                 if focused is None:
                     break
-                
+
                 # Check if we've cycled back to first element
                 element_key = f"{focused['tag']}_{focused['id']}_{focused['text']}"
                 if element_key in [f"{e['tag']}_{e['id']}_{e['text']}" for e in visited_elements[:3]]:
                     break
-                
+
                 visited_elements.append(focused)
-                
+
                 # Check for issues
                 if not focused.get("isVisible", True):
                     self.findings.append(Finding(
@@ -81,16 +80,16 @@ class KeyboardTester(BaseTester):
                         expected_behavior="Only visible elements should receive focus",
                         actual_behavior="Hidden element received keyboard focus",
                     ))
-                
+
                 self.page.keyboard.press("Tab")
                 tabs_pressed += 1
-            
+
             self.tab_order = visited_elements
-            
+
             # Check if tab order seems logical (top-to-bottom, left-to-right)
             if len(visited_elements) >= 3:
                 self._check_tab_order_logic(visited_elements)
-                
+
             # Check for lack of focusable elements
             if len(visited_elements) == 0:
                 self.findings.append(Finding(
@@ -102,7 +101,7 @@ class KeyboardTester(BaseTester):
                     expected_behavior="Interactive elements should be focusable via keyboard",
                     actual_behavior="No elements received focus when pressing TAB",
                 ))
-                
+
         except Exception as e:
             self.findings.append(Finding(
                 title="Tab navigation test failed",
@@ -119,14 +118,14 @@ class KeyboardTester(BaseTester):
         for i in range(1, len(elements)):
             prev_rect = elements[i-1].get('rect', {})
             curr_rect = elements[i].get('rect', {})
-            
+
             if not prev_rect or not curr_rect:
                 continue
-            
+
             # Check for significant backwards jump (going back up the page)
             if curr_rect.get('top', 0) < prev_rect.get('top', 0) - 100:
                 significant_jumps += 1
-        
+
         if significant_jumps > len(elements) * 0.3:
             self.findings.append(Finding(
                 title="Illogical tab order detected",
@@ -153,19 +152,19 @@ class KeyboardTester(BaseTester):
                 '[role="slider"]',
                 '[role="spinbutton"]',
             ]
-            
+
             for selector in arrow_nav_selectors:
                 elements = self.page.locator(selector)
                 count = elements.count()
-                
+
                 for i in range(min(count, 3)):  # Test up to 3 of each type
                     element = elements.nth(i)
                     if not element.is_visible():
                         continue
-                    
+
                     try:
                         element.focus()
-                        
+
                         # Test arrow keys
                         initial_state = self.page.evaluate("""() => {
                             const el = document.activeElement;
@@ -176,10 +175,10 @@ class KeyboardTester(BaseTester):
                                 ariaActiveDescendant: el.getAttribute('aria-activedescendant')
                             };
                         }""")
-                        
+
                         self.page.keyboard.press("ArrowDown")
                         self.page.wait_for_timeout(100)
-                        
+
                         after_state = self.page.evaluate("""() => {
                             const el = document.activeElement;
                             return {
@@ -189,7 +188,7 @@ class KeyboardTester(BaseTester):
                                 ariaActiveDescendant: el.getAttribute('aria-activedescendant')
                             };
                         }""")
-                        
+
                         # For interactive widgets, arrow should do something
                         if selector in ['[role="listbox"]', '[role="menu"]', 'select']:
                             if initial_state == after_state:
@@ -203,11 +202,11 @@ class KeyboardTester(BaseTester):
                                     expected_behavior="Arrow keys should navigate options in list/menu widgets",
                                     actual_behavior="Arrow key press had no effect",
                                 ))
-                                
+
                     except Exception:
                         continue
-                        
-        except Exception as e:
+
+        except Exception:
             pass  # Arrow key test is supplementary, don't fail on errors
 
     def _test_enter_activation(self):
@@ -216,21 +215,20 @@ class KeyboardTester(BaseTester):
             # Find buttons and links
             interactive_elements = self.page.locator('button:visible, a:visible, [role="button"]:visible')
             count = min(interactive_elements.count(), 5)
-            
+
             for i in range(count):
                 element = interactive_elements.nth(i)
                 try:
                     element.focus()
-                    
+
                     # Get initial URL and any click handlers
-                    initial_url = self.page.url
-                    
+
                     # Check if element is focused
                     is_focused = self.page.evaluate("""(selector) => {
                         const el = document.activeElement;
                         return el && (el.matches('button, a, [role="button"]'));
                     }""", None)
-                    
+
                     if not is_focused:
                         tag = element.evaluate("el => el.tagName.toLowerCase()")
                         text = element.text_content()[:30] if element.text_content() else ""
@@ -244,10 +242,10 @@ class KeyboardTester(BaseTester):
                             expected_behavior="Buttons and links should be focusable",
                             actual_behavior="Element could not be focused via JavaScript",
                         ))
-                        
+
                 except Exception:
                     continue
-                    
+
         except Exception:
             pass
 
@@ -261,12 +259,12 @@ class KeyboardTester(BaseTester):
                 '.modal:visible',
                 '[aria-modal="true"]:visible',
             ]
-            
+
             for selector in modal_selectors:
                 if self.page.locator(selector).count() > 0:
                     self.page.keyboard.press("Escape")
                     self.page.wait_for_timeout(300)
-                    
+
                     if self.page.locator(selector).count() > 0:
                         self.findings.append(Finding(
                             title="Escape key doesn't close modal",
@@ -278,7 +276,7 @@ class KeyboardTester(BaseTester):
                             expected_behavior="Escape key should close modals and dialogs",
                             actual_behavior="Modal remained open after Escape key press",
                         ))
-                        
+
         except Exception:
             pass
 
@@ -287,16 +285,16 @@ class KeyboardTester(BaseTester):
         try:
             # Try to detect keyboard traps by tabbing many times
             self.page.evaluate("document.body.focus()")
-            
+
             visited_ids = set()
             for _ in range(50):
                 self.page.keyboard.press("Tab")
-                
+
                 focused_id = self.page.evaluate("""() => {
                     const el = document.activeElement;
                     return el ? (el.id || el.className || el.tagName) : 'body';
                 }""")
-                
+
                 if focused_id in visited_ids and len(visited_ids) < 3:
                     # Possible keyboard trap - cycling through very few elements
                     self.findings.append(Finding(
@@ -310,9 +308,9 @@ class KeyboardTester(BaseTester):
                         metadata={"trapped_elements": list(visited_ids)},
                     ))
                     break
-                    
+
                 visited_ids.add(focused_id)
-                
+
         except Exception:
             pass
 
@@ -320,24 +318,24 @@ class KeyboardTester(BaseTester):
         """Test that focus indicators are visible."""
         try:
             self.page.evaluate("document.body.focus()")
-            
+
             elements_without_focus_style = []
-            
+
             for _ in range(10):  # Check first 10 focusable elements
                 self.page.keyboard.press("Tab")
-                
+
                 focus_visible = self.page.evaluate("""() => {
                     const el = document.activeElement;
                     if (!el || el === document.body) return null;
-                    
+
                     const styles = window.getComputedStyle(el);
                     const beforeStyles = window.getComputedStyle(el, ':focus');
-                    
+
                     // Check for common focus indicators
                     const hasOutline = styles.outlineStyle !== 'none' && styles.outlineWidth !== '0px';
                     const hasBoxShadow = styles.boxShadow !== 'none';
                     const hasBorder = styles.borderWidth !== '0px';
-                    
+
                     return {
                         tag: el.tagName.toLowerCase(),
                         text: el.textContent?.slice(0, 30),
@@ -348,10 +346,10 @@ class KeyboardTester(BaseTester):
                         hasSomeFocusIndicator: hasOutline || hasBoxShadow
                     };
                 }""")
-                
+
                 if focus_visible and not focus_visible.get('hasSomeFocusIndicator'):
                     elements_without_focus_style.append(focus_visible)
-            
+
             if len(elements_without_focus_style) > 3:
                 self.findings.append(Finding(
                     title="Missing focus indicators",
@@ -363,7 +361,7 @@ class KeyboardTester(BaseTester):
                     actual_behavior="Multiple elements have no visible focus state",
                     metadata={"elements": elements_without_focus_style[:5]},
                 ))
-                
+
         except Exception:
             pass
 
@@ -374,14 +372,14 @@ class KeyboardTester(BaseTester):
             ("Control+c", "Copy"),
             ("Control+f", "Find"),
         ]
-        
+
         try:
             initial_url = self.page.url
-            
+
             for shortcut, description in shortcuts:
                 self.page.keyboard.press(shortcut)
                 self.page.wait_for_timeout(100)
-                
+
                 # Check for unexpected navigation
                 if self.page.url != initial_url:
                     self.findings.append(Finding(
@@ -394,9 +392,9 @@ class KeyboardTester(BaseTester):
                         actual_behavior=f"Page navigated to {self.page.url}",
                     ))
                     self.page.goto(initial_url)
-                    
+
                 # Press Escape to close any dialogs that opened
                 self.page.keyboard.press("Escape")
-                
+
         except Exception:
             pass

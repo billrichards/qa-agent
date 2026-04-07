@@ -6,23 +6,22 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from typing import Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
-from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
-from .config import TestConfig, TestMode, OutputFormat, AuthConfig
-from .models import TestPlan, TestSession, PageAnalysis, Finding
+from .config import OutputFormat, TestConfig, TestMode
+from .models import Finding, PageAnalysis, TestPlan, TestSession
+from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
 from .testers import (
+    AccessibilityTester,
+    CustomTester,
+    ErrorDetector,
+    FormTester,
     KeyboardTester,
     MouseTester,
-    FormTester,
-    AccessibilityTester,
-    ErrorDetector,
-    CustomTester,
     WCAGComplianceTester,
 )
-from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter, PDFReporter
 
 
 def _extract_domain(url: str) -> str:
@@ -43,15 +42,15 @@ class QAAgent:
 
     def __init__(self, config: TestConfig):
         self.config = config
-        self.session: Optional[TestSession] = None
-        self.browser: Optional[Browser] = None
-        self.context: Optional[BrowserContext] = None
-        self.page: Optional[Page] = None
-        self.error_detector: Optional[ErrorDetector] = None
+        self.session: TestSession | None = None
+        self.browser: Browser | None = None
+        self.context: BrowserContext | None = None
+        self.page: Page | None = None
+        self.error_detector: ErrorDetector | None = None
         self.visited_urls: set[str] = set()
         self.urls_to_visit: list[str] = []
-        self.test_plan: Optional[TestPlan] = None
-        self.stop_event: Optional[threading.Event] = None  # Set by web server to request graceful stop
+        self.test_plan: TestPlan | None = None
+        self.stop_event: threading.Event | None = None  # Set by web server to request graceful stop
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -74,7 +73,7 @@ class QAAgent:
             self.reporters.append(JSONReporter(config.output_dir))
         if OutputFormat.PDF in config.output_formats:
             self.reporters.append(PDFReporter(config.output_dir))
-        
+
         self.console = next(
             (r for r in self.reporters if isinstance(r, ConsoleReporter)),
             ConsoleReporter(config.output_dir)
@@ -93,33 +92,33 @@ class QAAgent:
                 "max_pages": self.config.max_pages if self.config.mode == TestMode.EXPLORE else None,
             }
         )
-        
+
         # Generate AI test plan if instructions were provided
         if self.config.instructions:
             self._generate_test_plan()
 
         with sync_playwright() as playwright:
             self._setup_browser(playwright)
-            
+
             try:
                 # Authenticate if needed
                 if self.config.auth:
                     self._authenticate()
-                
+
                 # Run tests based on mode
                 if self.config.mode == TestMode.FOCUSED:
                     self._run_focused_mode()
                 else:
                     self._run_explore_mode()
-                    
+
             finally:
                 self._cleanup()
-        
+
         self.session.end_time = datetime.now()
-        
+
         # Generate reports
         self._generate_reports()
-        
+
         return self.session
 
     def _generate_test_plan(self):
@@ -194,31 +193,31 @@ class QAAgent:
         browser_options = {
             "headless": self.config.headless,
         }
-        
+
         self.browser = playwright.chromium.launch(**browser_options)
-        
+
         context_options = {
             "viewport": {
                 "width": self.config.viewport_width,
                 "height": self.config.viewport_height,
             },
         }
-        
+
         # Set up recording if enabled
         if self.config.recording.enabled:
             os.makedirs(self.config.recording.output_dir, exist_ok=True)
             context_options["record_video_dir"] = self.config.recording.output_dir
             context_options["record_video_size"] = self.config.recording.video_size
-        
+
         # Add custom headers if provided in auth
         if self.config.auth and self.config.auth.headers:
             context_options["extra_http_headers"] = self.config.auth.headers
-        
+
         self.context = self.browser.new_context(**context_options)
         self.context.set_default_timeout(self.config.timeout)
-        
+
         self.page = self.context.new_page()
-        
+
         # Set up error detector
         self.error_detector = ErrorDetector(self.page, self.config)
         self.error_detector.attach_listeners()
@@ -226,31 +225,31 @@ class QAAgent:
     def _authenticate(self):
         """Perform authentication if configured."""
         auth = self.config.auth
-        
+
         # Handle cookies
         if auth.cookies:
             self.context.add_cookies([auth.cookies] if isinstance(auth.cookies, dict) else auth.cookies)
             return
-        
+
         # Handle form-based auth
         if auth.auth_url and auth.username and auth.password:
             self.console.print_progress(f"Authenticating at {auth.auth_url}")
             self.page.goto(auth.auth_url)
-            
+
             # Find and fill username
             username_selector = auth.username_selector or 'input[type="email"], input[type="text"][name*="user"], input[name*="email"], input#username, input#email'
             try:
                 self.page.fill(username_selector, auth.username)
             except Exception as e:
                 self.console.print_progress(f"Warning: Could not fill username field: {e}")
-            
+
             # Find and fill password
             password_selector = auth.password_selector or 'input[type="password"]'
             try:
                 self.page.fill(password_selector, auth.password)
             except Exception as e:
                 self.console.print_progress(f"Warning: Could not fill password field: {e}")
-            
+
             # Submit
             submit_selector = auth.submit_selector or 'button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Sign in")'
             try:
@@ -275,7 +274,7 @@ class QAAgent:
         # Initialize with seed URLs
         self.urls_to_visit = list(self.config.urls)
         depth_map = {url: 0 for url in self.urls_to_visit}
-        
+
         while self.urls_to_visit and len(self.visited_urls) < self.config.max_pages:
             if self.stop_event and self.stop_event.is_set():
                 break
@@ -283,15 +282,15 @@ class QAAgent:
 
             if url in self.visited_urls:
                 continue
-            
+
             current_depth = depth_map.get(url, 0)
-            
+
             if current_depth > self.config.max_depth:
                 continue
-            
+
             self._test_page(url)
             self.visited_urls.add(url)
-            
+
             # Discover new links
             if current_depth < self.config.max_depth:
                 new_urls = self._discover_links(url)
@@ -304,7 +303,7 @@ class QAAgent:
     def _test_page(self, url: str):
         """Test a single page."""
         self.console.print_page_start(url)
-        
+
         try:
             start_time = time.time()
             self.page.goto(url, wait_until="domcontentloaded")
@@ -313,10 +312,10 @@ class QAAgent:
         except Exception as e:
             self.console.print_progress(f"Error loading page: {e}")
             return
-        
+
         # Gather page info
         page_info = self._analyze_page_structure()
-        
+
         page_analysis = PageAnalysis(
             url=url,
             title=self.page.title(),
@@ -326,10 +325,10 @@ class QAAgent:
             links_count=page_info["links_count"],
             images_count=page_info["images_count"],
         )
-        
+
         # Run testers
         all_findings: list[Finding] = []
-        
+
         if self.config.test_keyboard:
             self.console.print_test_category("keyboard navigation")
             tester = KeyboardTester(self.page, self.config)
@@ -337,7 +336,7 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-        
+
         if self.config.test_mouse:
             self.console.print_test_category("mouse interaction")
             tester = MouseTester(self.page, self.config)
@@ -345,7 +344,7 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-        
+
         if self.config.test_forms:
             self.console.print_test_category("form handling")
             tester = FormTester(self.page, self.config)
@@ -353,7 +352,7 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-        
+
         if self.config.test_accessibility:
             self.console.print_test_category("accessibility")
             tester = AccessibilityTester(self.page, self.config)
@@ -361,7 +360,7 @@ class QAAgent:
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
-        
+
         if self.config.test_wcag_compliance:
             self.console.print_test_category("WCAG 2.1 AA compliance")
             tester = WCAGComplianceTester(self.page, self.config)
@@ -377,7 +376,7 @@ class QAAgent:
             for f in findings:
                 self.console.print_finding(f)
 
-            error_summary = self.error_detector.get_summary()
+            self.error_detector.get_summary()
             page_analysis.console_errors = [
                 m["text"] for m in self.error_detector.console_messages
                 if m["type"] == "error"
@@ -399,10 +398,10 @@ class QAAgent:
                 for finding in all_findings:
                     if not finding.screenshot_path:
                         finding.screenshot_path = screenshot_path
-        
+
         page_analysis.findings = all_findings
         self.session.add_page_analysis(page_analysis)
-        
+
         # Reset error detector for next page
         self.error_detector.console_messages = []
         self.error_detector.network_errors = []
@@ -430,34 +429,34 @@ class QAAgent:
         try:
             links = self.page.evaluate("""() => {
                 const links = document.querySelectorAll('a[href]');
-                return Array.from(links).map(a => a.href).filter(href => 
-                    href && 
-                    !href.startsWith('javascript:') && 
+                return Array.from(links).map(a => a.href).filter(href =>
+                    href &&
+                    !href.startsWith('javascript:') &&
                     !href.startsWith('mailto:') &&
                     !href.startsWith('tel:') &&
                     !href.startsWith('#')
                 );
             }""")
-            
+
             valid_links = []
             current_domain = urlparse(current_url).netloc
-            
+
             for link in links:
                 parsed = urlparse(link)
-                
+
                 # Filter by domain if configured
                 if self.config.same_domain_only and parsed.netloc != current_domain:
                     continue
-                
+
                 # Normalize URL
                 normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                 if normalized.endswith('/'):
                     normalized = normalized[:-1]
-                
+
                 valid_links.append(normalized)
-            
+
             return list(set(valid_links))
-            
+
         except Exception:
             return []
 
@@ -466,25 +465,25 @@ class QAAgent:
         for pattern in self.config.ignore_patterns:
             if re.search(pattern, url):
                 return True
-        
+
         # Skip common non-page resources
         skip_extensions = ['.pdf', '.zip', '.jpg', '.png', '.gif', '.svg', '.css', '.js', '.ico']
         for ext in skip_extensions:
             if url.lower().endswith(ext):
                 return True
-        
+
         return False
 
-    def _take_screenshot(self, name: str) -> Optional[str]:
+    def _take_screenshot(self, name: str) -> str | None:
         """Take a screenshot and return the path."""
         if not self.config.screenshots.enabled:
             return None
-        
+
         os.makedirs(self.config.screenshots.output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
         filepath = os.path.join(self.config.screenshots.output_dir, filename)
-        
+
         try:
             self.page.screenshot(
                 path=filepath,
@@ -505,7 +504,7 @@ class QAAgent:
                     self.session.recording_path = video_path
             except Exception:
                 pass
-        
+
         if self.context:
             self.context.close()
         if self.browser:

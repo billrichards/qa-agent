@@ -9,7 +9,6 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from .models import (
     CustomStep,
@@ -42,7 +41,7 @@ class PlanCache:
         content = instructions.strip() + "\n" + "\n".join(sorted(urls))
         return hashlib.sha256(content.encode()).hexdigest()[:24]
 
-    def get(self, key: str) -> Optional[TestPlan]:
+    def get(self, key: str) -> TestPlan | None:
         """Return the cached TestPlan if present and not expired, else None."""
         path = self._path(key)
         if not path.exists():

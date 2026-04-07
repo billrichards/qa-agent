@@ -1,13 +1,12 @@
 """Console reporter for real-time output."""
 
 import sys
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from .base import BaseReporter
 
 if TYPE_CHECKING:
-    from ..models import TestSession, Finding
+    from ..models import Finding, TestSession
 
 
 class ConsoleReporter(BaseReporter):
@@ -47,7 +46,7 @@ class ConsoleReporter(BaseReporter):
         cat_emoji = self._category_emoji(finding.category.value)
         severity = finding.severity.value.upper()
         color = self._severity_color(finding.severity.value)
-        
+
         print(f"\n{emoji} {self._color(f'[{severity}]', color)} {cat_emoji} {finding.title}")
         print(f"   {finding.description}")
         if finding.url:
@@ -87,7 +86,7 @@ class ConsoleReporter(BaseReporter):
         print("-" * 40)
         print(f"  Pages tested: {len(session.pages_tested)}")
         print(f"  Total findings: {session.total_findings}")
-        
+
         if session.findings_by_severity:
             print(f"\n  {self._color('By Severity:', '1')}")
             for severity in ["critical", "high", "medium", "low", "info"]:
@@ -96,7 +95,7 @@ class ConsoleReporter(BaseReporter):
                     emoji = self._severity_emoji(severity)
                     color = self._severity_color(severity)
                     print(f"    {emoji} {self._color(severity.upper(), color)}: {count}")
-        
+
         if session.findings_by_category:
             print(f"\n  {self._color('By Category:', '1')}")
             for category, count in sorted(session.findings_by_category.items(), key=lambda x: -x[1]):
@@ -107,14 +106,14 @@ class ConsoleReporter(BaseReporter):
     def _print_findings(self, session: "TestSession"):
         """Print all findings grouped by severity."""
         findings = session.get_all_findings()
-        
+
         if not findings:
             print(f"\n{self._color('✅ No issues found!', '92')}")
             return
-        
+
         print(f"\n{self._color('📋 FINDINGS', '1;97')}")
         print("-" * 40)
-        
+
         # Group by severity
         severity_order = ["critical", "high", "medium", "low", "info"]
         grouped = {}
@@ -123,20 +122,20 @@ class ConsoleReporter(BaseReporter):
             if sev not in grouped:
                 grouped[sev] = []
             grouped[sev].append(finding)
-        
+
         for severity in severity_order:
             if severity not in grouped:
                 continue
-            
+
             color = self._severity_color(severity)
             emoji = self._severity_emoji(severity)
             print(f"\n{emoji} {self._color(severity.upper() + ' SEVERITY', f'1;{color}')}")
-            
+
             for i, finding in enumerate(grouped[severity], 1):
                 cat_emoji = self._category_emoji(finding.category.value)
                 print(f"\n  {i}. {cat_emoji} {self._color(finding.title, '1')}")
                 print(f"     {finding.description}")
-                
+
                 if finding.url:
                     print(f"     📍 URL: {self._color(finding.url, '90')}")
                 if finding.element_selector:
@@ -151,7 +150,7 @@ class ConsoleReporter(BaseReporter):
     def _print_footer(self, session: "TestSession"):
         """Print report footer."""
         print("\n" + "=" * 70)
-        
+
         if session.total_findings == 0:
             print(self._color("  ✅ All tests passed with no issues found!", "92"))
         else:
@@ -160,8 +159,8 @@ class ConsoleReporter(BaseReporter):
                 print(self._color(f"  ⚠️  {critical_high} critical/high severity issues require attention", "91"))
             else:
                 print(self._color(f"  ℹ️  {session.total_findings} issues found, none critical", "93"))
-        
+
         if session.recording_path:
             print(f"  📹 Recording saved: {session.recording_path}")
-        
+
         print("=" * 70 + "\n")

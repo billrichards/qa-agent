@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from .base import BaseReporter
 
 if TYPE_CHECKING:
-    from ..models import TestSession, Finding
+    from ..models import Finding, TestSession
 
 
 class PDFReporter(BaseReporter):
@@ -16,12 +16,12 @@ class PDFReporter(BaseReporter):
     def generate(self, session: "TestSession") -> str:
         """Generate PDF report and save to file."""
         try:
-            from weasyprint import HTML, CSS
+            from weasyprint import CSS, HTML
         except ImportError:
             raise ImportError(
                 "weasyprint is required for PDF output. "
                 "Install it with: pip install weasyprint"
-            )
+            ) from None
 
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -406,7 +406,7 @@ class PDFReporter(BaseReporter):
 
         if finding.screenshot_path:
             # Embed screenshot as file reference (WeasyPrint can handle local paths)
-            lines.append(f'<p><span class="label">Screenshot:</span></p>')
+            lines.append('<p><span class="label">Screenshot:</span></p>')
             lines.append(f'<img class="screenshot" src="file://{finding.screenshot_path}" alt="Screenshot"/>')
 
         if finding.raw_error:

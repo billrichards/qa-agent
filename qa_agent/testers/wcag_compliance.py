@@ -12,9 +12,9 @@ import logging
 
 from playwright.sync_api import Page
 
-from .base import BaseTester
-from ..models import Finding, FindingCategory, Severity
 from ..config import TestConfig
+from ..models import Finding, FindingCategory, Severity
+from .base import BaseTester
 
 logger = logging.getLogger(__name__)
 

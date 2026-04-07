@@ -4,9 +4,18 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 from . import __version__
+from .agent import QAAgent
+from .config import (
+    AuthConfig,
+    OutputFormat,
+    RecordingConfig,
+    ScreenshotConfig,
+    TestConfig,
+    TestMode,
+)
+
 
 # Resolve the project root once at import time (the directory that contains
 # pyproject.toml / .git), walking up from this file's location.  This means
@@ -20,30 +29,21 @@ def _find_project_root() -> Path:
         candidate = candidate.parent
     return Path(__file__).resolve().parent.parent  # fallback
 
+
 _PROJECT_ROOT = _find_project_root()
 
-from .config import (
-    TestConfig,
-    TestMode,
-    OutputFormat,
-    AuthConfig,
-    ScreenshotConfig,
-    RecordingConfig,
-)
-from .agent import QAAgent
 
-
-def parse_auth_config(auth_str: Optional[str], auth_file: Optional[str]) -> Optional[AuthConfig]:
+def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
     """Parse authentication configuration from string or file."""
     if auth_file:
         try:
-            with open(auth_file, 'r') as f:
+            with open(auth_file) as f:
                 auth_data = json.load(f)
             return AuthConfig(**auth_data)
         except Exception as e:
             print(f"Error loading auth file: {e}", file=sys.stderr)
             return None
-    
+
     if auth_str:
         # Format: username:password or username:password@auth_url
         try:
@@ -56,9 +56,9 @@ def parse_auth_config(auth_str: Optional[str], auth_file: Optional[str]) -> Opti
                 username, password = auth_str.split(':', 1)
                 return AuthConfig(username=username, password=password)
         except ValueError:
-            print(f"Invalid auth format. Use: username:password or username:password@auth_url", file=sys.stderr)
+            print("Invalid auth format. Use: username:password or username:password@auth_url", file=sys.stderr)
             return None
-    
+
     return None
 
 
@@ -101,7 +101,7 @@ Examples:
         nargs="+",
         help="URL(s) to test",
     )
-    
+
     # Mode options
     parser.add_argument(
         "-m", "--mode",
@@ -109,7 +109,7 @@ Examples:
         default="focused",
         help="Test mode: 'focused' tests only given URLs, 'explore' discovers and tests additional pages (default: focused)",
     )
-    
+
     # Exploration options
     parser.add_argument(
         "--max-depth",
@@ -140,7 +140,7 @@ Examples:
         default=[],
         help="Regex pattern(s) for URLs to ignore (can be used multiple times)",
     )
-    
+
     # Output options
     parser.add_argument(
         "-o", "--output",
@@ -153,7 +153,7 @@ Examples:
         help="Base directory for all output (default: <project-root>/output). "
              "Results are written to output/{domain}/{session_id}/qa_reports|screenshots|recordings",
     )
-    
+
     # Browser options
     parser.add_argument(
         "--headless",
@@ -177,7 +177,7 @@ Examples:
         default=30000,
         help="Timeout in milliseconds (default: 30000)",
     )
-    
+
     # Test categories
     parser.add_argument(
         "--skip-keyboard",
@@ -229,7 +229,7 @@ Examples:
         default=[],
         help="Custom header in 'Name: Value' format (can be used multiple times)",
     )
-    
+
     # Screenshots and recording
     parser.add_argument(
         "--screenshots",
@@ -281,7 +281,7 @@ Examples:
     # Validate: --no-cache requires instructions
     if args.no_cache and not (args.instructions or args.instructions_file):
         parser.error("--no-cache can only be used with --instructions or --instructions-file")
-    
+
     # Parse output formats
     output_formats = []
     for fmt in args.output.split(","):
@@ -296,7 +296,7 @@ Examples:
             output_formats.append(OutputFormat.PDF)
         else:
             print(f"Unknown output format: {fmt}", file=sys.stderr)
-    
+
     if not output_formats:
         output_formats = [OutputFormat.CONSOLE, OutputFormat.MARKDOWN]
 
@@ -310,14 +310,14 @@ Examples:
     except ValueError:
         print(f"Invalid viewport format: {args.viewport}. Use WIDTHxHEIGHT", file=sys.stderr)
         width, height = 1280, 720
-    
+
     # Parse authentication
     auth_config = parse_auth_config(args.auth, args.auth_file)
-    
+
     # Handle cookies file
     if args.cookies:
         try:
-            with open(args.cookies, 'r') as f:
+            with open(args.cookies) as f:
                 cookies = json.load(f)
             if auth_config:
                 auth_config.cookies = cookies
@@ -325,7 +325,7 @@ Examples:
                 auth_config = AuthConfig(cookies=cookies)
         except Exception as e:
             print(f"Error loading cookies: {e}", file=sys.stderr)
-    
+
     # Handle custom headers
     if args.header:
         headers = {}
@@ -338,9 +338,9 @@ Examples:
                 auth_config.headers = headers
             else:
                 auth_config = AuthConfig(headers=headers)
-    
+
     # Resolve natural language instructions (inline or from file)
-    instructions: Optional[str] = None
+    instructions: str | None = None
     if args.instructions_file:
         try:
             instructions = Path(args.instructions_file).read_text(encoding="utf-8").strip()
@@ -384,22 +384,22 @@ Examples:
         ai_model=args.ai_model,
         use_plan_cache=not args.no_cache,
     )
-    
+
     # Run the agent
     agent = QAAgent(config)
-    
+
     try:
         session = agent.run()
-        
+
         # Exit with error code if critical/high issues found
         critical_high = (
             session.findings_by_severity.get("critical", 0) +
             session.findings_by_severity.get("high", 0)
         )
-        
+
         if critical_high > 0:
             sys.exit(1)
-        
+
     except KeyboardInterrupt:
         print("\n\nTest interrupted by user.")
         sys.exit(130)

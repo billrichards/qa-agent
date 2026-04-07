@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Any
+from typing import Any
 
 
 class Severity(Enum):
@@ -38,13 +38,13 @@ class Finding:
     severity: Severity
     url: str
     timestamp: datetime = field(default_factory=datetime.now)
-    element_selector: Optional[str] = None
-    element_text: Optional[str] = None
-    screenshot_path: Optional[str] = None
+    element_selector: str | None = None
+    element_text: str | None = None
+    screenshot_path: str | None = None
     steps_to_reproduce: list[str] = field(default_factory=list)
-    expected_behavior: Optional[str] = None
-    actual_behavior: Optional[str] = None
-    raw_error: Optional[str] = None
+    expected_behavior: str | None = None
+    actual_behavior: str | None = None
+    raw_error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     # Populated during deduplication: all URLs where this issue was seen
     affected_urls: list[str] = field(default_factory=list)
@@ -75,10 +75,10 @@ class PageInteraction:
     """Record of an interaction with a page element."""
     interaction_type: str  # click, type, keypress, etc.
     element_selector: str
-    element_text: Optional[str]
-    input_value: Optional[str] = None
+    element_text: str | None
+    input_value: str | None = None
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
 
@@ -108,18 +108,18 @@ class PageAnalysis:
 class StepAction:
     """A single action to perform during a custom test step."""
     type: str  # "click", "fill", "hover", "press_key", "wait", "navigate", "scroll"
-    selector: Optional[str] = None
-    value: Optional[str] = None  # fill text, key name, wait ms, navigate URL, scroll direction
-    description: Optional[str] = None
+    selector: str | None = None
+    value: str | None = None  # fill text, key name, wait ms, navigate URL, scroll direction
+    description: str | None = None
 
 
 @dataclass
 class StepAssertion:
     """An assertion to check after actions in a custom test step."""
     type: str  # "visible", "hidden", "text_contains", "url_contains", "element_count"
-    selector: Optional[str] = None
-    value: Optional[str] = None  # expected text, URL fragment, or count
-    description: Optional[str] = None
+    selector: str | None = None
+    value: str | None = None  # expected text, URL fragment, or count
+    description: str | None = None
 
 
 @dataclass
@@ -182,13 +182,13 @@ class TestSession:
     """Complete test session results."""
     session_id: str
     start_time: datetime
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     config_summary: dict = field(default_factory=dict)
     pages_tested: list[PageAnalysis] = field(default_factory=list)
     total_findings: int = 0
     findings_by_severity: dict[str, int] = field(default_factory=dict)
     findings_by_category: dict[str, int] = field(default_factory=dict)
-    recording_path: Optional[str] = None
+    recording_path: str | None = None
 
     def add_page_analysis(self, page: PageAnalysis):
         """Add page analysis and update totals."""
@@ -217,7 +217,7 @@ class TestSession:
         still informative.  Findings that appear on only one URL are returned
         unchanged (``affected_urls`` stays empty).
         """
-        groups: dict[tuple, list["Finding"]] = {}
+        groups: dict[tuple, list[Finding]] = {}
         for finding in self.get_all_findings():
             key = (
                 finding.title,
@@ -226,8 +226,8 @@ class TestSession:
             )
             groups.setdefault(key, []).append(finding)
 
-        deduped: list["Finding"] = []
-        for (title, cat, sev), group in groups.items():
+        deduped: list[Finding] = []
+        for (_title, _cat, _sev), group in groups.items():
             if len(group) == 1:
                 deduped.append(group[0])
                 continue

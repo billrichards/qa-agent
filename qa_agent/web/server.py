@@ -2,7 +2,6 @@
 
 import io
 import json
-import os
 import queue
 import re
 import sys
@@ -10,11 +9,12 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import Flask, Response, abort, jsonify, render_template, request, send_file
 
+from ..agent import QAAgent
 from ..config import (
     AuthConfig,
     OutputFormat,
@@ -23,7 +23,6 @@ from ..config import (
     TestConfig,
     TestMode,
 )
-from ..agent import QAAgent
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve().parent      # qa_agent/web/
@@ -405,7 +404,7 @@ _CACHE_TTL = 60.0  # seconds
 
 
 def _scan_sessions(
-    domain_filter: Optional[str] = None,
+    domain_filter: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict:
@@ -475,7 +474,7 @@ def _build_session_list() -> list:
     return sessions
 
 
-def _load_session(domain: str, session_id: str) -> Optional[dict]:
+def _load_session(domain: str, session_id: str) -> dict | None:
     session_dir = OUTPUT_DIR / domain / session_id
     if not session_dir.exists():
         return None
@@ -497,7 +496,7 @@ def _load_session(domain: str, session_id: str) -> Optional[dict]:
     # Collect report file links
     reports: dict[str, str] = {}
     screenshots: list[str] = []
-    recording: Optional[str] = None
+    recording: str | None = None
 
     if reports_dir.exists():
         for f in reports_dir.iterdir():
@@ -562,7 +561,7 @@ def _build_config(body: dict) -> TestConfig:
         output_formats.append(OutputFormat.JSON)
 
     auth_data = body.get("auth") or {}
-    auth: Optional[AuthConfig] = None
+    auth: AuthConfig | None = None
     if any(auth_data.get(k) for k in ("username", "cookies", "headers", "auth_url")):
         cookies = auth_data.get("cookies")
         if isinstance(cookies, str) and cookies.strip():
