@@ -20,6 +20,7 @@ from .testers import (
     AccessibilityTester,
     ErrorDetector,
     CustomTester,
+    WCAGComplianceTester,
 )
 from .reporters import ConsoleReporter, MarkdownReporter, JSONReporter, PDFReporter
 
@@ -361,6 +362,14 @@ class QAAgent:
             for f in findings:
                 self.console.print_finding(f)
         
+        if self.config.test_wcag_compliance:
+            self.console.print_test_category("WCAG 2.1 AA compliance")
+            tester = WCAGComplianceTester(self.page, self.config)
+            findings = tester.run()
+            all_findings.extend(findings)
+            for f in findings:
+                self.console.print_finding(f)
+
         if self.config.test_console_errors or self.config.test_network_errors:
             self.console.print_test_category("error detection")
             findings = self.error_detector.run()
