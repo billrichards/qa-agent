@@ -100,6 +100,7 @@ function collectFormData(form) {
     test_accessibility: !!fd.get('test_accessibility'),
     test_console_errors: !!fd.get('test_console_errors'),
     test_network_errors: !!fd.get('test_network_errors'),
+    test_wcag_compliance: !!fd.get('test_wcag_compliance'),
     same_domain_only: !!fd.get('same_domain_only'),
     ignore_patterns: (fd.get('ignore_patterns') || '').split('\n').map(s => s.trim()).filter(Boolean),
     instructions: fd.get('instructions') || null,

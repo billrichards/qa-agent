@@ -78,6 +78,7 @@ class TestConfig:
     test_accessibility: bool = True
     test_console_errors: bool = True
     test_network_errors: bool = True
+    test_wcag_compliance: bool = False  # Detailed WCAG 2.1 AA compliance (opt-in, intensive)
     
     # Authentication
     auth: Optional[AuthConfig] = None

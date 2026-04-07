@@ -615,6 +615,7 @@ def _build_config(body: dict) -> TestConfig:
         test_accessibility=bool(body.get("test_accessibility", True)),
         test_console_errors=bool(body.get("test_console_errors", True)),
         test_network_errors=bool(body.get("test_network_errors", True)),
+        test_wcag_compliance=bool(body.get("test_wcag_compliance", False)),
         ignore_patterns=body.get("ignore_patterns", []),
         same_domain_only=bool(body.get("same_domain_only", True)),
         instructions=body.get("instructions") or None,

@@ -204,7 +204,12 @@ Examples:
         action="store_true",
         help="Skip console/network error detection",
     )
-    
+    parser.add_argument(
+        "--wcag-compliance",
+        action="store_true",
+        help="Enable detailed WCAG 2.1 AA compliance testing (off by default)",
+    )
+
     # Authentication
     parser.add_argument(
         "--auth",
@@ -362,6 +367,7 @@ Examples:
         test_accessibility=not args.skip_accessibility,
         test_console_errors=not args.skip_errors,
         test_network_errors=not args.skip_errors,
+        test_wcag_compliance=args.wcag_compliance,
         auth=auth_config,
         screenshots=ScreenshotConfig(
             enabled=args.screenshots or args.screenshots_all,
