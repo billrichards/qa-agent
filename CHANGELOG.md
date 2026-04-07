@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial public release.
 - Agentic exploratory QA testing powered by Claude (Anthropic API).
 - Two test modes: `focused` (given URLs only) and `explore` (crawl and discover).
-- Five built-in test suites: keyboard navigation, mouse interaction, form handling, accessibility (WCAG), and error detection.
+- Five standard test suites: keyboard navigation, mouse interaction, form handling, accessibility (WCAG), and error detection.
+- Opt-in WCAG 2.1 AA compliance tester (`--wcag-compliance`): covers non-text contrast, use of color, content on hover/focus, meaningful sequence, input purpose, focus visible, label in name, target size, language of parts, error identification, and detailed ARIA role/property validation.
 - Authentication support: username/password, cookies, Bearer tokens, custom headers.
 - Four output formats: console, Markdown, JSON, PDF.
 - On-error and every-interaction screenshot capture; full session video recording.

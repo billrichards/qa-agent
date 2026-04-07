@@ -29,7 +29,7 @@ Automated exploratory QA testing for web applications. Simulates real user inter
 |---|---|
 | **Agentic testing** | Give Claude a bug report or feature spec; it generates custom Playwright test steps automatically |
 | **Two modes** | `focused` tests only given URLs; `explore` crawls and discovers additional pages |
-| **Five test suites** | Keyboard nav, mouse interaction, form handling, accessibility (WCAG), error detection |
+| **Six test suites** | Keyboard nav, mouse interaction, form handling, accessibility (WCAG), WCAG 2.1 AA compliance (opt-in), error detection |
 | **Auth support** | Username/password, cookies, Bearer tokens, custom headers |
 | **Four output formats** | Console, Markdown, JSON, PDF |
 | **Screenshots & video** | On-error or every-interaction screenshots; full session video recording |
@@ -216,7 +216,7 @@ qa-agent --output-dir ./reports https://example.com
 
 Output is organized as `output/{domain}/{session_id}/qa_reports|screenshots|recordings`.
 
-> PDF requires `weasyprint`. Install with `pip install -e ".[pdf]"`. Falls back to Markdown if not installed.
+> PDF requires `weasyprint`. Install with `pip install "qa-agent[pdf]"`. Falls back to Markdown if not installed.
 
 ### Screenshots & recording
 
@@ -235,14 +235,18 @@ qa-agent --viewport 1920x1080           # custom viewport (default: 1280x720)
 qa-agent --timeout 60000                # timeout in ms (default: 30000)
 ```
 
-### Skip test categories
+### Test category flags
 
 ```bash
+# Skip standard suites
 qa-agent --skip-keyboard      https://example.com
 qa-agent --skip-mouse         https://example.com
 qa-agent --skip-forms         https://example.com
 qa-agent --skip-accessibility https://example.com
 qa-agent --skip-errors        https://example.com
+
+# Enable opt-in suites
+qa-agent --wcag-compliance    https://example.com  # detailed WCAG 2.1 AA audit
 ```
 
 ---
@@ -291,6 +295,9 @@ Image alt text · Heading structure (h1–h6) · Link text quality · Color cont
 
 ### Error Detection
 Console errors and warnings · Network errors (4xx, 5xx) · JavaScript exceptions · Broken images · Broken anchor links · Mixed content (HTTP on HTTPS)
+
+### WCAG 2.1 AA Compliance (opt-in: `--wcag-compliance`)
+Covers WCAG criteria not already in the standard accessibility suite: non-text contrast (1.4.11) · use of color (1.4.1) · content on hover/focus (1.4.13) · meaningful sequence (1.3.2) · input purpose (1.3.5) · focus visible (2.4.7) · label in name (2.5.3) · target size (2.5.5) · language of parts (3.1.2) · error identification (3.3.1) · detailed ARIA role/property validation
 
 ---
 
@@ -358,7 +365,7 @@ SUMMARY
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    pip install -e .
+    pip install qa-agent
     playwright install chromium
     qa-agent --output json --output-dir ./qa-results https://staging.example.com
 
@@ -384,11 +391,12 @@ qa_agent/
 ├── ai_planner.py        # Claude integration (plan generation & caching)
 ├── plan_cache.py        # Plan cache persistence
 ├── testers/
-│   ├── keyboard.py      # Keyboard navigation tests
-│   ├── mouse.py         # Mouse interaction tests
-│   ├── forms.py         # Form handling tests
-│   ├── accessibility.py # WCAG / accessibility tests
-│   └── errors.py        # Console & network error detection
+│   ├── keyboard.py         # Keyboard navigation tests
+│   ├── mouse.py            # Mouse interaction tests
+│   ├── forms.py            # Form handling tests
+│   ├── accessibility.py    # WCAG / accessibility tests
+│   ├── wcag_compliance.py  # Detailed WCAG 2.1 AA compliance (opt-in)
+│   └── errors.py           # Console & network error detection
 └── reporters/
     ├── console.py       # Real-time colored output
     ├── markdown.py      # Markdown report
