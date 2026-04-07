@@ -521,6 +521,18 @@ def _load_session(domain: str, session_id: str) -> dict | None:
                 recording = f"/files/{f.relative_to(OUTPUT_DIR)}"
                 break
 
+    # Convert absolute screenshot_path values to OUTPUT_DIR-relative paths
+    # so the template can build correct /files/<rel> URLs.
+    for finding in findings:
+        sp = finding.get("screenshot_path")
+        if sp:
+            sp_path = Path(sp)
+            try:
+                rel = sp_path.relative_to(OUTPUT_DIR)
+                finding["screenshot_path"] = str(rel)
+            except ValueError:
+                pass  # already relative or outside OUTPUT_DIR — leave as-is
+
     return {
         "session_id": meta.get("session_id", session_id),
         "domain": domain,
