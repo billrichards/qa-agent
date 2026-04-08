@@ -68,26 +68,26 @@ class TestMarkdownReporter:
     def test_report_contains_session_id(self, tmp_path):
         reporter = MarkdownReporter(str(tmp_path))
         path = reporter.generate(make_session(session_id="abc12345"))
-        content = open(path).read()
+        content = open(path, encoding="utf-8").read()
         assert "abc12345" in content
 
     def test_report_contains_finding_title(self, tmp_path):
         reporter = MarkdownReporter(str(tmp_path))
         session = make_session(findings=[make_finding(title="Unique Finding Title XYZ")])
         path = reporter.generate(session)
-        content = open(path).read()
+        content = open(path, encoding="utf-8").read()
         assert "Unique Finding Title XYZ" in content
 
     def test_report_contains_severity_counts(self, tmp_path):
         reporter = MarkdownReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())
-        content = open(path).read()
+        content = open(path, encoding="utf-8").read()
         assert "CRITICAL" in content or "critical" in content.lower()
 
     def test_empty_session_generates_ok(self, tmp_path):
         reporter = MarkdownReporter(str(tmp_path))
         path = reporter.generate(make_session())
-        assert open(path).read()
+        assert open(path, encoding="utf-8").read()
 
     def test_xss_title_present_in_output(self, tmp_path):
         """Document current behaviour: XSS payload appears in markdown.
@@ -99,7 +99,7 @@ class TestMarkdownReporter:
         """
         reporter = MarkdownReporter(str(tmp_path))
         path = reporter.generate(_xss_session())
-        content = open(path).read()
+        content = open(path, encoding="utf-8").read()
         # The raw content is present in the markdown file
         assert 'script' in content.lower()
         # BUG: this raw HTML will execute if served via /files/ without sanitisation.
@@ -115,7 +115,7 @@ class TestJSONReporter:
     def test_generate_creates_valid_json_file(self, tmp_path):
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         assert "meta" in data
         assert "summary" in data
         assert "findings" in data
@@ -123,13 +123,13 @@ class TestJSONReporter:
     def test_total_findings_is_integer(self, tmp_path):
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         assert isinstance(data["summary"]["total_findings"], int)
 
     def test_pages_tested_is_integer(self, tmp_path):
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(make_session())
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         assert isinstance(data["summary"]["pages_tested"], int)
 
     def test_screenshot_path_is_string_or_null(self, tmp_path):
@@ -139,7 +139,7 @@ class TestJSONReporter:
             make_finding(),  # no screenshot
         ])
         path = reporter.generate(session)
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         for finding in data["findings"]:
             assert finding["screenshot_path"] is None or isinstance(finding["screenshot_path"], str)
 
@@ -160,7 +160,7 @@ class TestJSONReporter:
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(_xss_session())
         # Must parse without error
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         # The raw string is preserved in the data
         titles = [f["title"] for f in data["findings"]]
         assert any("script" in t.lower() for t in titles)
@@ -168,14 +168,14 @@ class TestJSONReporter:
     def test_severity_values_are_strings(self, tmp_path):
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         for finding in data["findings"]:
             assert isinstance(finding["severity"], str)
 
     def test_category_values_are_strings(self, tmp_path):
         reporter = JSONReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())
-        data = json.loads(open(path).read())
+        data = json.loads(open(path, encoding="utf-8").read())
         for finding in data["findings"]:
             assert isinstance(finding["category"], str)
 
