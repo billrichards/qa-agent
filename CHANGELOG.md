@@ -16,9 +16,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-07
+
+### Added
+
+- Comprehensive test suite: unit tests for `agent`, `cli`, `config`, `models`, `plan_cache`, all reporters, and all testers; web server tests; integration smoke tests against local HTML fixtures. (~3 400 lines across 12 test files, PR #8).
+- GitHub Actions CI workflow (`test.yml`) running the full test suite on push and pull request.
+- HTML test fixtures (`tests/fixtures/site/`) used by integration and unit tests.
+- `tests/conftest.py` shared fixtures (mock Playwright page, mock session, local fixture server).
+
+### Fixed
+
+- JSON report rendering in the web UI (`web/server.py`).
+- Screenshot rendering in the web UI — base64 images now display correctly in the session detail view.
+- Type-checker errors in `agent.py`, `reporters/console.py`, `reporters/markdown.py`, `testers/base.py`, and `web/server.py`.
+- Markdown report file opened with explicit UTF-8 encoding in tests, fixing failures on Windows-default locales.
+
+### Changed
+
+- Ruff lint configuration moved to `[tool.ruff.lint]` (new spec); all 500+ pre-existing lint errors resolved across the entire codebase.
+
 ## [0.1.0] - 2026-04-07
 
 ### Added
+
 - Initial public release.
 - Agentic exploratory QA testing powered by Claude (Anthropic API).
 - Two test modes: `focused` (given URLs only) and `explore` (crawl and discover).
@@ -33,5 +54,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional dependency extras: `pdf`, `web`, `all`.
 - CI/CD integration via exit codes (0 = pass, 1 = critical/high issues, 2 = error, 130 = interrupted).
 
-[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/billrichards/qa-agent/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/billrichards/qa-agent/releases/tag/v0.1.0

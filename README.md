@@ -426,4 +426,4 @@ qa_agent/
 
 ## License
 
-MIT
+MIT — Copyright (c) 2026 Bill Richards. See [LICENSE](LICENSE) for details.

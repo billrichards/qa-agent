@@ -7,7 +7,7 @@ name = "qa-agent"
 version = "0.1.0"
 description = "Agentic exploratory QA testing for web applications"
 readme = "README.md"
-license = {text = "MIT"}
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 authors = [{name = "Bill Richards"}]
 keywords = ["qa", "testing", "playwright", "accessibility", "agentic", "automation", "exploratory-testing"]
