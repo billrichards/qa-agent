@@ -48,8 +48,13 @@ def _build_dist(kind: str, dest: Path) -> Path:
 # Packaging validation — wheel and sdist contents
 # ---------------------------------------------------------------------------
 
+@pytest.mark.slow
 class TestPackagingBuild:
-    """Build wheel and sdist, then inspect their contents."""
+    """Build wheel and sdist, then inspect their contents.
+
+    Marked ``slow`` because each fixture invokes ``python -m build``.
+    Exclude from fast runs with: pytest -m "not slow"
+    """
 
     @pytest.fixture(scope="class")
     def wheel_path(self, tmp_path_factory):
@@ -276,6 +281,10 @@ class TestReadmeConsistency:
         imports = re.findall(
             r"from qa_agent(?:\.\w+)? import ([\w, ]+)", readme
         )
+        assert imports, (
+            "No 'from qa_agent ... import' lines found in README — "
+            "the regex may be wrong or the programmatic usage section was removed"
+        )
         for import_list in imports:
             for name in (n.strip() for n in import_list.split(",")):
                 if not name:
@@ -302,7 +311,9 @@ class TestReadmeConsistency:
 class TestCLISmoke:
     """Invoke the CLI via subprocess to verify the installed entry point works."""
 
-    def test_version_flag_exits_0(self):
+    def test_version_flag(self):
+        """--version must exit 0 and print the installed package version."""
+        from qa_agent import __version__
         result = subprocess.run(
             [sys.executable, "-m", "qa_agent", "--version"],
             capture_output=True, text=True,
@@ -310,16 +321,9 @@ class TestCLISmoke:
         assert result.returncode == 0, (
             f"--version exited {result.returncode}. stderr: {result.stderr}"
         )
-
-    def test_version_flag_prints_version_string(self):
-        from qa_agent import __version__
-        result = subprocess.run(
-            [sys.executable, "-m", "qa_agent", "--version"],
-            capture_output=True, text=True,
-        )
         output = result.stdout + result.stderr
         assert __version__ in output, (
-            f"Expected {__version__!r} in output, got: {output!r}"
+            f"Expected {__version__!r} in --version output, got: {output!r}"
         )
 
     def test_help_flag_exits_0(self):
@@ -390,7 +394,7 @@ class TestPublicAPI:
 
     def test_version_is_pep440(self):
         from qa_agent import __version__
-        assert re.match(r"^\d+\.\d+(\.\d+)?", __version__), (
+        assert re.fullmatch(r"\d+\.\d+(\.\d+)?(\.?(a|b|rc|dev)\d+)?", __version__), (
             f"__version__ {__version__!r} does not look like a PEP 440 version"
         )
 
@@ -474,38 +478,20 @@ class TestPublicAPI:
 # Exit-code smoke coverage (subprocess)
 # ---------------------------------------------------------------------------
 
-class TestExitCodeSmoke:
-    """Verify all documented exit codes are produced under the correct conditions."""
+_EXIT_HELPER = Path(__file__).parent / "_cli_exit_helper.py"
 
-    def _run_patched(self, findings_by_severity: dict, side_effect=None) -> int:
-        """Run the CLI in a subprocess with QAAgent.run patched to return a fake session."""
-        lines = [
-            "import sys",
-            "from unittest.mock import MagicMock, patch",
-            "sys.argv = ['qa-agent', 'https://example.com']",
-            "session = MagicMock()",
-            f"session.findings_by_severity = {findings_by_severity!r}",
-        ]
-        if side_effect == "KeyboardInterrupt":
-            lines += [
-                "with patch('qa_agent.cli.QAAgent.__init__', return_value=None), \\",
-                "     patch('qa_agent.cli.QAAgent.run', side_effect=KeyboardInterrupt):",
-                "    from qa_agent.cli import main; main()",
-            ]
-        elif side_effect == "RuntimeError":
-            lines += [
-                "with patch('qa_agent.cli.QAAgent.__init__', return_value=None), \\",
-                "     patch('qa_agent.cli.QAAgent.run', side_effect=RuntimeError('boom')):",
-                "    from qa_agent.cli import main; main()",
-            ]
-        else:
-            lines += [
-                "with patch('qa_agent.cli.QAAgent.__init__', return_value=None), \\",
-                "     patch('qa_agent.cli.QAAgent.run', return_value=session):",
-                "    from qa_agent.cli import main; main()",
-            ]
+
+class TestExitCodeSmoke:
+    """Verify all documented exit codes via a dedicated helper script.
+
+    Using a helper script (_cli_exit_helper.py) rather than inline Python
+    strings means a rename or refactor of qa_agent.cli produces a clear
+    ImportError rather than a misleading wrong-exit-code failure.
+    """
+
+    def _run(self, scenario: str) -> int:
         result = subprocess.run(
-            [sys.executable, "-c", "\n".join(lines)],
+            [sys.executable, str(_EXIT_HELPER), scenario],
             capture_output=True,
             text=True,
         )
@@ -513,28 +499,28 @@ class TestExitCodeSmoke:
 
     def test_exit_0_no_critical_or_high_findings(self):
         """No critical/high findings → exit 0."""
-        assert self._run_patched({}) == 0
+        assert self._run("clean") == 0
 
     def test_exit_0_only_medium_findings(self):
         """Only medium findings → exit 0."""
-        assert self._run_patched({"medium": 3}) == 0
+        assert self._run("medium") == 0
 
     def test_exit_1_critical_findings(self):
         """Critical findings → exit 1."""
-        assert self._run_patched({"critical": 1}) == 1
+        assert self._run("critical") == 1
 
     def test_exit_1_high_findings(self):
         """High findings → exit 1."""
-        assert self._run_patched({"high": 2}) == 1
+        assert self._run("high") == 1
 
     def test_exit_1_mixed_critical_and_high(self):
         """Both critical and high findings → exit 1."""
-        assert self._run_patched({"critical": 1, "high": 1}) == 1
+        assert self._run("mixed") == 1
 
     def test_exit_2_on_runtime_error(self):
         """RuntimeError during run → exit 2."""
-        assert self._run_patched({}, side_effect="RuntimeError") == 2
+        assert self._run("runtime_error") == 2
 
     def test_exit_130_on_keyboard_interrupt(self):
         """KeyboardInterrupt → exit 130."""
-        assert self._run_patched({}, side_effect="KeyboardInterrupt") == 130
+        assert self._run("keyboard_interrupt") == 130

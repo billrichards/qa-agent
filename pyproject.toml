@@ -89,6 +89,7 @@ testpaths = ["tests"]
 markers = [
     "integration: tests that run real Playwright against a local fixture server (deselect with -m 'not integration')",
     "network: tests that require real network access",
+    "slow: tests that perform slow operations such as full package builds (deselect with -m 'not slow')",
 ]
 
 [tool.coverage.run]
