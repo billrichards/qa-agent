@@ -160,6 +160,11 @@ All output is written to `output/` in the project directory. CLI sessions are al
 
 ## CLI Reference
 
+```bash
+qa-agent --version   # print installed version and exit
+qa-agent --help      # show full option reference
+```
+
 ### Modes
 
 ```bash
@@ -270,7 +275,7 @@ config = TestConfig(
 agent = QAAgent(config)
 session = agent.run()
 
-print(f"Pages tested:   {len(session.pages)}")
+print(f"Pages tested:   {len(session.pages_tested)}")
 print(f"Total findings: {session.total_findings}")
 
 for finding in session.get_all_findings():
