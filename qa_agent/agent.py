@@ -14,7 +14,6 @@ from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, PageAnalysis, TestPlan, TestSession
 from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
 from .reporters.base import BaseReporter
-from .testers.base import BaseTester
 from .testers import (
     AccessibilityTester,
     CustomTester,
@@ -24,6 +23,7 @@ from .testers import (
     MouseTester,
     WCAGComplianceTester,
 )
+from .testers.base import BaseTester
 
 
 def _extract_domain(url: str) -> str:
@@ -42,7 +42,7 @@ def _extract_domain(url: str) -> str:
 class QAAgent:
     """Main QA Agent that orchestrates exploratory testing."""
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: TestConfig, playwright_factory=None):
         self.config = config
         self.session: TestSession | None = None
         self.browser: Browser | None = None
@@ -53,6 +53,10 @@ class QAAgent:
         self.urls_to_visit: list[str] = []
         self.test_plan: TestPlan | None = None
         self.stop_event: threading.Event | None = None  # Set by web server to request graceful stop
+
+        # Optional factory callable that returns a sync_playwright() context manager.
+        # Used by tests to inject a mock playwright without touching the network.
+        self._playwright_factory = playwright_factory
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -99,7 +103,8 @@ class QAAgent:
         if self.config.instructions:
             self._generate_test_plan()
 
-        with sync_playwright() as playwright:
+        _pw_factory = self._playwright_factory if self._playwright_factory is not None else sync_playwright
+        with _pw_factory() as playwright:
             self._setup_browser(playwright)
 
             try:

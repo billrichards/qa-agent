@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QA Agent Test Fixture — Index</title>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="page2.html">Page 2</a>
+      <a href="login.html">Login</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Test Fixture Site</h1>
+
+    <!-- Accessibility issue: image without alt attribute -->
+    <img src="missing.png" width="200" height="100">
+
+    <!-- Form issue: input without a label -->
+    <form action="#" method="post">
+      <input type="text" name="unlabeled_field" placeholder="No label here">
+      <button type="submit">Submit</button>
+    </form>
+
+    <!-- Console error trigger -->
+    <script>
+      console.error("Fixture console error for testing");
+    </script>
+  </main>
+</body>
+</html>

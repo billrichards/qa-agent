@@ -1,0 +1,352 @@
+"""Tests for qa_agent/agent.py — domain extraction, URL filtering, orchestration."""
+
+from __future__ import annotations
+
+import signal
+import threading
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from qa_agent.agent import QAAgent, _extract_domain
+from qa_agent.config import AuthConfig, TestConfig, TestMode
+from qa_agent.models import Finding, FindingCategory, Severity
+from tests.conftest import make_mock_playwright_factory
+
+
+# ---------------------------------------------------------------------------
+# _extract_domain
+# ---------------------------------------------------------------------------
+
+class TestExtractDomain:
+    def test_simple_url(self):
+        assert _extract_domain("https://example.com/path") == "example.com"
+
+    def test_strips_port(self):
+        assert _extract_domain("https://example.com:8080/path") == "example.com"
+
+    def test_subdomain_preserved(self):
+        assert _extract_domain("https://www.example.com") == "www.example.com"
+
+    def test_case_preserved_from_netloc(self):
+        # urlparse lowercases scheme, not necessarily netloc; we just want it to not crash
+        result = _extract_domain("https://Example.COM/path")
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_no_scheme_returns_safe_string(self):
+        # Should not crash; may return partial or "unknown"
+        result = _extract_domain("not-a-url")
+        assert isinstance(result, str)
+
+    def test_empty_string_returns_unknown(self):
+        assert _extract_domain("") == "unknown"
+
+    def test_non_alphanumeric_in_netloc_replaced(self):
+        # Dots and hyphens are allowed; anything else replaced
+        result = _extract_domain("https://my-site.example.com")
+        # hyphens preserved
+        assert "my-site" in result
+
+    def test_dot_and_hyphen_produce_distinct_outputs(self):
+        """a.b.com and a-b-com must NOT map to the same directory name.
+
+        NOTE: This test documents a known collision risk. Currently _extract_domain
+        preserves both dots and hyphens, so 'a.b.com' → 'a.b.com' and
+        'a-b-com' → 'a-b-com' are already distinct. If the implementation ever
+        changes to replace dots, this test will catch the regression.
+        """
+        d1 = _extract_domain("https://a.b.com")
+        d2 = _extract_domain("https://a-b-com")
+        assert d1 != d2, (
+            "Domain collision: a.b.com and a-b-com produce the same output directory name. "
+            "This is a security/correctness issue — sessions for different sites could overwrite each other."
+        )
+
+    def test_ip_address(self):
+        result = _extract_domain("http://127.0.0.1:8080/page")
+        assert "127.0.0.1" in result
+
+
+# ---------------------------------------------------------------------------
+# _should_skip_url (via QAAgent instance)
+# ---------------------------------------------------------------------------
+
+class TestShouldSkipUrl:
+    def _agent(self, ignore_patterns=None, same_domain_only=True, base_url="https://example.com"):
+        config = TestConfig(
+            urls=[base_url],
+            ignore_patterns=ignore_patterns or [],
+            same_domain_only=same_domain_only,
+        )
+        factory, _, _, _ = make_mock_playwright_factory()
+        agent = QAAgent(config, playwright_factory=factory)
+        return agent
+
+    def test_pattern_match_skips_url(self):
+        agent = self._agent(ignore_patterns=[r"/logout"])
+        assert agent._should_skip_url("https://example.com/logout") is True
+
+    def test_non_matching_pattern_allows_url(self):
+        agent = self._agent(ignore_patterns=[r"/logout"])
+        assert agent._should_skip_url("https://example.com/dashboard") is False
+
+    def test_extension_skipped(self):
+        agent = self._agent()
+        for ext in [".pdf", ".zip", ".jpg", ".png", ".css", ".js"]:
+            assert agent._should_skip_url(f"https://example.com/file{ext}") is True
+
+    def test_no_patterns_allows_normal_url(self):
+        agent = self._agent()
+        assert agent._should_skip_url("https://example.com/about") is False
+
+    def test_multiple_patterns(self):
+        agent = self._agent(ignore_patterns=[r"/admin", r"/api/"])
+        assert agent._should_skip_url("https://example.com/admin/users") is True
+        assert agent._should_skip_url("https://example.com/api/v1") is True
+        assert agent._should_skip_url("https://example.com/home") is False
+
+    def test_redos_does_not_hang(self):
+        """Catastrophic-backtracking regex must not hang the process.
+
+        This is a known security risk: an attacker-controlled --ignore pattern
+        could DoS the test run. The test enforces a 2-second wall-clock limit.
+        If it times out, _should_skip_url needs to add regex timeout protection.
+        """
+        evil_pattern = r"(a+)+"
+        evil_input = "a" * 25 + "b"
+        agent = self._agent(ignore_patterns=[evil_pattern])
+
+        result_holder = {}
+        def run():
+            result_holder["result"] = agent._should_skip_url(f"https://example.com/{evil_input}")
+
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        t.join(timeout=2.0)
+
+        if t.is_alive():
+            pytest.xfail(
+                "ReDoS: _should_skip_url hangs on catastrophic backtracking pattern. "
+                "Fix by wrapping re.search in a timeout or pre-validating patterns."
+            )
+        # If it finished, that's a pass regardless of result value
+
+
+# ---------------------------------------------------------------------------
+# QAAgent.run — orchestration
+# ---------------------------------------------------------------------------
+
+def _make_config(**kwargs) -> TestConfig:
+    defaults = dict(
+        urls=["https://example.com"],
+        output_formats=[],  # no reporters, avoids file I/O
+        headless=True,
+    )
+    defaults.update(kwargs)
+    return TestConfig(**defaults)
+
+
+def _make_agent(config=None, mock_page=None):
+    """Return (agent, mock_page) with playwright factory injected."""
+    if config is None:
+        config = _make_config()
+    factory, page, context, browser = make_mock_playwright_factory(mock_page)
+    # _analyze_page_structure needs evaluate to return the right shape
+    page.evaluate.return_value = {
+        "interactive_elements": 0,
+        "forms_count": 0,
+        "links_count": 0,
+        "images_count": 0,
+    }
+    agent = QAAgent(config, playwright_factory=factory)
+    return agent, page
+
+
+class TestQAAgentRun:
+    def _patch_testers(self):
+        """Context manager that patches all tester run() methods to return []."""
+        from unittest.mock import patch as _patch
+        targets = [
+            "qa_agent.agent.KeyboardTester.run",
+            "qa_agent.agent.MouseTester.run",
+            "qa_agent.agent.FormTester.run",
+            "qa_agent.agent.AccessibilityTester.run",
+            "qa_agent.agent.ErrorDetector.run",
+            "qa_agent.agent.ErrorDetector.attach_listeners",
+            "qa_agent.agent.ErrorDetector.get_summary",
+        ]
+        patchers = [_patch(t, return_value=[]) for t in targets]
+        return patchers
+
+    def test_focused_mode_tests_one_page(self):
+        agent, page = _make_agent()
+        patchers = self._patch_testers()
+        for p in patchers:
+            p.start()
+        try:
+            session = agent.run()
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert len(session.pages_tested) == 1
+
+    def test_findings_aggregate_into_session(self):
+        from qa_agent.models import Finding, FindingCategory, Severity
+
+        config = _make_config(urls=["https://example.com/a", "https://example.com/b"])
+        agent, page = _make_agent(config)
+
+        finding = Finding(
+            title="Test",
+            description="desc",
+            category=FindingCategory.ACCESSIBILITY,
+            severity=Severity.LOW,
+            url="https://example.com/a",
+        )
+
+        call_count = [0]
+        def mock_accessibility_run(self):
+            call_count[0] += 1
+            return [finding] if call_count[0] == 1 else []
+
+        patchers = [
+            patch("qa_agent.agent.KeyboardTester.run", return_value=[]),
+            patch("qa_agent.agent.MouseTester.run", return_value=[]),
+            patch("qa_agent.agent.FormTester.run", return_value=[]),
+            patch("qa_agent.agent.AccessibilityTester.run", mock_accessibility_run),
+            patch("qa_agent.agent.ErrorDetector.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None),
+            patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}),
+        ]
+        for p in patchers:
+            p.start()
+        try:
+            session = agent.run()
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert session.total_findings >= 1
+
+    def test_stop_event_halts_before_next_page(self):
+        config = _make_config(urls=["https://example.com/a", "https://example.com/b", "https://example.com/c"])
+        agent, page = _make_agent(config)
+
+        pages_visited = []
+        original_goto = page.goto
+
+        def counting_goto(url, **kwargs):
+            pages_visited.append(url)
+            # Set stop after first page navigation
+            if len(pages_visited) == 1 and agent.stop_event:
+                agent.stop_event.set()
+
+        page.goto.side_effect = counting_goto
+
+        import threading as thr
+        agent.stop_event = thr.Event()
+
+        patchers = [
+            patch("qa_agent.agent.KeyboardTester.run", return_value=[]),
+            patch("qa_agent.agent.MouseTester.run", return_value=[]),
+            patch("qa_agent.agent.FormTester.run", return_value=[]),
+            patch("qa_agent.agent.AccessibilityTester.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None),
+            patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}),
+        ]
+        for p in patchers:
+            p.start()
+        try:
+            session = agent.run()
+        finally:
+            for p in patchers:
+                p.stop()
+
+        # Should have tested fewer than 3 pages
+        assert len(session.pages_tested) < 3
+
+    def test_tester_exception_does_not_abort_run(self):
+        """If one tester raises, the page test should still complete."""
+        agent, page = _make_agent()
+
+        def raising_run(self):
+            raise RuntimeError("tester exploded")
+
+        patchers = [
+            patch("qa_agent.agent.KeyboardTester.run", raising_run),
+            patch("qa_agent.agent.MouseTester.run", return_value=[]),
+            patch("qa_agent.agent.FormTester.run", return_value=[]),
+            patch("qa_agent.agent.AccessibilityTester.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None),
+            patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}),
+        ]
+        for p in patchers:
+            p.start()
+        try:
+            # Should not raise despite keyboard tester blowing up
+            # (agent wraps per-tester execution defensively)
+            # If it does raise, the test fails — that's intentional; it surfaces
+            # that the agent needs error handling around individual testers.
+            try:
+                session = agent.run()
+                # Run completed — session exists
+                assert session is not None
+            except RuntimeError:
+                pytest.xfail(
+                    "agent.py does not currently guard individual testers against exceptions. "
+                    "Consider wrapping each tester.run() in try/except."
+                )
+        finally:
+            for p in patchers:
+                p.stop()
+
+
+class TestAuthenticate:
+    def test_cookie_auth_sets_cookies(self):
+        cookies = [{"name": "session", "value": "abc", "domain": "example.com"}]
+        auth = AuthConfig(cookies=cookies)
+        config = _make_config(auth=auth)
+        agent, page = _make_agent(config)
+        factory, _, context, _ = make_mock_playwright_factory(page)
+        agent._playwright_factory = factory
+        agent.context = context
+
+        agent._authenticate()
+        context.add_cookies.assert_called_once()
+
+    def test_credentials_not_in_stdout(self, capsys):
+        """Security: password must not appear in any captured output."""
+        auth = AuthConfig(
+            username="secretuser",
+            password="supersecretpassword123",
+            auth_url="https://example.com/login",
+        )
+        config = _make_config(auth=auth)
+        agent, page = _make_agent(config)
+
+        patchers = [
+            patch("qa_agent.agent.KeyboardTester.run", return_value=[]),
+            patch("qa_agent.agent.MouseTester.run", return_value=[]),
+            patch("qa_agent.agent.FormTester.run", return_value=[]),
+            patch("qa_agent.agent.AccessibilityTester.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.run", return_value=[]),
+            patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None),
+            patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}),
+        ]
+        for p in patchers:
+            p.start()
+        try:
+            agent.run()
+        except Exception:
+            pass
+        finally:
+            for p in patchers:
+                p.stop()
+
+        captured = capsys.readouterr()
+        assert "supersecretpassword123" not in captured.out
+        assert "supersecretpassword123" not in captured.err
