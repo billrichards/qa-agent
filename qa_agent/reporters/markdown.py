@@ -105,7 +105,7 @@ class MarkdownReporter(BaseReporter):
 
             # Group by severity
             severity_order = ["critical", "high", "medium", "low", "info"]
-            grouped = {}
+            grouped: dict[str, list] = {}
             for finding in findings:
                 sev = finding.severity.value
                 if sev not in grouped:
@@ -195,7 +195,7 @@ class MarkdownReporter(BaseReporter):
                 rel_path = screenshot_path.relative_to(report_dir)
             except ValueError:
                 # If not a subpath, fall back to os.path.relpath
-                rel_path = os.path.relpath(str(screenshot_path), str(report_dir))
+                rel_path = Path(os.path.relpath(str(screenshot_path), str(report_dir)))
             lines.append(f"**Screenshot:** ![Screenshot]({rel_path})")
             lines.append("")
 

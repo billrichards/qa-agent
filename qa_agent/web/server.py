@@ -46,7 +46,7 @@ class _MultiplexedStdout:
     def write(self, text: str) -> int:
         stream = getattr(_local, "stream", None)
         if stream is not None:
-            return stream.write(text)
+            return int(stream.write(text))
         return _original_stdout.write(text)
 
     def flush(self) -> None:
@@ -371,7 +371,7 @@ def serve_file(filepath: str):
     if suffix == ".md":
         content = abs_path.read_text(encoding="utf-8")
         try:
-            import markdown as md_lib
+            import markdown as md_lib  # type: ignore[import-untyped]
             html_body = md_lib.markdown(content, extensions=["fenced_code", "tables"])
         except ImportError:
             html_body = f"<pre>{content}</pre>"
@@ -431,7 +431,7 @@ def _scan_sessions(
 
 
 def _build_session_list() -> list:
-    sessions = []
+    sessions: list[dict] = []
     if not OUTPUT_DIR.exists():
         return sessions
 
