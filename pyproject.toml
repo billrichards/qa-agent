@@ -51,7 +51,7 @@ all = [
 
 [project.scripts]
 qa-agent = "qa_agent.cli:main"
-qa-agent-web = "qa_agent.web.server:serve_web_cli"
+qa-agent-web = "qa_agent.web:serve_web_cli"
 
 [project.urls]
 Homepage = "https://github.com/billrichards/qa-agent"
