@@ -39,6 +39,8 @@ web = [
 dev = [
     "pytest>=7.0.0",
     "pytest-playwright>=0.4.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
@@ -76,3 +78,25 @@ python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=qa_agent --cov-report=term-missing --cov-fail-under=50 -q"
+testpaths = ["tests"]
+markers = [
+    "integration: tests that run real Playwright against a local fixture server (deselect with -m 'not integration')",
+    "network: tests that require real network access",
+]
+
+[tool.coverage.run]
+source = ["qa_agent"]
+omit = [
+    "qa_agent/testers/wcag_compliance.py",
+    "qa_agent/web/templates/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

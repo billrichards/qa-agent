@@ -66,6 +66,7 @@ venv.bak/
 *.swo
 
 # QA Agent outputs
+output/
 qa_reports/
 screenshots/
 recordings/

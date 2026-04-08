@@ -41,7 +41,7 @@ class BaseTester(ABC):
                 "exists": True,
                 "visible": element.is_visible(),
                 "enabled": element.is_enabled(),
-                "text": element.text_content()[:100] if element.text_content() else None,
+                "text": (element.text_content() or "")[:100] or None,
                 "tag": element.evaluate("el => el.tagName.toLowerCase()"),
             }
         except Exception:

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>QA Agent Test Fixture — Page 2</title>
+</head>
+<body>
+  <main>
+    <h1>Page 2</h1>
+    <p>This page has a keyboard navigation issue: a positive tabindex that disrupts tab order.</p>
+
+    <!-- tabindex=5 breaks the natural tab flow -->
+    <a href="#" tabindex="5">Out-of-order link (tabindex=5)</a>
+
+    <button>Normal button 1</button>
+    <button>Normal button 2</button>
+    <button>Normal button 3</button>
+
+    <a href="index.html">Back to index</a>
+  </main>
+</body>
+</html>

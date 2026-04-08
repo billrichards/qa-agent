@@ -116,7 +116,7 @@ class ConsoleReporter(BaseReporter):
 
         # Group by severity
         severity_order = ["critical", "high", "medium", "low", "info"]
-        grouped = {}
+        grouped: dict[str, list] = {}
         for finding in findings:
             sev = finding.severity.value
             if sev not in grouped:

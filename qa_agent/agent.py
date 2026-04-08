@@ -13,6 +13,7 @@ from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, PageAnalysis, TestPlan, TestSession
 from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
+from .reporters.base import BaseReporter
 from .testers import (
     AccessibilityTester,
     CustomTester,
@@ -22,6 +23,7 @@ from .testers import (
     MouseTester,
     WCAGComplianceTester,
 )
+from .testers.base import BaseTester
 
 
 def _extract_domain(url: str) -> str:
@@ -40,7 +42,7 @@ def _extract_domain(url: str) -> str:
 class QAAgent:
     """Main QA Agent that orchestrates exploratory testing."""
 
-    def __init__(self, config: TestConfig):
+    def __init__(self, config: TestConfig, playwright_factory=None):
         self.config = config
         self.session: TestSession | None = None
         self.browser: Browser | None = None
@@ -51,6 +53,10 @@ class QAAgent:
         self.urls_to_visit: list[str] = []
         self.test_plan: TestPlan | None = None
         self.stop_event: threading.Event | None = None  # Set by web server to request graceful stop
+
+        # Optional factory callable that returns a sync_playwright() context manager.
+        # Used by tests to inject a mock playwright without touching the network.
+        self._playwright_factory = playwright_factory
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -64,7 +70,7 @@ class QAAgent:
         config.recording.output_dir = os.path.join(session_base, "recordings")
 
         # Initialize reporters
-        self.reporters = []
+        self.reporters: list[BaseReporter] = []
         if OutputFormat.CONSOLE in config.output_formats:
             self.reporters.append(ConsoleReporter(config.output_dir))
         if OutputFormat.MARKDOWN in config.output_formats:
@@ -97,7 +103,8 @@ class QAAgent:
         if self.config.instructions:
             self._generate_test_plan()
 
-        with sync_playwright() as playwright:
+        _pw_factory = self._playwright_factory if self._playwright_factory is not None else sync_playwright
+        with _pw_factory() as playwright:
             self._setup_browser(playwright)
 
             try:
@@ -302,6 +309,8 @@ class QAAgent:
 
     def _test_page(self, url: str):
         """Test a single page."""
+        assert self.page is not None
+        assert self.session is not None
         self.console.print_page_start(url)
 
         try:
@@ -328,6 +337,7 @@ class QAAgent:
 
         # Run testers
         all_findings: list[Finding] = []
+        tester: BaseTester
 
         if self.config.test_keyboard:
             self.console.print_test_category("keyboard navigation")
@@ -370,6 +380,7 @@ class QAAgent:
                 self.console.print_finding(f)
 
         if self.config.test_console_errors or self.config.test_network_errors:
+            assert self.error_detector is not None
             self.console.print_test_category("error detection")
             findings = self.error_detector.run()
             all_findings.extend(findings)
@@ -403,19 +414,21 @@ class QAAgent:
         self.session.add_page_analysis(page_analysis)
 
         # Reset error detector for next page
-        self.error_detector.console_messages = []
-        self.error_detector.network_errors = []
-        self.error_detector.js_errors = []
+        if self.error_detector is not None:
+            self.error_detector.console_messages = []
+            self.error_detector.network_errors = []
+            self.error_detector.js_errors = []
 
     def _analyze_page_structure(self) -> dict:
         """Analyze the structure of the current page."""
+        assert self.page is not None
         try:
-            return self.page.evaluate("""() => ({
+            return dict(self.page.evaluate("""() => ({
                 interactive_elements: document.querySelectorAll('a, button, input, select, textarea, [onclick], [role="button"]').length,
                 forms_count: document.querySelectorAll('form').length,
                 links_count: document.querySelectorAll('a[href]').length,
                 images_count: document.querySelectorAll('img').length,
-            })""")
+            })"""))
         except Exception:
             return {
                 "interactive_elements": 0,
@@ -426,6 +439,7 @@ class QAAgent:
 
     def _discover_links(self, current_url: str) -> list[str]:
         """Discover links on the current page for exploration."""
+        assert self.page is not None
         try:
             links = self.page.evaluate("""() => {
                 const links = document.querySelectorAll('a[href]');
@@ -479,6 +493,7 @@ class QAAgent:
         if not self.config.screenshots.enabled:
             return None
 
+        assert self.page is not None
         os.makedirs(self.config.screenshots.output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{name}_{timestamp}.png"
