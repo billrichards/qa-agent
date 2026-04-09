@@ -96,6 +96,14 @@ class TestBuildConfig:
         assert config.viewport_width == 1280
         assert config.viewport_height == 720
 
+    def test_output_dir_default(self):
+        config = _build_config({"urls": ["https://example.com"]})
+        assert config.output_dir == str(OUTPUT_DIR)
+
+    def test_output_dir_custom(self, tmp_path):
+        config = _build_config({"urls": ["https://example.com"], "output_dir": str(tmp_path)})
+        assert config.output_dir == str(tmp_path)
+
     def test_missing_urls_raises(self):
         with pytest.raises((KeyError, TypeError, ValueError)):
             _build_config({})

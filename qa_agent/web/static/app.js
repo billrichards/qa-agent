@@ -87,6 +87,7 @@ function collectFormData(form) {
     urls: urlsRaw,
     mode,
     output_formats: outputFormats.length ? outputFormats : ['console', 'markdown', 'json'],
+    output_dir: fd.get('output_dir') || null,
     headless: !!fd.get('headless'),
     viewport_width: parseInt(fd.get('viewport_width') || '1280', 10),
     viewport_height: parseInt(fd.get('viewport_height') || '720', 10),
@@ -149,6 +150,8 @@ function applyConfig(cfg) {
   setNum(form, 'timeout', cfg.timeout);
   setNum(form, 'max_depth', cfg.max_depth);
   setNum(form, 'max_pages', cfg.max_pages);
+  const outputDirEl = form.querySelector('#output_dir');
+  if (outputDirEl && cfg.output_dir) outputDirEl.value = cfg.output_dir;
 }
 
 function setCheck(form, name, val) {

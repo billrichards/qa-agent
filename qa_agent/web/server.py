@@ -613,7 +613,7 @@ def _build_config(body: dict) -> TestConfig:
         urls=urls,
         mode=mode,
         output_formats=output_formats,
-        output_dir=str(OUTPUT_DIR),
+        output_dir=str(body.get("output_dir") or OUTPUT_DIR),
         headless=bool(body.get("headless", True)),
         viewport_width=int(body.get("viewport_width", 1280)),
         viewport_height=int(body.get("viewport_height", 720)),
