@@ -135,7 +135,15 @@ class QAAgent:
         and reused on subsequent runs with identical inputs unless
         ``config.use_plan_cache`` is False.
         """
-        from .ai_planner import AIPlannerClient
+        try:
+            from .ai_planner import AIPlannerClient
+        except ImportError:
+            self.console.print_progress(
+                "Warning: agentic testing requires the anthropic package, which is not installed.\n"
+                "Install it with:  pip install 'qa-agent[ai]'\n"
+                "Continuing with standard tests only."
+            )
+            return
         from .plan_cache import PlanCache
 
         cache = PlanCache() if self.config.use_plan_cache else None
