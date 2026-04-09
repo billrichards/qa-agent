@@ -7,8 +7,6 @@ testing guidance), this module calls the Claude API and returns a structured
 
 import json
 
-import anthropic
-
 from .models import (
     CustomStep,
     FindingCategory,
@@ -208,7 +206,24 @@ class AIPlannerClient:
 
     def __init__(self, model: str = "claude-sonnet-4-6") -> None:
         self.model = model
-        self._client = anthropic.Anthropic()
+        self.__anthropic_client = None
+
+    @property  # type: ignore[override]
+    def _client(self):
+        if self.__anthropic_client is None:
+            try:
+                import anthropic
+            except ImportError as exc:
+                raise ImportError(
+                    "The 'anthropic' package is required for AI planning. "
+                    "Install it with: pip install 'qa-agent[ai]'"
+                ) from exc
+            self.__anthropic_client = anthropic.Anthropic()
+        return self.__anthropic_client
+
+    @_client.setter
+    def _client(self, value) -> None:
+        self.__anthropic_client = value
 
     # ------------------------------------------------------------------
     # Public API

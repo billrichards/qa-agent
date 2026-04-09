@@ -217,7 +217,7 @@ class TestWebUIAssets:
         """Flask app in server.py must resolve templates relative to the web package."""
         server_src = (REPO_ROOT / "qa_agent" / "web" / "server.py").read_text()
         # Flask(name) uses the module's directory — templates must live there
-        assert "Flask(__name__)" in server_src, (
+        assert "Flask(__name__" in server_src, (
             "Flask app is not created with __name__; template resolution may be wrong"
         )
 
@@ -524,3 +524,92 @@ class TestExitCodeSmoke:
     def test_exit_130_on_keyboard_interrupt(self):
         """KeyboardInterrupt → exit 130."""
         assert self._run("keyboard_interrupt") == 130
+
+
+# ---------------------------------------------------------------------------
+# Clean-install smoke tests — build wheel, install into a fresh venv, verify
+# ---------------------------------------------------------------------------
+
+def _make_venv(venv_dir: Path) -> Path:
+    """Create a venv at *venv_dir* and return its Python executable path."""
+    import venv as _venv
+    _venv.create(str(venv_dir), with_pip=True, clear=True)
+    if sys.platform == "win32":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+@pytest.mark.slow
+class TestCleanInstall:
+    """Build the wheel, install it into a fresh venv (non-editable), and verify
+    that entry points and web templates work exactly as a real user would see them.
+
+    This catches gaps that ``TestPackagingBuild`` cannot: inspecting the zip
+    confirms the files are *present*, but only an actual install proves that
+    Flask can *resolve* templates from the installed package data.
+    """
+
+    @pytest.fixture(scope="class")
+    def wheel_path(self, tmp_path_factory):
+        return _build_dist("wheel", tmp_path_factory.mktemp("ci_wheel"))
+
+    @pytest.fixture(scope="class")
+    def venv_python(self, wheel_path, tmp_path_factory):
+        """Fresh venv with the wheel + Flask installed (non-editable)."""
+        python = _make_venv(tmp_path_factory.mktemp("ci_venv"))
+        result = subprocess.run(
+            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path), "flask>=3.0"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, (
+            f"pip install into clean venv failed.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+        return python
+
+    def test_version_entry_point_works_post_install(self, venv_python):
+        """``qa-agent --version`` must succeed and print the version from a clean install."""
+        from qa_agent import __version__
+        result = subprocess.run(
+            [str(venv_python), "-m", "qa_agent", "--version"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, (
+            f"--version failed after clean install.\nstderr: {result.stderr}"
+        )
+        assert __version__ in result.stdout + result.stderr
+
+    def test_web_templates_accessible_post_install(self, venv_python):
+        """Flask must resolve templates from installed package data (not source tree)."""
+        script = (
+            "from qa_agent.web.server import app; "
+            "import pathlib; "
+            "tpl = pathlib.Path(app.template_folder); "
+            "assert tpl.is_dir(), f'template_folder missing: {tpl}'; "
+            "assert (tpl / 'index.html').exists(), 'index.html not found post-install'"
+        )
+        result = subprocess.run(
+            [str(venv_python), "-c", script],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, (
+            f"Web template check failed after clean install.\n"
+            f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        )
+
+    def test_no_flask_gives_helpful_error(self, wheel_path, tmp_path_factory):
+        """Without Flask, ``qa-agent-web`` must print an actionable error, not a traceback."""
+        python = _make_venv(tmp_path_factory.mktemp("no_flask_venv"))
+        subprocess.run(
+            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path)],
+            capture_output=True, text=True, check=True,
+        )
+        result = subprocess.run(
+            [str(python), "-c", "from qa_agent.web import serve_web_cli; serve_web_cli()"],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 1, (
+            f"Expected exit 1 when Flask is missing, got {result.returncode}"
+        )
+        output = result.stdout + result.stderr
+        assert "flask" in output.lower(), "Error message should mention flask"
+        assert "pip install" in output, "Error message should show the install command"

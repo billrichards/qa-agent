@@ -30,7 +30,7 @@ _PROJECT_ROOT = _HERE.parent.parent          # project root
 OUTPUT_DIR = _PROJECT_ROOT / "output"
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(_HERE / "templates"))
 
 # ── Thread-local stdout multiplexer ───────────────────────────────────────────
 # Redirects print() calls in job threads to their per-job queue without
