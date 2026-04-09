@@ -451,3 +451,55 @@ class TestAuthenticate:
         captured = capsys.readouterr()
         assert "supersecretpassword123" not in captured.out
         assert "supersecretpassword123" not in captured.err
+
+    def _auth_timeout_agent(self, invocation_context=None, username_selector=None, password_selector=None):
+        """Helper: agent whose page.fill always raises a Playwright-style timeout."""
+        auth = AuthConfig(
+            username="user",
+            password="pass",
+            auth_url="https://example.com/login",
+            username_selector=username_selector,
+            password_selector=password_selector,
+        )
+        config = _make_config(auth=auth, invocation_context=invocation_context)
+        agent, page = _make_agent(config)
+        factory, _, context, _ = make_mock_playwright_factory(page)
+        agent._playwright_factory = factory
+        agent.context = context
+        agent.page = page
+        page.goto = MagicMock()
+        page.fill = MagicMock(side_effect=Exception("Timeout 30000ms exceeded."))
+        page.click = MagicMock()
+        page.wait_for_load_state = MagicMock()
+        return agent
+
+    def test_timeout_cli_context_suggests_auth_file(self, capsys):
+        """CLI context: timeout on default selector should mention --auth-file."""
+        self._auth_timeout_agent(invocation_context="cli")._authenticate()
+        out = capsys.readouterr().out
+        assert "--auth-file" in out
+        assert "Advanced" not in out
+
+    def test_timeout_web_context_suggests_advanced_section(self, capsys):
+        """Web context: timeout on default selector should mention the Advanced UI section."""
+        self._auth_timeout_agent(invocation_context="web")._authenticate()
+        out = capsys.readouterr().out
+        assert "Advanced" in out
+        assert "--auth-file" not in out
+
+    def test_timeout_api_context_suggests_authconfig(self, capsys):
+        """API context (no invocation_context): timeout should mention AuthConfig fields."""
+        self._auth_timeout_agent(invocation_context=None)._authenticate()
+        out = capsys.readouterr().out
+        assert "AuthConfig" in out
+
+    def test_timeout_with_custom_selector_no_hint(self, capsys):
+        """When a custom selector is provided, no hint should appear."""
+        self._auth_timeout_agent(
+            invocation_context="cli",
+            username_selector="#my-user",
+            password_selector="#my-pass",
+        )._authenticate()
+        out = capsys.readouterr().out
+        assert "--auth-file" not in out
+        assert "AuthConfig" not in out

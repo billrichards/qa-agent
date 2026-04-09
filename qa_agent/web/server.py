@@ -644,6 +644,7 @@ def _build_config(body: dict) -> TestConfig:
             enabled=bool(rec_data.get("enabled", False)),
             video_size=rec_data.get("video_size", {"width": 1280, "height": 720}),
         ),
+        invocation_context="web",
     )
 
 

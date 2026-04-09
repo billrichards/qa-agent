@@ -383,6 +383,7 @@ Examples:
         instructions=instructions,
         ai_model=args.ai_model,
         use_plan_cache=not args.no_cache,
+        invocation_context="cli",
     )
 
     # Run the agent

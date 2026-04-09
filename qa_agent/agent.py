@@ -251,19 +251,42 @@ class QAAgent:
             self.console.print_progress(f"Authenticating at {auth.auth_url}")
             self.page.goto(auth.auth_url)
 
+            ctx = self.config.invocation_context
+            if ctx == "cli":
+                _selector_hint = (
+                    "Tip: use --auth-file with a JSON file containing "
+                    "username_selector, password_selector, and submit_selector fields."
+                )
+            elif ctx == "web":
+                _selector_hint = (
+                    "Tip: expand the Advanced section under Authentication and "
+                    "enter custom CSS selectors for the username, password, and submit fields."
+                )
+            else:
+                _selector_hint = (
+                    "Tip: set username_selector, password_selector, and submit_selector "
+                    "on AuthConfig to target the correct form fields."
+                )
+
             # Find and fill username
             username_selector = auth.username_selector or 'input[type="email"], input[type="text"][name*="user"], input[name*="email"], input#username, input#email'
             try:
                 self.page.fill(username_selector, auth.username)
             except Exception as e:
-                self.console.print_progress(f"Warning: Could not fill username field: {e}")
+                msg = f"Warning: Could not fill username field: {e}"
+                if "Timeout" in str(e) and not auth.username_selector:
+                    msg += f"\n  {_selector_hint}"
+                self.console.print_progress(msg)
 
             # Find and fill password
             password_selector = auth.password_selector or 'input[type="password"]'
             try:
                 self.page.fill(password_selector, auth.password)
             except Exception as e:
-                self.console.print_progress(f"Warning: Could not fill password field: {e}")
+                msg = f"Warning: Could not fill password field: {e}"
+                if "Timeout" in str(e) and not auth.password_selector:
+                    msg += f"\n  {_selector_hint}"
+                self.console.print_progress(msg)
 
             # Submit
             submit_selector = auth.submit_selector or 'button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Sign in")'
@@ -271,7 +294,10 @@ class QAAgent:
                 self.page.click(submit_selector)
                 self.page.wait_for_load_state("networkidle", timeout=10000)
             except Exception as e:
-                self.console.print_progress(f"Warning: Could not submit login form: {e}")
+                msg = f"Warning: Could not submit login form: {e}"
+                if "Timeout" in str(e) and not auth.submit_selector:
+                    msg += f"\n  {_selector_hint}"
+                self.console.print_progress(msg)
 
     def _run_focused_mode(self):
         """Run tests on specific URLs only."""
