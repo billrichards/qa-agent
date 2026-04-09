@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: ["main", "claude/**"]
+    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -64,10 +64,46 @@ jobs:
           python-version: "3.11"
 
       - name: Install with extra [${{ matrix.extra }}]
-        run: pip install -e ".[${{ matrix.extra }}]"
+        run: pip install ".[${{ matrix.extra }}]"
 
       - name: Verify CLI entry point
         run: qa-agent --version
+
+  clean-install:
+    name: Clean-install smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tool
+        run: pip install build
+
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist/
+
+      - name: Create fresh venv and install wheel (non-editable, with web extra)
+        run: |
+          python -m venv /tmp/qa-clean-venv
+          /tmp/qa-clean-venv/bin/pip install --quiet dist/*.whl flask>=3.0
+
+      - name: Verify qa-agent --version
+        run: /tmp/qa-clean-venv/bin/python -m qa_agent --version
+
+      - name: Verify Flask resolves templates from installed package data
+        run: |
+          /tmp/qa-clean-venv/bin/python -c "
+          from qa_agent.web.server import app
+          import pathlib
+          tpl = pathlib.Path(app.template_folder)
+          assert tpl.is_dir(), f'template_folder missing: {tpl}'
+          assert (tpl / 'index.html').exists(), 'index.html not found post-install'
+          print('OK — templates found at', tpl)
+          "
 
   lint:
     name: Lint
