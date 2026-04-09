@@ -1,8 +1,25 @@
 # QA Agent
 
-Automated exploratory QA testing for web applications. Simulates real user interactions (mouse, keyboard, form input, accessibility checks) and optionally uses Claude to generate custom test steps from plain-English instructions.
+Automated exploratory QA testing for web applications — powered by Playwright and, optionally, Claude.
 
-![console output showing a test run in progress](./docs/console-output-showing-a-test-run-in-progress.png)
+<p align="center">
+  <a href="https://github.com/billrichards/qa-agent/actions/workflows/test.yml"><img src="https://github.com/billrichards/qa-agent/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
+  <a href="https://pypi.org/project/qa-agent/"><img src="https://img.shields.io/pypi/v/qa-agent" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/qa-agent/"><img src="https://img.shields.io/pypi/pyversions/qa-agent" alt="Python versions"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/billrichards/qa-agent" alt="License"></a>
+</p>
+
+<p align="center">
+  <img src="./docs/console-output-showing-a-test-run-in-progress.png" alt="Console output showing a test run in progress" width="700">
+</p>
+
+---
+
+## Why QA Agent?
+
+Most automated testing tools require you to write and maintain test scripts. QA Agent takes a different approach: point it at a URL and it **explores your application like a real user would** — clicking buttons, filling forms, navigating with the keyboard, and checking for accessibility issues — then reports what it finds.
+
+Need targeted tests? Pass natural-language instructions (a bug report, a feature spec, a test plan) and Claude generates custom Playwright test steps that run alongside the standard suite. No test scripts to write or maintain.
 
 ---
 
@@ -19,35 +36,45 @@ Automated exploratory QA testing for web applications. Simulates real user inter
 - [Output Formats](#output-formats)
 - [CI/CD Integration](#cicd-integration)
 - [Architecture](#architecture)
+- [Development](#development)
+- [Contributing](#contributing)
 - [Exit Codes](#exit-codes)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ---
 
 ## Features
 
 | Category | What it does |
-|---|---|
+| --- | --- |
 | **Agentic testing** | Give Claude a bug report or feature spec; it generates custom Playwright test steps automatically |
 | **Two modes** | `focused` tests only given URLs; `explore` crawls and discovers additional pages |
-| **Six test suites** | Keyboard nav, mouse interaction, form handling, accessibility (WCAG), WCAG 2.1 AA compliance (opt-in), error detection |
+| **Six test suites** | Keyboard nav · mouse interaction · form handling · accessibility (WCAG) · error detection (5 on by default) + WCAG 2.1 AA compliance (opt-in) |
 | **Auth support** | Username/password, cookies, Bearer tokens, custom headers |
 | **Four output formats** | Console, Markdown, JSON, PDF |
 | **Screenshots & video** | On-error or every-interaction screenshots; full session video recording |
 | **Web UI** | Browser-based dashboard for launching runs, watching live output, and browsing past sessions |
+| **CI/CD ready** | Exit codes map to pass/fail; JSON output integrates with any pipeline |
 
 ---
 
 ## Installation
 
-```bash
-# Core install
-pip install qa-agent
-playwright install chromium
+> **Requires Python 3.10 or newer.** Check with `python --version` before installing.
 
-# PDF report support
+```bash
+# Core install (standard testing only)
+pip install qa-agent
+playwright install chromium   # required — downloads browser binaries
+
+# Agentic testing (adds Anthropic SDK for --instructions support)
+pip install "qa-agent[ai]"
+
+# PDF report support (adds WeasyPrint)
 pip install "qa-agent[pdf]"
 
-# Web UI support
+# Web UI support (adds Flask)
 pip install "qa-agent[web]"
 
 # Everything
@@ -55,14 +82,14 @@ pip install "qa-agent[all]"
 playwright install chromium
 ```
 
-**Requirements:** Python 3.10+, Playwright ≥ 1.40
+**Core dependencies:** Python ≥ 3.10 · Playwright ≥ 1.40
 
-> **Note:** Playwright requires browser binaries installed separately after the Python package.
-> Run `playwright install chromium` (or `playwright install` for all browsers) once after install.
+> **Note:** `playwright install chromium` must be run once after every fresh install to download the browser binaries. See [Troubleshooting](#troubleshooting) if anything goes wrong.
 
-**Agentic testing** requires an Anthropic API key:
+**Agentic testing** (the `--instructions` flag) requires the `[ai]` extra and an Anthropic API key:
 
 ```bash
+pip install "qa-agent[ai]"
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -80,8 +107,15 @@ qa-agent https://example.com https://example.com/about
 # Crawl and test discovered pages (depth 2, up to 20 pages)
 qa-agent --mode explore --max-depth 2 https://example.com
 
-# Generate JSON + Markdown reports
-qa-agent --output json,markdown https://example.com
+# Generate JSON + Markdown reports in a custom directory
+qa-agent --output json,markdown --output-dir ./reports https://example.com
+```
+
+You can also run via `python -m qa_agent`:
+
+```bash
+python -m qa_agent https://example.com
+python -m qa_agent --mode explore --max-pages 10 https://example.com
 ```
 
 ---
@@ -108,7 +142,7 @@ qa-agent --instructions-file feature-spec.txt https://example.com
 
 1. Before any browser testing, Claude receives your instructions and the target URL.
 2. Claude returns a structured plan: summary, focus areas, custom Playwright test steps, and suggested URLs.
-3. The agent prints the plan, then runs those custom steps on every tested page alongside the five standard suites.
+3. The agent prints the plan, then runs those custom steps on every tested page alongside the standard test suites.
 4. Assertion failures become findings in the report with the severity and category Claude assigned.
 
 If the API call fails, a warning is printed and the run continues with standard tests only.
@@ -123,13 +157,15 @@ qa-agent --ai-model claude-opus-4-6 --instructions "Test checkout" https://shop.
 qa-agent --no-cache --instructions "..." https://example.com
 ```
 
-Generated test plans are cached by default; rerunning with the same instructions and URL reuses the cached plan.
+Generated test plans are cached to `~/.qa_agent/cache/` by default (24-hour TTL). Rerunning with the same instructions and URLs reuses the cached plan. Pass `--no-cache` to force a fresh API call.
 
 ---
 
 ## Web Interface
 
-![Web interface configuration form](./docs/web-UI-configuration-form.png)
+<p align="center">
+  <img src="./docs/web-UI-configuration-form.png" alt="Web interface configuration form" width="700">
+</p>
 
 A browser-based dashboard for configuring and monitoring runs.
 
@@ -143,18 +179,21 @@ qa-agent-web
 qa-agent-web --host 0.0.0.0 --port 8080
 ```
 
-**Features:**
-- Configuration form with all options (collapsible sections, preset save/load)
+**Capabilities:**
+
+- Configuration form with all CLI options (collapsible sections)
 - Real-time streaming output via Server-Sent Events
 - Stop a running test mid-run
 - Browse past sessions grouped by domain
-- Session detail: findings table, severity breakdown, screenshot gallery, report downloads
+- Session detail view: findings table, severity breakdown, screenshot gallery, report downloads
 
-![Session detail view showing findings table](./docs/session-detail-view-showing-findings-table.png)
+<p align="center">
+  <img src="./docs/session-detail-view-showing-findings-table.png" alt="Session detail view showing findings table" width="700">
+</p>
 
-> The web interface has no authentication — intended for local or internal use only.
+> **Security note:** The web interface has no authentication — intended for local or internal use only.
 
-All output is written to `output/` in the project directory. CLI sessions are also visible in the web UI as long as JSON output format was used.
+All output is written to `output/` in the project directory. CLI sessions are also visible in the web UI as long as JSON output format was used (JSON is always written by default).
 
 ---
 
@@ -175,7 +214,7 @@ qa-agent --mode explore  https://example.com   # crawl and test discovered pages
 ### Exploration options (explore mode)
 
 | Flag | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `--max-depth N` | `3` | Max link depth to follow |
 | `--max-pages N` | `20` | Max pages to test |
 | `--allow-external` | off | Follow links to other domains |
@@ -198,6 +237,7 @@ qa-agent --header "Authorization: Bearer token123" https://example.com
 ```
 
 **auth.json schema:**
+
 ```json
 {
   "username": "testuser",
@@ -219,9 +259,11 @@ qa-agent --output console,markdown,json,pdf https://example.com
 qa-agent --output-dir ./reports https://example.com
 ```
 
+> **Note:** JSON output is always written regardless of `--output`, so sessions appear in the web UI.
+
 Output is organized as `output/{domain}/{session_id}/qa_reports|screenshots|recordings`.
 
-> PDF requires `weasyprint`. Install with `pip install "qa-agent[pdf]"`. Falls back to Markdown if not installed.
+> PDF requires WeasyPrint. Install with `pip install "qa-agent[pdf]"`. Falls back to Markdown if not installed.
 
 ### Screenshots & recording
 
@@ -287,21 +329,27 @@ for finding in session.get_all_findings():
 ## Test Categories
 
 ### Keyboard Navigation
+
 TAB order and focusability · Arrow key navigation in widgets · Enter key activation · Escape key for closing modals · Keyboard trap detection · Focus visibility indicators
 
 ### Mouse Interaction
+
 Click target functionality · Hover states · Double-click behavior · Right-click/context menus · Click target sizes (WCAG 2.5.5 minimum 44×44 px) · Overlapping element detection
 
 ### Form Handling
+
 Required field indicators · Input validation feedback · Error message accessibility · Label associations · HTML5 input types · Autocomplete attributes
 
 ### Accessibility (WCAG)
+
 Image alt text · Heading structure (h1–h6) · Link text quality · Color contrast · ARIA usage · Landmark regions · Language attributes · Skip navigation links
 
 ### Error Detection
+
 Console errors and warnings · Network errors (4xx, 5xx) · JavaScript exceptions · Broken images · Broken anchor links · Mixed content (HTTP on HTTPS)
 
 ### WCAG 2.1 AA Compliance (opt-in: `--wcag-compliance`)
+
 Covers WCAG criteria not already in the standard accessibility suite: non-text contrast (1.4.11) · use of color (1.4.1) · content on hover/focus (1.4.13) · meaningful sequence (1.3.2) · input purpose (1.3.5) · focus visible (2.4.7) · label in name (2.5.3) · target size (2.5.5) · language of parts (3.1.2) · error identification (3.3.1) · detailed ARIA role/property validation
 
 ---
@@ -310,9 +358,9 @@ Covers WCAG criteria not already in the standard accessibility suite: non-text c
 
 ### Console
 
-![./docs/colorized-console-output-with-summary-table.png](./docs/colorized-console-output-with-summary-table.png)
+![Colorized console output with summary table](./docs/colorized-console-output-with-summary-table.png)
 
-```
+``` plaintext
 ======================================================================
   QA AGENT TEST REPORT
 ======================================================================
@@ -353,7 +401,7 @@ SUMMARY
 ### Severity levels
 
 | Level | Meaning |
-|---|---|
+| --- | --- |
 | `CRITICAL` | Security issues, data loss |
 | `HIGH` | Major usability blockers |
 | `MEDIUM` | UX problems, accessibility issues |
@@ -370,43 +418,53 @@ SUMMARY
   env:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   run: |
-    pip install qa-agent
+    pip install "qa-agent[ai]"
     playwright install chromium
     qa-agent --output json --output-dir ./qa-results https://staging.example.com
 
 - name: Upload Results
-  uses: actions/upload-artifact@v3
+  uses: actions/upload-artifact@v4
   with:
     name: qa-results
     path: ./qa-results/
 ```
 
-The process exits with code `1` when critical or high severity issues are found, failing the CI step automatically.
+The process exits with code `1` when critical or high severity issues are found, failing the CI step automatically. See [Exit Codes](#exit-codes) for the full table.
 
 ---
 
 ## Architecture
 
-```
+``` plaintext
 qa_agent/
-├── cli.py               # Argument parsing, entry point
-├── agent.py             # Core orchestrator
-├── config.py            # TestConfig, AuthConfig, ScreenshotConfig, RecordingConfig
-├── models.py            # Finding, PageAnalysis, TestSession
-├── ai_planner.py        # Claude integration (plan generation & caching)
-├── plan_cache.py        # Plan cache persistence
+├── __init__.py              # Package init, version detection
+├── __main__.py              # Module entry point (python -m qa_agent)
+├── cli.py                   # Argument parsing, CLI entry point
+├── agent.py                 # Core orchestrator
+├── config.py                # TestConfig, AuthConfig, ScreenshotConfig, RecordingConfig
+├── models.py                # Finding, PageAnalysis, TestSession, TestPlan, CustomStep
+├── ai_planner.py            # Claude integration — plan generation
+├── plan_cache.py            # Filesystem cache for generated test plans
 ├── testers/
-│   ├── keyboard.py         # Keyboard navigation tests
-│   ├── mouse.py            # Mouse interaction tests
-│   ├── forms.py            # Form handling tests
-│   ├── accessibility.py    # WCAG / accessibility tests
-│   ├── wcag_compliance.py  # Detailed WCAG 2.1 AA compliance (opt-in)
-│   └── errors.py           # Console & network error detection
-└── reporters/
-    ├── console.py       # Real-time colored output
-    ├── markdown.py      # Markdown report
-    ├── json_reporter.py # JSON report
-    └── pdf.py           # PDF report (requires weasyprint)
+│   ├── base.py              # BaseTester abstract class
+│   ├── keyboard.py          # Keyboard navigation tests
+│   ├── mouse.py             # Mouse interaction tests
+│   ├── forms.py             # Form handling tests
+│   ├── accessibility.py     # WCAG / accessibility tests
+│   ├── wcag_compliance.py   # Detailed WCAG 2.1 AA compliance (opt-in)
+│   ├── errors.py            # Console & network error detection
+│   └── custom.py            # Agentic custom test steps (from --instructions)
+├── reporters/
+│   ├── base.py              # BaseReporter abstract class
+│   ├── console.py           # Real-time colored output
+│   ├── markdown.py          # Markdown report
+│   ├── json_reporter.py     # JSON report
+│   └── pdf.py               # PDF report (requires weasyprint)
+└── web/
+    ├── __init__.py           # Web entry point with friendly Flask-missing error
+    ├── server.py             # Flask app, SSE streaming, session browser
+    ├── templates/            # Jinja2 HTML templates
+    └── static/               # CSS and JavaScript
 ```
 
 ### Adding a custom tester
@@ -418,14 +476,109 @@ qa_agent/
 
 ---
 
+## Development
+
+```bash
+# Clone and install in editable mode with dev dependencies
+git clone https://github.com/billrichards/qa-agent.git
+cd qa-agent
+pip install -e ".[dev,web]"
+playwright install chromium
+
+# Run the full test suite (unit tests only, no browser needed)
+pytest -v -m "not integration and not network"
+
+# Run integration tests (requires Playwright browsers)
+pytest -v -m integration --no-cov
+
+# Lint
+ruff check .
+
+# Type check
+mypy qa_agent
+```
+
+The CI pipeline (GitHub Actions) runs unit tests across Python 3.10, 3.11, and 3.12 on Ubuntu, macOS, and Windows. Integration tests run on Ubuntu with real Playwright browsers. See [`.github/workflows/test.yml`](.github/workflows/test.yml) for details.
+
+---
+
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b my-feature`)
+3. Make your changes and add tests
+4. Run the test suite (`pytest -v -m "not integration and not network"`)
+5. Open a pull request against `main`
+
+Please follow the existing code style (enforced by Ruff and Black, line length 100).
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |
-|---|---|
+| --- | --- |
 | `0` | All tests passed (no critical/high findings) |
 | `1` | Critical or high severity issues found |
 | `2` | Error running tests |
 | `130` | Interrupted by user (Ctrl+C) |
+
+---
+
+## Troubleshooting
+
+### Web UI command not found or import error
+
+The `qa-agent-web` command and `python -m qa_agent web` require Flask, which is not installed by default:
+
+```bash
+pip install "qa-agent[web]"
+```
+
+### PDF reports not generated
+
+PDF output requires WeasyPrint:
+
+```bash
+pip install "qa-agent[pdf]"
+```
+
+If WeasyPrint is not installed, qa-agent falls back to Markdown silently.
+
+### Playwright browser not found
+
+The Playwright Python package does not bundle browser binaries. You must install them separately after installing qa-agent:
+
+```bash
+playwright install chromium
+# or, for all browsers:
+playwright install
+```
+
+This step is easy to forget when setting up a new environment or CI job.
+
+### Python version too old
+
+qa-agent requires Python **3.10 or newer**. If you see `SyntaxError` or `ImportError` on startup, check your Python version:
+
+```bash
+python --version
+```
+
+Use `python3.10`, `python3.11`, or `python3.12` explicitly if your system default is older.
+
+### Agentic testing does nothing / skips AI steps
+
+The `--instructions` flag requires the `[ai]` extra and an Anthropic API key:
+
+```bash
+pip install "qa-agent[ai]"
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+If the package is not installed, qa-agent prints a warning and continues with standard tests only. If the package is installed but the key is missing or invalid, the same graceful fallback applies.
 
 ---
 

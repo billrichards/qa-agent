@@ -64,6 +64,8 @@ venv.bak/
 .vscode/
 *.swp
 *.swo
+.claude
+.claude/
 
 # QA Agent outputs
 output/
