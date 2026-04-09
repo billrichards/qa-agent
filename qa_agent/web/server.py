@@ -26,8 +26,7 @@ from ..config import (
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve().parent      # qa_agent/web/
-_PROJECT_ROOT = _HERE.parent.parent          # project root
-OUTPUT_DIR = _PROJECT_ROOT / "output"
+OUTPUT_DIR = Path.cwd() / "output"
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=str(_HERE / "templates"))
