@@ -8,7 +8,8 @@ import uuid
 from datetime import datetime
 from urllib.parse import urlparse
 
-from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, FindingCategory, PageAnalysis, Severity, TestPlan, TestSession
