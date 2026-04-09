@@ -17,22 +17,6 @@ from .config import (
 )
 
 
-# Resolve the project root once at import time (the directory that contains
-# pyproject.toml / .git), walking up from this file's location.  This means
-# default output directories are always anchored to the project root regardless
-# of the working directory from which the command is invoked.
-def _find_project_root() -> Path:
-    candidate = Path(__file__).resolve().parent
-    while candidate != candidate.parent:
-        if (candidate / "pyproject.toml").exists() or (candidate / ".git").exists():
-            return candidate
-        candidate = candidate.parent
-    return Path(__file__).resolve().parent.parent  # fallback
-
-
-_PROJECT_ROOT = _find_project_root()
-
-
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
     """Parse authentication configuration from string or file."""
     if auth_file:
@@ -149,8 +133,8 @@ Examples:
     )
     parser.add_argument(
         "--output-dir",
-        default=str(_PROJECT_ROOT / "output"),
-        help="Base directory for all output (default: <project-root>/output). "
+        default=str(Path.cwd() / "output"),
+        help="Base directory for all output (default: ./output relative to current directory). "
              "Results are written to output/{domain}/{session_id}/qa_reports|screenshots|recordings",
     )
 

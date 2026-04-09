@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from qa_agent.cli import _find_project_root, parse_auth_config
+from qa_agent.cli import parse_auth_config
 from qa_agent.config import AuthConfig, TestMode
 from qa_agent.models import Severity
 
@@ -71,21 +71,6 @@ class TestParseAuthConfig:
         bin_file.write_bytes(bytes(range(256)))
         auth = parse_auth_config(None, str(bin_file))
         assert auth is None
-
-
-# ---------------------------------------------------------------------------
-# _find_project_root
-# ---------------------------------------------------------------------------
-
-class TestFindProjectRoot:
-    def test_returns_path_object(self):
-        from pathlib import Path
-        root = _find_project_root()
-        assert isinstance(root, Path)
-
-    def test_root_contains_pyproject(self):
-        root = _find_project_root()
-        assert (root / "pyproject.toml").exists()
 
 
 # ---------------------------------------------------------------------------
