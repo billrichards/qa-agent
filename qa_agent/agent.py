@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from urllib.parse import urlparse
 
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, FindingCategory, PageAnalysis, Severity, TestPlan, TestSession
@@ -274,7 +274,7 @@ class QAAgent:
                 self.page.fill(username_selector, auth.username)
             except Exception as e:
                 msg = f"Warning: Could not fill username field: {e}"
-                if "Timeout" in str(e) and not auth.username_selector:
+                if isinstance(e, PlaywrightTimeoutError) and not auth.username_selector:
                     msg += f"\n  {_selector_hint}"
                 self.console.print_progress(msg)
 
@@ -284,7 +284,7 @@ class QAAgent:
                 self.page.fill(password_selector, auth.password)
             except Exception as e:
                 msg = f"Warning: Could not fill password field: {e}"
-                if "Timeout" in str(e) and not auth.password_selector:
+                if isinstance(e, PlaywrightTimeoutError) and not auth.password_selector:
                     msg += f"\n  {_selector_hint}"
                 self.console.print_progress(msg)
 
@@ -295,7 +295,7 @@ class QAAgent:
                 self.page.wait_for_load_state("networkidle", timeout=10000)
             except Exception as e:
                 msg = f"Warning: Could not submit login form: {e}"
-                if "Timeout" in str(e) and not auth.submit_selector:
+                if isinstance(e, PlaywrightTimeoutError) and not auth.submit_selector:
                     msg += f"\n  {_selector_hint}"
                 self.console.print_progress(msg)
 

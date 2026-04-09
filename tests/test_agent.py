@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
 from qa_agent.agent import QAAgent, _extract_domain
 from qa_agent.config import AuthConfig, TestConfig, TestMode
 from qa_agent.models import Finding, FindingCategory, Severity
@@ -468,7 +470,7 @@ class TestAuthenticate:
         agent.context = context
         agent.page = page
         page.goto = MagicMock()
-        page.fill = MagicMock(side_effect=Exception("Timeout 30000ms exceeded."))
+        page.fill = MagicMock(side_effect=PlaywrightTimeoutError("Timeout 30000ms exceeded."))
         page.click = MagicMock()
         page.wait_for_load_state = MagicMock()
         return agent

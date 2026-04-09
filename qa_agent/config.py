@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Literal
 
 
 class TestMode(Enum):
@@ -97,5 +98,5 @@ class TestConfig:
     ai_model: str = "claude-sonnet-4-6"
     use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls
 
-    # Invocation context — used to tailor diagnostic hints ("cli", "web", or None for API)
-    invocation_context: str | None = None
+    # Invocation context — used to tailor diagnostic hints
+    invocation_context: Literal["cli", "web"] | None = None
