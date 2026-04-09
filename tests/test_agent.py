@@ -305,6 +305,107 @@ class TestQAAgentRun:
                 p.stop()
 
 
+class TestFailFastHttpErrors:
+    """_test_page should short-circuit on HTTP 4xx/5xx responses."""
+
+    def _make_response(self, status: int, status_text: str = "Error") -> MagicMock:
+        response = MagicMock()
+        response.status = status
+        response.status_text = status_text
+        return response
+
+    def _run_with_response(self, status: int, status_text: str = "Error"):
+        """Run agent against a single URL where page.goto returns a given HTTP status."""
+        config = _make_config(urls=["https://example.com/missing"])
+        factory, page, context, browser = make_mock_playwright_factory()
+        page.goto.return_value = self._make_response(status, status_text)
+        agent = QAAgent(config, playwright_factory=factory)
+        # Patch attach_listeners so ErrorDetector setup doesn't fail
+        with patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None):
+            session = agent.run()
+        return session, page
+
+    def test_404_creates_high_severity_finding(self):
+        session, page = self._run_with_response(404, "Not Found")
+        assert len(session.pages_tested) == 1
+        findings = session.pages_tested[0].findings
+        assert len(findings) == 1
+        assert findings[0].severity == Severity.HIGH
+        assert "404" in findings[0].title
+
+    def test_500_creates_critical_severity_finding(self):
+        session, page = self._run_with_response(500, "Internal Server Error")
+        findings = session.pages_tested[0].findings
+        assert len(findings) == 1
+        assert findings[0].severity == Severity.CRITICAL
+        assert "500" in findings[0].title
+
+    def test_http_error_finding_category_is_network_error(self):
+        session, _ = self._run_with_response(503, "Service Unavailable")
+        findings = session.pages_tested[0].findings
+        assert findings[0].category == FindingCategory.NETWORK_ERROR
+
+    def test_http_error_skips_all_testers(self):
+        """No tester should run when the page returns an HTTP error."""
+        config = _make_config(urls=["https://example.com/gone"])
+        factory, page, context, browser = make_mock_playwright_factory()
+        page.goto.return_value = self._make_response(410, "Gone")
+        agent = QAAgent(config, playwright_factory=factory)
+
+        with patch("qa_agent.agent.KeyboardTester.run") as kb, \
+             patch("qa_agent.agent.MouseTester.run") as ms, \
+             patch("qa_agent.agent.FormTester.run") as fm, \
+             patch("qa_agent.agent.AccessibilityTester.run") as ac, \
+             patch("qa_agent.agent.ErrorDetector.run") as ed, \
+             patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None):
+            agent.run()
+
+        kb.assert_not_called()
+        ms.assert_not_called()
+        fm.assert_not_called()
+        ac.assert_not_called()
+        ed.assert_not_called()
+
+    def test_200_response_proceeds_normally(self):
+        """A 200 response must not trigger the fail-fast path."""
+        config = _make_config(urls=["https://example.com"])
+        factory, page, context, browser = make_mock_playwright_factory()
+        ok_response = MagicMock()
+        ok_response.status = 200
+        page.goto.return_value = ok_response
+        agent = QAAgent(config, playwright_factory=factory)
+
+        with patch("qa_agent.agent.KeyboardTester.run", return_value=[]) as kb, \
+             patch("qa_agent.agent.MouseTester.run", return_value=[]), \
+             patch("qa_agent.agent.FormTester.run", return_value=[]), \
+             patch("qa_agent.agent.AccessibilityTester.run", return_value=[]), \
+             patch("qa_agent.agent.ErrorDetector.run", return_value=[]), \
+             patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None), \
+             patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}):
+            agent.run()
+
+        kb.assert_called_once()
+
+    def test_none_response_proceeds_normally(self):
+        """If goto returns None (Playwright quirk), must not crash and must run testers."""
+        config = _make_config(urls=["https://example.com"])
+        factory, page, context, browser = make_mock_playwright_factory()
+        page.goto.return_value = None
+        agent = QAAgent(config, playwright_factory=factory)
+
+        with patch("qa_agent.agent.KeyboardTester.run", return_value=[]) as kb, \
+             patch("qa_agent.agent.MouseTester.run", return_value=[]), \
+             patch("qa_agent.agent.FormTester.run", return_value=[]), \
+             patch("qa_agent.agent.AccessibilityTester.run", return_value=[]), \
+             patch("qa_agent.agent.ErrorDetector.run", return_value=[]), \
+             patch("qa_agent.agent.ErrorDetector.attach_listeners", return_value=None), \
+             patch("qa_agent.agent.ErrorDetector.get_summary", return_value={}):
+            session = agent.run()
+
+        assert session is not None
+        kb.assert_called_once()
+
+
 class TestAuthenticate:
     def test_cookie_auth_sets_cookies(self):
         cookies = [{"name": "session", "value": "abc", "domain": "example.com"}]

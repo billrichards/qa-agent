@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
 
 from .config import OutputFormat, TestConfig, TestMode
-from .models import Finding, PageAnalysis, TestPlan, TestSession
+from .models import Finding, FindingCategory, PageAnalysis, Severity, TestPlan, TestSession
 from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
 from .reporters.base import BaseReporter
 from .testers import (
@@ -323,11 +323,42 @@ class QAAgent:
 
         try:
             start_time = time.time()
-            self.page.goto(url, wait_until="domcontentloaded")
-            self.page.wait_for_load_state("networkidle", timeout=10000)
+            response = self.page.goto(url, wait_until="domcontentloaded")
+            if response is None or response.status < 400:
+                self.page.wait_for_load_state("networkidle", timeout=10000)
             load_time = (time.time() - start_time) * 1000
         except Exception as e:
             self.console.print_progress(f"Error loading page: {e}")
+            return
+
+        # Fail fast on page-level HTTP errors — report one finding, skip all testers
+        if response is not None and response.status >= 400:
+            status = response.status
+            severity = Severity.CRITICAL if status >= 500 else Severity.HIGH
+            finding = Finding(
+                title=f"HTTP {status} – page not available",
+                description=f"Page returned HTTP {status} ({response.status_text}). No further tests were run.",
+                category=FindingCategory.NETWORK_ERROR,
+                severity=severity,
+                url=url,
+                metadata={"status": status, "status_text": response.status_text},
+            )
+            self.console.print_finding(finding)
+            page_analysis = PageAnalysis(
+                url=url,
+                title=f"HTTP {status}",
+                load_time_ms=load_time,
+                interactive_elements=0,
+                forms_count=0,
+                links_count=0,
+                images_count=0,
+                findings=[finding],
+            )
+            self.session.add_page_analysis(page_analysis)
+            if self.error_detector is not None:
+                self.error_detector.console_messages = []
+                self.error_detector.network_errors = []
+                self.error_detector.js_errors = []
             return
 
         # Gather page info
