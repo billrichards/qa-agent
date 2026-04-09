@@ -193,7 +193,7 @@ qa-agent-web --host 0.0.0.0 --port 8080
 
 > **Security note:** The web interface has no authentication — intended for local or internal use only.
 
-All output is written to `output/` in the project directory. CLI sessions are also visible in the web UI as long as JSON output format was used (JSON is always written by default).
+All output is written to `output/` in the current working directory. CLI sessions are discoverable in the web UI because JSON is always written automatically alongside any other output formats.
 
 ---
 
@@ -252,16 +252,15 @@ qa-agent --header "Authorization: Bearer token123" https://example.com
 ### Output
 
 ```bash
-# Formats: console, markdown, json, pdf (comma-separated, default: console,markdown)
+# Formats: console, markdown, json, pdf (comma-separated)
+# Default: console,markdown — JSON is always added automatically (required for web UI session discovery)
 qa-agent --output console,markdown,json,pdf https://example.com
 
-# Custom output directory (default: <project-root>/output)
+# Custom output directory (default: ./output relative to current working directory)
 qa-agent --output-dir ./reports https://example.com
 ```
 
-> **Note:** JSON output is always written regardless of `--output`, so sessions appear in the web UI.
-
-Output is organized as `output/{domain}/{session_id}/qa_reports|screenshots|recordings`.
+Output is organized as `output/{domain}/{session_id}/qa_reports|screenshots|recordings`. Each run creates a new session subdirectory; files accumulate over time. Use `--output-dir` to control where they land.
 
 > PDF requires WeasyPrint. Install with `pip install "qa-agent[pdf]"`. Falls back to Markdown if not installed.
 
