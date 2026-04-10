@@ -260,8 +260,20 @@ class AIPlannerClient:
         if not text:
             raise ValueError("Claude returned no text content for the test plan request.")
 
+        # Some models wrap the JSON in markdown code fences despite instructions not to.
+        # Strip them before parsing.
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            # Remove the opening fence line (```json or just ```)
+            stripped = stripped.split("\n", 1)[1] if "\n" in stripped else ""
+            # Remove the closing fence
+            closing = stripped.rfind("```")
+            if closing != -1:
+                stripped = stripped[:closing]
+            stripped = stripped.strip()
+
         try:
-            data = json.loads(text)
+            data = json.loads(stripped)
         except json.JSONDecodeError as exc:
             raise ValueError(f"Claude returned invalid JSON: {exc}\n\nRaw response:\n{text}") from exc
 
