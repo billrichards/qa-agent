@@ -243,6 +243,20 @@ class TestSession:
 
         return deduped
 
+    @property
+    def status(self) -> str:
+        """Machine-readable result status for this session.
+
+        ``no_pages_tested`` — no pages were successfully loaded (e.g. all timed out).
+        ``issues_found``    — at least one finding was recorded.
+        ``passed``          — pages were tested and no findings were recorded.
+        """
+        if not self.pages_tested:
+            return "no_pages_tested"
+        if self.total_findings > 0:
+            return "issues_found"
+        return "passed"
+
     def to_dict(self) -> dict:
         """Convert session to dictionary."""
         return {
@@ -255,5 +269,6 @@ class TestSession:
             "findings_by_severity": self.findings_by_severity,
             "findings_by_category": self.findings_by_category,
             "recording_path": self.recording_path,
+            "status": self.status,
             "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
         }

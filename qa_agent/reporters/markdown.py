@@ -124,6 +124,11 @@ class MarkdownReporter(BaseReporter):
                     cat_emoji = self._category_emoji(finding.category.value)
                     lines.extend(self._format_finding(finding, i, cat_emoji))
                     lines.append("")
+        elif not session.pages_tested:
+            lines.append("## ⚠️ No Pages Tested")
+            lines.append("")
+            lines.append("No pages were successfully loaded. Check URLs and connectivity.")
+            lines.append("")
         else:
             lines.append("## ✅ No Issues Found")
             lines.append("")

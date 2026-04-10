@@ -108,7 +108,10 @@ class ConsoleReporter(BaseReporter):
         findings = session.get_all_findings()
 
         if not findings:
-            print(f"\n{self._color('✅ No issues found!', '92')}")
+            if not session.pages_tested:
+                print(f"\n{self._color('⚠️  No pages were successfully tested!', '93')}")
+            else:
+                print(f"\n{self._color('✅ No issues found!', '92')}")
             return
 
         print(f"\n{self._color('📋 FINDINGS', '1;97')}")
@@ -151,7 +154,9 @@ class ConsoleReporter(BaseReporter):
         """Print report footer."""
         print("\n" + "=" * 70)
 
-        if session.total_findings == 0:
+        if not session.pages_tested:
+            print(self._color("  ⚠️  No pages were successfully tested — check URLs and connectivity", "93"))
+        elif session.total_findings == 0:
             print(self._color("  ✅ All tests passed with no issues found!", "92"))
         else:
             critical_high = session.findings_by_severity.get("critical", 0) + session.findings_by_severity.get("high", 0)
