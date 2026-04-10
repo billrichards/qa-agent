@@ -1,6 +1,6 @@
 # QA Agent
 
-Automated exploratory QA testing for web applications — powered by Playwright and, optionally, Claude.
+Automated exploratory QA testing for web applications — powered by Playwright and, optionally, LLMs (Claude or GPT-4o).
 
 <p align="center">
   <a href="https://github.com/billrichards/qa-agent/actions/workflows/test.yml"><img src="https://github.com/billrichards/qa-agent/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
@@ -15,7 +15,7 @@ Automated exploratory QA testing for web applications — powered by Playwright 
 
 Point QA Agent at a URL and it explores your application like a real user: clicking buttons, filling forms, navigating with the keyboard, and checking for accessibility issues. Then it reports what it finds. No test scripts to write or maintain.
 
-Need targeted tests? Pass plain-English instructions and Claude generates custom Playwright steps that run alongside the standard suite.
+Need targeted tests? Pass plain-English instructions and an LLM generates custom Playwright steps that run alongside the standard suite.
 
 ---
 
@@ -44,7 +44,7 @@ Need targeted tests? Pass plain-English instructions and Claude generates custom
 
 | Category | What it does |
 |---|---|
-| **Agentic testing** | Give Claude a bug report or feature spec; it generates custom Playwright test steps automatically |
+| **Agentic testing** | Give Claude or GPT-4o a bug report or feature spec; it generates custom Playwright test steps automatically |
 | **Two modes** | `focused` tests only given URLs; `explore` crawls and discovers pages |
 | **Six test suites** | Keyboard · mouse · forms · accessibility · error detection (on by default) + WCAG 2.1 AA compliance (opt-in) |
 | **Auth support** | Username/password, cookies, Bearer tokens, custom headers |
@@ -67,16 +67,17 @@ playwright install chromium     # required — downloads browser binaries
 Optional extras:
 
 ```bash
-pip install "qa-agent[ai]"     # agentic testing (adds Anthropic SDK)
+pip install "qa-agent[ai]"     # agentic testing (convenience marker — no extra packages needed)
 pip install "qa-agent[pdf]"    # PDF reports (adds WeasyPrint)
 pip install "qa-agent[web]"    # web UI (adds Flask)
 pip install "qa-agent[all]"    # everything above
 ```
 
-Agentic testing also requires an API key:
+Agentic testing requires an API key for your chosen provider:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # Anthropic (default)
+export OPENAI_API_KEY=sk-...          # OpenAI
 ```
 
 > `playwright install chromium` must run once after every fresh install. See [Troubleshooting](#troubleshooting) if anything goes wrong.
@@ -106,11 +107,15 @@ python -m qa_agent https://example.com
 
 ## Agentic Testing
 
-Pass natural-language instructions and Claude generates custom test steps that run alongside the standard suite.
+Pass natural-language instructions and an LLM generates custom test steps that run alongside the standard suite. Supports **Anthropic** (Claude) and **OpenAI** (GPT-4o and others). No third-party AI packages are required — all API calls use Python's built-in `urllib`.
 
 ```bash
-# From a bug report
+# From a bug report (Anthropic, default)
 qa-agent --instructions "The login button does nothing when email is blank" \
+  https://example.com/login
+
+# Using OpenAI instead
+qa-agent --llm openai --instructions "The login button does nothing when email is blank" \
   https://example.com/login
 
 # From a feature spec
@@ -124,18 +129,22 @@ qa-agent --instructions-file feature-spec.txt https://example.com
 
 ### How it works
 
-1. Claude receives your instructions and the target URL.
+1. The LLM receives your instructions and the target URL.
 2. It returns a structured plan: summary, focus areas, and custom Playwright test steps.
 3. The agent runs those steps on every tested page alongside the standard suites.
-4. Assertion failures become findings in the report with the severity Claude assigned.
+4. Assertion failures become findings in the report with the severity the LLM assigned.
 
-If the API call fails (or the `[ai]` extra isn't installed), a warning is printed and the run continues with standard tests only.
+If the API call fails (or the key is missing), a warning is printed and the run continues with standard tests only.
 
-### Model & caching
+### Provider, model & caching
 
 ```bash
-# Use a different model (default: claude-sonnet-4-6)
-qa-agent --ai-model claude-opus-4-6 --instructions "Test checkout" https://shop.example.com
+# Choose provider (default: anthropic)
+qa-agent --llm anthropic --instructions "Test checkout" https://shop.example.com
+qa-agent --llm openai    --instructions "Test checkout" https://shop.example.com
+
+# Override model (defaults: anthropic → claude-sonnet-4-6, openai → gpt-4o)
+qa-agent --llm openai --ai-model gpt-4o-mini --instructions "Test checkout" https://shop.example.com
 
 # Bypass the plan cache
 qa-agent --no-cache --instructions "..." https://example.com
@@ -262,12 +271,21 @@ qa-agent --skip-errors        https://example.com
 qa-agent --wcag-compliance    https://example.com
 ```
 
+### Agentic testing flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--llm {anthropic,openai}` | `anthropic` | LLM provider for AI instructions |
+| `--ai-model MODEL` | provider default | Model override (`claude-sonnet-4-6` / `gpt-4o`) |
+| `--no-cache` | off | Bypass the 24-hour plan cache |
+
 ---
 
 ## Programmatic Usage
 
 ```python
 from qa_agent import QAAgent, TestConfig, TestMode, OutputFormat
+from qa_agent.llm_client import LLMProvider
 
 config = TestConfig(
     urls=["https://example.com"],
@@ -276,6 +294,8 @@ config = TestConfig(
     max_depth=2,
     max_pages=10,
     instructions="Verify the password reset flow.",  # optional
+    llm_provider=LLMProvider.OPENAI,   # optional, default: LLMProvider.ANTHROPIC
+    ai_model="gpt-4o-mini",            # optional, default: None (uses provider default)
 )
 
 agent = QAAgent(config)
@@ -360,9 +380,9 @@ Non-text contrast (1.4.11) · Use of color (1.4.1) · Content on hover/focus (1.
 # GitHub Actions example
 - name: Run QA Tests
   env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # or OPENAI_API_KEY
   run: |
-    pip install "qa-agent[ai]"
+    pip install qa-agent
     playwright install chromium
     qa-agent --output json --output-dir ./qa-results https://staging.example.com
 
@@ -375,7 +395,7 @@ Non-text contrast (1.4.11) · Use of color (1.4.1) · Content on hover/focus (1.
 
 Exits with code `1` when critical or high severity issues are found, failing the CI step automatically. See [Exit Codes](#exit-codes).
 
-> Omit `[ai]` and the `ANTHROPIC_API_KEY` env var if you only need standard tests.
+> Omit `--instructions` / `--instructions-file` and the API key env vars if you only need standard tests.
 
 ---
 
@@ -387,7 +407,8 @@ qa_agent/
 ├── agent.py                 # Core orchestrator
 ├── config.py                # Configuration dataclasses
 ├── models.py                # Finding, PageAnalysis, TestSession, TestPlan
-├── ai_planner.py            # Claude integration for plan generation
+├── llm_client.py            # Anthropic & OpenAI clients via stdlib urllib
+├── ai_planner.py            # LLM-powered test plan generation
 ├── plan_cache.py            # Filesystem cache for test plans
 ├── testers/
 │   ├── base.py              # BaseTester abstract class
@@ -492,12 +513,14 @@ Falls back to Markdown silently if WeasyPrint is absent.
 
 ### Agentic testing skipped
 
+No extra packages are needed — LLM calls use Python's built-in `urllib`. You only need a valid API key for your chosen provider:
+
 ```bash
-pip install "qa-agent[ai]"
-export ANTHROPIC_API_KEY=sk-ant-...
+export ANTHROPIC_API_KEY=sk-ant-...   # for --llm anthropic (default)
+export OPENAI_API_KEY=sk-...          # for --llm openai
 ```
 
-If the package or key is missing, qa-agent prints a warning and continues with standard tests.
+If the key is missing or the API call fails, qa-agent prints a warning and continues with standard tests.
 
 ### Python version too old
 

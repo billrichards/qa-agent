@@ -243,7 +243,7 @@ Examples:
         "--instructions",
         help=(
             "Natural language instructions for agentic testing: a feature description, "
-            "bug report, or testing guidance. Claude will interpret these and generate "
+            "bug report, or testing guidance. The LLM will interpret these and generate "
             "custom test steps to run alongside the standard test suite."
         ),
     )
