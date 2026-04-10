@@ -456,6 +456,17 @@ def _build_session_list() -> list:
                 data = json.loads(json_files[0].read_text(encoding="utf-8"))
                 meta = data.get("meta", {})
                 summary = data.get("summary", {})
+                pages_tested = summary.get("pages_tested", 0)
+                total_findings = summary.get("total_findings", 0)
+                stored_status = summary.get("status")
+                if stored_status is None:
+                    # Derive status from older reports that predate the status field
+                    if pages_tested == 0:
+                        stored_status = "no_pages_tested"
+                    elif total_findings > 0:
+                        stored_status = "issues_found"
+                    else:
+                        stored_status = "passed"
                 sessions.append({
                     "session_id": meta.get("session_id", session_id),
                     "domain": domain,
@@ -463,8 +474,10 @@ def _build_session_list() -> list:
                     "end_time": meta.get("end_time"),
                     "duration_seconds": meta.get("duration_seconds"),
                     "urls": meta.get("config", {}).get("urls", []),
-                    "total_findings": summary.get("total_findings", 0),
+                    "pages_tested": pages_tested,
+                    "total_findings": total_findings,
                     "findings_by_severity": summary.get("findings_by_severity", {}),
+                    "status": stored_status,
                 })
             except Exception:
                 continue
@@ -532,6 +545,17 @@ def _load_session(domain: str, session_id: str) -> dict | None:
             except ValueError:
                 pass  # already relative or outside OUTPUT_DIR — leave as-is
 
+    pages_tested = summary.get("pages_tested", 0)
+    total_findings = summary.get("total_findings", 0)
+    stored_status = summary.get("status")
+    if stored_status is None:
+        if pages_tested == 0:
+            stored_status = "no_pages_tested"
+        elif total_findings > 0:
+            stored_status = "issues_found"
+        else:
+            stored_status = "passed"
+
     return {
         "session_id": meta.get("session_id", session_id),
         "domain": domain,
@@ -539,11 +563,12 @@ def _load_session(domain: str, session_id: str) -> dict | None:
         "end_time": meta.get("end_time"),
         "duration_seconds": meta.get("duration_seconds"),
         "config_summary": meta.get("config", {}),
-        "pages_tested": summary.get("pages_tested", 0),
-        "total_findings": summary.get("total_findings", 0),
+        "pages_tested": pages_tested,
+        "total_findings": total_findings,
         "unique_findings": summary.get("unique_findings", 0),
         "findings_by_severity": summary.get("findings_by_severity", {}),
         "findings_by_category": summary.get("findings_by_category", {}),
+        "status": stored_status,
         "findings": findings,
         "reports": reports,
         "screenshots": screenshots,

@@ -52,6 +52,7 @@ class JSONReporter(BaseReporter):
                 "unique_findings": len(session.get_deduplicated_findings()),
                 "findings_by_severity": session.findings_by_severity,
                 "findings_by_category": session.findings_by_category,
+                "status": session.status,
             },
             "pages": [
                 {

@@ -376,7 +376,10 @@ Examples:
     try:
         session = agent.run()
 
-        # Exit with error code if critical/high issues found
+        # Exit with error code if no pages were tested or critical/high issues found
+        if not session.pages_tested:
+            sys.exit(2)
+
         critical_high = (
             session.findings_by_severity.get("critical", 0) +
             session.findings_by_severity.get("high", 0)
