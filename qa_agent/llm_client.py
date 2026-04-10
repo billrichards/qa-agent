@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, cast
 
 
 class LLMProvider(str, Enum):
@@ -74,7 +75,7 @@ def _http_post(url: str, headers: dict[str, str], body: dict, timeout: int) -> d
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return cast(dict[str, Any], json.loads(resp.read().decode("utf-8")))
     except urllib.error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         retryable = exc.code in (429, 500, 502, 503, 504, 529)

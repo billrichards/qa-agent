@@ -11,7 +11,15 @@ Python's built-in ``urllib`` — no third-party AI SDK required.
 import json
 import time
 
-from .llm_client import DEFAULT_MODELS, LLMError, LLMProvider, LLMResponse, create_llm_client
+from .llm_client import (
+    DEFAULT_MODELS,
+    AnthropicClient,
+    LLMError,
+    LLMProvider,
+    LLMResponse,
+    OpenAIClient,
+    create_llm_client,
+)
 from .models import (
     CustomStep,
     FindingCategory,
@@ -234,10 +242,10 @@ class AIPlannerClient:
         self.provider = provider
         # None means "use the provider's default model" (resolved lazily)
         self.model = model
-        self._llm: object | None = None  # lazy-initialised on first use
+        self._llm: AnthropicClient | OpenAIClient | None = None  # lazy-initialised on first use
 
     @property
-    def _client(self):
+    def _client(self) -> AnthropicClient | OpenAIClient:
         if self._llm is None:
             self._llm = create_llm_client(self.provider, self.model)
         return self._llm
