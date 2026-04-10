@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
-from qa_agent.models import FindingCategory, Severity
+from qa_agent.models import FindingCategory, PageAnalysis, Severity, TestSession
 from qa_agent.reporters.console import ConsoleReporter
 from qa_agent.reporters.json_reporter import JSONReporter
 from qa_agent.reporters.markdown import MarkdownReporter
@@ -105,6 +106,142 @@ class TestMarkdownReporter:
         # BUG: this raw HTML will execute if served via /files/ without sanitisation.
         # Fix: escape HTML in finding titles/descriptions before writing to markdown,
         # or pass output="escape" to markdown.markdown() in server.py.
+
+    def test_deduplication_note_when_raw_count_greater(self, tmp_path):
+        """When deduplicated count < raw count, a note appears in the report."""
+        from unittest.mock import patch
+
+        session = make_session_with_findings()
+        # The raw count is 5. Make deduplicated return only 2 findings.
+        deduplicated = session.get_all_findings()[:2]
+        reporter = MarkdownReporter(str(tmp_path))
+
+        with patch.object(session, "get_deduplicated_findings", return_value=deduplicated):
+            path = reporter.generate(session)
+
+        content = open(path, encoding="utf-8").read()
+        assert "consolidated" in content or "unique" in content
+
+    def test_no_pages_tested_section(self, tmp_path):
+        """Session with no pages tested shows a warning section."""
+        session = TestSession(
+            session_id="empty-test",
+            start_time=datetime(2024, 1, 1, 12, 0, 0),
+            config_summary={"mode": "explore"},
+        )
+        # No pages added → pages_tested is empty
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "No Pages Tested" in content or "no pages" in content.lower()
+
+    def test_recording_path_in_report(self, tmp_path):
+        """When session has a recording_path, it appears in the report."""
+        session = make_session()
+        session.recording_path = "/tmp/recording.webm"
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "recording.webm" in content
+
+    def test_format_finding_with_element_selector(self, tmp_path):
+        """Finding with element_selector shows the selector in the report."""
+        finding = make_finding(element_selector="button#submit")
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "button#submit" in content
+
+    def test_format_finding_with_element_text(self, tmp_path):
+        """Finding with element_text shows the text in the report."""
+        finding = make_finding(element_text="Submit Form")
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Submit Form" in content
+
+    def test_format_finding_with_expected_actual(self, tmp_path):
+        """Finding with expected/actual behavior shows a comparison table."""
+        finding = make_finding(
+            expected_behavior="Button should be focusable",
+            actual_behavior="Button has tabindex=-1",
+        )
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Button should be focusable" in content
+        assert "tabindex" in content
+
+    def test_format_finding_with_steps_to_reproduce(self, tmp_path):
+        """Finding with steps_to_reproduce lists the steps."""
+        finding = make_finding(steps_to_reproduce=["Open the page", "Click Login", "Check focus"])
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Open the page" in content
+        assert "Click Login" in content
+
+    def test_format_finding_with_screenshot(self, tmp_path):
+        """Finding with screenshot_path includes relative screenshot link."""
+        screenshot = tmp_path / "shot.png"
+        screenshot.write_bytes(b"fake png")
+        finding = make_finding(screenshot_path=str(screenshot))
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Screenshot" in content
+        assert "shot.png" in content
+
+    def test_format_finding_with_metadata(self, tmp_path):
+        """Finding with metadata shows a JSON details block."""
+        finding = make_finding(metadata={"count": 3, "urls": ["https://example.com"]})
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Additional Details" in content or "details" in content.lower()
+        assert "count" in content
+
+    def test_format_finding_with_raw_error(self, tmp_path):
+        """Finding with raw_error includes the error in a code block."""
+        finding = make_finding(raw_error="TypeError: Cannot read property 'x' of undefined")
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Raw Error" in content
+        assert "TypeError" in content
+
+    def test_format_finding_with_affected_urls(self, tmp_path):
+        """Finding with affected_urls shows the URL pattern and collapsible list."""
+        finding = make_finding()
+        finding.affected_urls = ["https://example.com/a", "https://example.com/b"]
+        session = make_session(findings=[finding])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "affects" in content or "Affected" in content
+
+    def test_no_findings_shows_passed_message(self, tmp_path):
+        """Session with pages but no findings shows 'No Issues Found'."""
+        session = make_session(findings=[])
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "No Issues Found" in content or "no issues" in content.lower()
+
+    def test_session_with_end_time_shows_duration(self, tmp_path):
+        """Session with end_time shows the duration in the report."""
+        session = make_session()  # already has end_time set
+        reporter = MarkdownReporter(str(tmp_path))
+        path = reporter.generate(session)
+        content = open(path, encoding="utf-8").read()
+        assert "Duration" in content or "seconds" in content
 
 
 # ---------------------------------------------------------------------------

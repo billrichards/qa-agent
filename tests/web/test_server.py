@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import sys
 import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -452,3 +453,68 @@ class TestMultiplexedStdout:
     def test_isatty_returns_false(self):
         mux = _MultiplexedStdout()
         assert mux.isatty() is False
+
+
+# ---------------------------------------------------------------------------
+# qa_agent/web/__init__.py — serve_web_cli entry point
+# ---------------------------------------------------------------------------
+
+class TestServeWebCli:
+    def test_flask_missing_exits_1_with_helpful_message(self, capsys):
+        """simulate flask missing by forcing the inner import to fail."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "qa_agent.web.server":
+                raise ModuleNotFoundError("No module named 'flask'")
+            return real_import(name, *args, **kwargs)
+
+        # Remove server from cache so the import runs again
+        saved = sys.modules.pop("qa_agent.web.server", None)
+        try:
+            with patch("builtins.__import__", side_effect=fake_import):
+                with pytest.raises(SystemExit) as exc_info:
+                    import qa_agent.web as web_mod
+                    import importlib
+                    importlib.reload(web_mod)
+                    web_mod.serve_web_cli()
+        finally:
+            if saved is not None:
+                sys.modules["qa_agent.web.server"] = saved
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "flask" in captured.err.lower()
+        assert "pip install" in captured.err
+
+    def test_serve_web_cli_calls_server_function(self):
+        """When flask is available, serve_web_cli delegates to server.serve_web_cli."""
+        with patch("qa_agent.web.server.serve_web_cli") as mock_serve:
+            import qa_agent.web as web_mod
+            web_mod.serve_web_cli()
+            mock_serve.assert_called_once()
+
+    def test_non_flask_module_not_found_reraises(self):
+        """A non-flask ModuleNotFoundError propagates unchanged."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "qa_agent.web.server":
+                raise ModuleNotFoundError("No module named 'weasyprint'")
+            return real_import(name, *args, **kwargs)
+
+        saved = sys.modules.pop("qa_agent.web.server", None)
+        try:
+            with patch("builtins.__import__", side_effect=fake_import):
+                with pytest.raises(ModuleNotFoundError, match="weasyprint"):
+                    import qa_agent.web as web_mod
+                    import importlib
+                    importlib.reload(web_mod)
+                    web_mod.serve_web_cli()
+        finally:
+            if saved is not None:
+                sys.modules["qa_agent.web.server"] = saved
