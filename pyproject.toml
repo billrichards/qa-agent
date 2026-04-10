@@ -35,9 +35,7 @@ web = [
     "flask>=3.0",
     "markdown>=3.5",
 ]
-ai = [
-    "anthropic>=0.50.0",
-]
+ai = []  # LLM calls use Python's built-in urllib — no extra packages required
 dev = [
     "pytest>=7.0.0",
     "pytest-playwright>=0.4.0",

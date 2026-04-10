@@ -2,6 +2,7 @@
 
 from qa_agent.config import (
     AuthConfig,
+    LLMProvider,
     OutputFormat,
     RecordingConfig,
     ScreenshotConfig,
@@ -65,6 +66,21 @@ class TestTestConfigDefaults:
 
     def test_default_use_plan_cache(self):
         assert TestConfig().use_plan_cache is True
+
+    def test_default_llm_provider_is_anthropic(self):
+        assert TestConfig().llm_provider == LLMProvider.ANTHROPIC
+
+    def test_default_ai_model_is_none(self):
+        """None means 'use the provider default' — resolved at call time."""
+        assert TestConfig().ai_model is None
+
+    def test_llm_provider_can_be_set_to_openai(self):
+        cfg = TestConfig(llm_provider=LLMProvider.OPENAI)
+        assert cfg.llm_provider == LLMProvider.OPENAI
+
+    def test_ai_model_can_be_overridden(self):
+        cfg = TestConfig(ai_model="claude-opus-4-6")
+        assert cfg.ai_model == "claude-opus-4-6"
 
     def test_screenshots_enabled_by_default(self):
         assert TestConfig().screenshots.enabled is True

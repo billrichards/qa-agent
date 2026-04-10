@@ -108,6 +108,33 @@ class TestBuildConfig:
         with pytest.raises((KeyError, TypeError, ValueError)):
             _build_config({})
 
+    def test_llm_provider_defaults_to_anthropic(self):
+        from qa_agent.llm_client import LLMProvider
+        config = _build_config({"urls": ["https://example.com"]})
+        assert config.llm_provider == LLMProvider.ANTHROPIC
+
+    def test_llm_provider_openai_accepted(self):
+        from qa_agent.llm_client import LLMProvider
+        config = _build_config({"urls": ["https://example.com"], "llm_provider": "openai"})
+        assert config.llm_provider == LLMProvider.OPENAI
+
+    def test_llm_provider_unknown_falls_back_to_anthropic(self):
+        from qa_agent.llm_client import LLMProvider
+        config = _build_config({"urls": ["https://example.com"], "llm_provider": "gemini"})
+        assert config.llm_provider == LLMProvider.ANTHROPIC
+
+    def test_ai_model_defaults_to_none(self):
+        config = _build_config({"urls": ["https://example.com"]})
+        assert config.ai_model is None
+
+    def test_ai_model_can_be_specified(self):
+        config = _build_config({"urls": ["https://example.com"], "ai_model": "gpt-4o-mini"})
+        assert config.ai_model == "gpt-4o-mini"
+
+    def test_ai_model_empty_string_becomes_none(self):
+        config = _build_config({"urls": ["https://example.com"], "ai_model": ""})
+        assert config.ai_model is None
+
 
 # ---------------------------------------------------------------------------
 # /api/run

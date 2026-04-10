@@ -136,15 +136,8 @@ class QAAgent:
         and reused on subsequent runs with identical inputs unless
         ``config.use_plan_cache`` is False.
         """
-        try:
-            from .ai_planner import AIPlannerClient
-        except ImportError:
-            self.console.print_progress(
-                "Warning: agentic testing requires the anthropic package, which is not installed.\n"
-                "Install it with:  pip install 'qa-agent[ai]'\n"
-                "Continuing with standard tests only."
-            )
-            return
+        from .ai_planner import AIPlannerClient, effective_model
+        from .llm_client import LLMError
         from .plan_cache import PlanCache
 
         cache = PlanCache() if self.config.use_plan_cache else None
@@ -159,11 +152,15 @@ class QAAgent:
                 self._apply_test_plan()
                 return
 
+        model_name = effective_model(self.config.llm_provider, self.config.ai_model)
         self.console.print_progress(
-            f"Generating AI test plan using {self.config.ai_model}…"
+            f"Generating AI test plan using {self.config.llm_provider.value}/{model_name}…"
         )
         try:
-            planner = AIPlannerClient(model=self.config.ai_model)
+            planner = AIPlannerClient(
+                provider=self.config.llm_provider,
+                model=self.config.ai_model,
+            )
             base_url = self.config.urls[0] if self.config.urls else ""
             self.test_plan = planner.plan(self.config.instructions, base_url)
 
@@ -172,6 +169,11 @@ class QAAgent:
 
             self._apply_test_plan()
 
+        except LLMError as exc:
+            self.console.print_progress(
+                f"Warning: AI planning failed — {exc}\nContinuing with standard tests only."
+            )
+            self.test_plan = None
         except Exception as exc:
             self.console.print_progress(
                 f"Warning: AI planning failed ({exc}). Continuing with standard tests only."

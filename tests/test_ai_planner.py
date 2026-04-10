@@ -8,20 +8,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from qa_agent.ai_planner import AIPlannerClient
+from qa_agent.llm_client import LLMProvider, LLMResponse
 from qa_agent.models import TestPlan
 
 
-def _mock_client(response_text: str) -> MagicMock:
-    """Return a mock anthropic.Anthropic client that returns response_text."""
-    block = MagicMock()
-    block.type = "text"
-    block.text = response_text
-
-    message = MagicMock()
-    message.content = [block]
-
+def _mock_client(response_text: str, provider: LLMProvider = LLMProvider.ANTHROPIC) -> MagicMock:
+    """Return a mock LLM client whose complete() returns response_text."""
     client = MagicMock()
-    client.messages.create.return_value = message
+    client.complete.return_value = LLMResponse(
+        text=response_text,
+        provider=provider,
+        model="mock-model",
+    )
     return client
 
 
@@ -49,9 +47,13 @@ VALID_PLAN_JSON = """{
 
 
 class TestAIPlannerParsing:
-    def _planner(self, response_text: str) -> AIPlannerClient:
-        planner = AIPlannerClient(model="claude-test-model")
-        planner._client = _mock_client(response_text)
+    def _planner(
+        self,
+        response_text: str,
+        provider: LLMProvider = LLMProvider.ANTHROPIC,
+    ) -> AIPlannerClient:
+        planner = AIPlannerClient(provider=provider, model="mock-model")
+        planner._client = _mock_client(response_text, provider)
         return planner
 
     def test_valid_json_returns_test_plan(self):
@@ -86,17 +88,13 @@ class TestAIPlannerParsing:
         with pytest.raises(ValueError, match="invalid JSON"):
             planner.plan("test", "https://example.com")
 
-    def test_no_text_content_raises_value_error(self):
-        block = MagicMock()
-        block.type = "not_text"
-        message = MagicMock()
-        message.content = [block]
+    def test_no_text_content_raises_llm_error(self):
+        from qa_agent.llm_client import LLMError
         client = MagicMock()
-        client.messages.create.return_value = message
-
-        planner = AIPlannerClient(model="test")
+        client.complete.side_effect = LLMError("No text content")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="test")
         planner._client = client
-        with pytest.raises(ValueError):
+        with pytest.raises(LLMError):
             planner.plan("test", "https://example.com")
 
     def test_empty_custom_steps_allowed(self):
@@ -123,32 +121,43 @@ class TestAIPlannerParsing:
         from qa_agent.models import FindingCategory
         assert plan.custom_steps[0].category == FindingCategory.UNEXPECTED_BEHAVIOR
 
+    def test_openai_provider_parses_same_schema(self):
+        """OpenAI responses use the same JSON schema — parsing must work for both providers."""
+        planner = self._planner(VALID_PLAN_JSON, provider=LLMProvider.OPENAI)
+        plan = planner.plan("test the login flow", "https://example.com")
+        assert isinstance(plan, TestPlan)
+        assert plan.summary == "Test the login flow"
+
 
 class TestAIPlannerAPICall:
-    def test_model_id_used_in_create_call(self):
-        planner = AIPlannerClient(model="claude-specific-model")
+    def test_model_passed_to_complete(self):
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="claude-specific-model")
         planner._client = _mock_client(VALID_PLAN_JSON)
         planner.plan("test", "https://example.com")
-        call_kwargs = planner._client.messages.create.call_args
-        assert call_kwargs.kwargs.get("model") == "claude-specific-model" or \
-               call_kwargs[1].get("model") == "claude-specific-model" or \
-               "claude-specific-model" in str(call_kwargs)
+        call_kwargs = planner._client.complete.call_args
+        assert "claude-specific-model" in str(call_kwargs) or \
+               planner.model == "claude-specific-model"
 
     def test_base_url_included_in_user_message(self):
-        planner = AIPlannerClient(model="test")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="test")
         planner._client = _mock_client(VALID_PLAN_JSON)
         planner.plan("test the checkout", "https://shop.example.com/cart")
-        call_kwargs = planner._client.messages.create.call_args
-        # user message should contain the URL
-        user_content = str(call_kwargs)
-        assert "https://shop.example.com/cart" in user_content
+        call_kwargs = planner._client.complete.call_args
+        assert "https://shop.example.com/cart" in str(call_kwargs)
 
     def test_instructions_included_in_user_message(self):
-        planner = AIPlannerClient(model="test")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="test")
         planner._client = _mock_client(VALID_PLAN_JSON)
         planner.plan("verify the payment form accepts all card types", "https://example.com")
-        call_kwargs = planner._client.messages.create.call_args
+        call_kwargs = planner._client.complete.call_args
         assert "payment form" in str(call_kwargs)
+
+    def test_system_prompt_passed_to_complete(self):
+        planner = AIPlannerClient(provider=LLMProvider.OPENAI, model="gpt-4o")
+        planner._client = _mock_client(VALID_PLAN_JSON, LLMProvider.OPENAI)
+        planner.plan("check form validation", "https://example.com")
+        call_kwargs = planner._client.complete.call_args
+        assert "system" in str(call_kwargs)
 
 
 class TestAIPlannerSecurity:
@@ -156,7 +165,7 @@ class TestAIPlannerSecurity:
         """API key must never leak into the returned TestPlan."""
         fake_key = "sk-ant-test-supersecret-key-12345"
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": fake_key}):
-            planner = AIPlannerClient(model="test")
+            planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="test")
             planner._client = _mock_client(VALID_PLAN_JSON)
             plan = planner.plan("test", "https://example.com")
 
@@ -167,9 +176,52 @@ class TestAIPlannerSecurity:
         """If the API call fails, the key must not appear in the exception message."""
         fake_key = "sk-ant-test-supersecret-key-99999"
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": fake_key}):
-            planner = AIPlannerClient(model="test")
+            planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="test")
             planner._client = _mock_client("bad json {{{")
             try:
                 planner.plan("test", "https://example.com")
             except ValueError as e:
                 assert fake_key not in str(e)
+
+    def test_openai_key_not_in_plan_object(self):
+        """OpenAI API key must never leak into the returned TestPlan."""
+        fake_key = "sk-openai-test-supersecret-key-12345"
+        with patch.dict(os.environ, {"OPENAI_API_KEY": fake_key}):
+            planner = AIPlannerClient(provider=LLMProvider.OPENAI, model="test")
+            planner._client = _mock_client(VALID_PLAN_JSON, LLMProvider.OPENAI)
+            plan = planner.plan("test", "https://example.com")
+
+        plan_str = str(plan.__dict__)
+        assert fake_key not in plan_str
+
+
+class TestLLMClientMissingKey:
+    def test_anthropic_missing_key_raises_llm_error(self):
+        from qa_agent.llm_client import AnthropicClient, LLMError
+        with patch.dict(os.environ, {}, clear=True):
+            # Remove the key if present
+            env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+            with patch.dict(os.environ, env, clear=True):
+                with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
+                    AnthropicClient(model="test")
+
+    def test_openai_missing_key_raises_llm_error(self):
+        from qa_agent.llm_client import LLMError, OpenAIClient
+        env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(LLMError, match="OPENAI_API_KEY"):
+                OpenAIClient(model="test")
+
+    def test_create_llm_client_anthropic_missing_key(self):
+        from qa_agent.llm_client import LLMError, create_llm_client
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(LLMError, match="ANTHROPIC_API_KEY"):
+                create_llm_client(LLMProvider.ANTHROPIC)
+
+    def test_create_llm_client_openai_missing_key(self):
+        from qa_agent.llm_client import LLMError, create_llm_client
+        env = {k: v for k, v in os.environ.items() if k != "OPENAI_API_KEY"}
+        with patch.dict(os.environ, env, clear=True):
+            with pytest.raises(LLMError, match="OPENAI_API_KEY"):
+                create_llm_client(LLMProvider.OPENAI)

@@ -15,6 +15,7 @@ from .config import (
     TestConfig,
     TestMode,
 )
+from .llm_client import LLMProvider
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
@@ -251,9 +252,19 @@ Examples:
         help="Path to a text file containing natural language testing instructions.",
     )
     parser.add_argument(
+        "--llm",
+        choices=["anthropic", "openai"],
+        default="anthropic",
+        dest="llm_provider",
+        help="LLM provider to use for AI instructions (default: anthropic)",
+    )
+    parser.add_argument(
         "--ai-model",
-        default="claude-sonnet-4-6",
-        help="Claude model to use for instruction interpretation (default: claude-sonnet-4-6)",
+        default=None,
+        help=(
+            "Model to use for the selected LLM provider. "
+            "Defaults: anthropic=claude-sonnet-4-6, openai=gpt-4o"
+        ),
     )
     parser.add_argument(
         "--no-cache",
@@ -365,7 +376,8 @@ Examples:
         ignore_patterns=args.ignore,
         same_domain_only=not args.allow_external,
         instructions=instructions,
-        ai_model=args.ai_model,
+        llm_provider=LLMProvider(args.llm_provider),
+        ai_model=args.ai_model or None,
         use_plan_cache=not args.no_cache,
         invocation_context="cli",
     )
