@@ -10,7 +10,7 @@ Automated exploratory QA testing for web applications — powered by Playwright 
 </p>
 
 <p align="center">
-  <img src="./docs/console-output-showing-a-test-run-in-progress.png" alt="Console output showing a test run in progress" width="700">
+  <img src="https://raw.githubusercontent.com/billrichards/qa-agent/main/docs/console-output-showing-a-test-run-in-progress.png" alt="Console output showing a test run in progress" width="700">
 </p>
 
 Point QA Agent at a URL and it explores your application like a real user: clicking buttons, filling forms, navigating with the keyboard, and checking for accessibility issues. Then it reports what it finds. No test scripts to write or maintain.
@@ -148,7 +148,7 @@ Plans are cached to `~/.qa_agent/cache/` (24-hour TTL). Pass `--no-cache` to for
 ## Web Interface
 
 <p align="center">
-  <img src="./docs/web-UI-configuration-form.png" alt="Web interface configuration form" width="700">
+  <img src="https://raw.githubusercontent.com/billrichards/qa-agent/main/docs/web-UI-configuration-form.png" alt="Web interface configuration form" width="700">
 </p>
 
 ```bash
@@ -163,7 +163,7 @@ qa-agent-web --host 0.0.0.0 --port 8080  # custom bind
 - Session detail: findings table, severity breakdown, screenshot gallery, report downloads
 
 <p align="center">
-  <img src="./docs/session-detail-view-showing-findings-table.png" alt="Session detail view showing findings table" width="700">
+  <img src="https://raw.githubusercontent.com/billrichards/qa-agent/main/docs/session-detail-view-showing-findings-table.png" alt="Session detail view showing findings table" width="700">
 </p>
 
 > **No authentication** — intended for local or internal use only.
@@ -322,7 +322,7 @@ Non-text contrast (1.4.11) · Use of color (1.4.1) · Content on hover/focus (1.
 
 ### Console
 
-![Colorized console output with summary table](./docs/colorized-console-output-with-summary-table.png)
+![Colorized console output with summary table](https://raw.githubusercontent.com/billrichards/qa-agent/main/docs/colorized-console-output-with-summary-table.png)
 
 ### JSON
 
