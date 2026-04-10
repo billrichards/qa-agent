@@ -202,11 +202,17 @@
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="ai_model">AI Model</label>
+          <label for="llm_provider">LLM Provider</label>
+          <select id="llm_provider" name="llm_provider">
+            <option value="anthropic" selected>Anthropic (Claude)</option>
+            <option value="openai">OpenAI</option>
+          </select>
+          <span class="hint" id="llm_key_hint">Requires <code>ANTHROPIC_API_KEY</code></span>
+        </div>
+        <div class="field">
+          <label for="ai_model">Model</label>
           <select id="ai_model" name="ai_model">
-            <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6</option>
-            <option value="claude-opus-4-6">claude-opus-4-6</option>
-            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001</option>
+            <!-- populated by JS based on provider -->
           </select>
         </div>
         <div class="field" style="align-self:flex-end">
@@ -272,6 +278,46 @@
     ssEnabled.addEventListener('change', syncScreenshots);
     ssOnError.addEventListener('change', syncScreenshots);
     syncScreenshots(); // set initial disabled state
+  })();
+
+  // LLM provider → model options + env-var hint
+  (function () {
+    const MODELS = {
+      anthropic: [
+        { value: '',                        label: 'Default (claude-sonnet-4-6)' },
+        { value: 'claude-sonnet-4-6',       label: 'claude-sonnet-4-6' },
+        { value: 'claude-opus-4-6',         label: 'claude-opus-4-6' },
+        { value: 'claude-haiku-4-5-20251001', label: 'claude-haiku-4-5-20251001' },
+      ],
+      openai: [
+        { value: '',              label: 'Default (gpt-4o)' },
+        { value: 'gpt-4o',        label: 'gpt-4o' },
+        { value: 'gpt-4o-mini',   label: 'gpt-4o-mini' },
+        { value: 'gpt-4-turbo',   label: 'gpt-4-turbo' },
+        { value: 'o1',            label: 'o1' },
+        { value: 'o1-mini',       label: 'o1-mini' },
+      ],
+    };
+    const KEY_HINTS = {
+      anthropic: 'Requires <code>ANTHROPIC_API_KEY</code>',
+      openai:    'Requires <code>OPENAI_API_KEY</code>',
+    };
+
+    function updateLLMOptions() {
+      const provider = document.getElementById('llm_provider').value;
+      const modelSel = document.getElementById('ai_model');
+      const hint     = document.getElementById('llm_key_hint');
+      const models   = MODELS[provider] || [];
+
+      modelSel.innerHTML = models
+        .map(m => `<option value="${m.value}">${m.label}</option>`)
+        .join('');
+
+      if (hint) hint.innerHTML = KEY_HINTS[provider] || '';
+    }
+
+    document.getElementById('llm_provider').addEventListener('change', updateLLMOptions);
+    updateLLMOptions(); // set initial state
   })();
 
   // Load instructions from a local text/markdown file into the textarea

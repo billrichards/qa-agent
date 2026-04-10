@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from .llm_client import LLMProvider
+
 
 class TestMode(Enum):
     """Testing mode for the QA agent."""
@@ -93,9 +95,10 @@ class TestConfig:
     # Stay within same domain in explore mode
     same_domain_only: bool = True
 
-    # Agentic testing: natural language instructions interpreted by Claude
+    # Agentic testing: natural language instructions interpreted by an LLM
     instructions: str | None = None
-    ai_model: str = "claude-sonnet-4-6"
+    llm_provider: LLMProvider = LLMProvider.ANTHROPIC
+    ai_model: str | None = None  # None → use the provider's default model
     use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls
 
     # Invocation context — used to tailor diagnostic hints

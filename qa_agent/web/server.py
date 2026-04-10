@@ -23,6 +23,7 @@ from ..config import (
     TestConfig,
     TestMode,
 )
+from ..llm_client import LLMProvider
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve().parent      # qa_agent/web/
@@ -578,6 +579,14 @@ def _load_session(domain: str, session_id: str) -> dict | None:
 
 # ── Config builder ─────────────────────────────────────────────────────────────
 
+def _parse_llm_provider(value: str) -> LLMProvider:
+    """Convert a string to an LLMProvider, defaulting to ANTHROPIC on unknown values."""
+    try:
+        return LLMProvider(value.lower())
+    except (ValueError, AttributeError):
+        return LLMProvider.ANTHROPIC
+
+
 def _build_config(body: dict) -> TestConfig:
     """Convert JSON request body into a TestConfig."""
     urls = body["urls"]
@@ -655,7 +664,8 @@ def _build_config(body: dict) -> TestConfig:
         ignore_patterns=body.get("ignore_patterns", []),
         same_domain_only=bool(body.get("same_domain_only", True)),
         instructions=body.get("instructions") or None,
-        ai_model=body.get("ai_model", "claude-sonnet-4-6"),
+        llm_provider=_parse_llm_provider(body.get("llm_provider", "anthropic")),
+        ai_model=body.get("ai_model") or None,
         use_plan_cache=bool(body.get("use_plan_cache", True)),
         auth=auth,
         screenshots=ScreenshotConfig(

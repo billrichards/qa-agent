@@ -1,13 +1,17 @@
 """AI-powered test planner that interprets natural language instructions.
 
 Given a natural language description (feature spec, bug report, or general
-testing guidance), this module calls the Claude API and returns a structured
+testing guidance), this module calls an LLM and returns a structured
 ``TestPlan`` that the agent will execute alongside its standard test suite.
+
+The LLM interaction is handled by :mod:`qa_agent.llm_client`, which uses
+Python's built-in ``urllib`` — no third-party AI SDK required.
 """
 
 import json
 import time
 
+from .llm_client import DEFAULT_MODELS, LLMError, LLMProvider, LLMResponse, create_llm_client
 from .models import (
     CustomStep,
     FindingCategory,
@@ -181,13 +185,10 @@ _TEST_PLAN_SCHEMA = {
 }
 
 
-# Errors that are safe to retry (transient — not a bug in our request)
-_RETRYABLE_ERRORS: tuple = ()  # populated lazily after anthropic is imported
-
 # How long to wait before each retry attempt (seconds)
 _RETRY_DELAYS = (2, 5)   # up to 3 attempts total: initial + 2 retries
 
-# Timeout for a single messages.create() call (seconds)
+# Timeout for a single API call (seconds)
 _API_TIMEOUT = 60
 
 # Max characters of raw API response to include in error messages
@@ -219,28 +220,32 @@ _CATEGORY_MAP: dict[str, FindingCategory] = {
 
 
 class AIPlannerClient:
-    """Calls the Claude API to turn natural language instructions into a ``TestPlan``."""
+    """Calls an LLM to turn natural language instructions into a ``TestPlan``.
 
-    def __init__(self, model: str = "claude-sonnet-4-6") -> None:
+    Supports Anthropic and OpenAI via the lightweight :mod:`qa_agent.llm_client`
+    module (stdlib ``urllib`` only — no third-party AI SDK required).
+    """
+
+    def __init__(
+        self,
+        provider: LLMProvider = LLMProvider.ANTHROPIC,
+        model: str | None = None,
+    ) -> None:
+        self.provider = provider
+        # None means "use the provider's default model" (resolved lazily)
         self.model = model
-        self.__anthropic_client = None
+        self._llm: object | None = None  # lazy-initialised on first use
 
-    @property  # type: ignore[override]
+    @property
     def _client(self):
-        if self.__anthropic_client is None:
-            try:
-                import anthropic
-            except ImportError as exc:
-                raise ImportError(
-                    "The 'anthropic' package is required for AI planning. "
-                    "Install it with: pip install 'qa-agent[ai]'"
-                ) from exc
-            self.__anthropic_client = anthropic.Anthropic()
-        return self.__anthropic_client
+        if self._llm is None:
+            self._llm = create_llm_client(self.provider, self.model)
+        return self._llm
 
     @_client.setter
     def _client(self, value) -> None:
-        self.__anthropic_client = value
+        """Allow tests to inject a mock client directly."""
+        self._llm = value
 
     # ------------------------------------------------------------------
     # Public API
@@ -251,13 +256,13 @@ class AIPlannerClient:
 
         Args:
             instructions: A feature description, bug report, or testing guidance.
-            base_url: The primary URL under test (gives Claude context).
+            base_url: The primary URL under test (gives the LLM context).
 
         Returns:
             A structured :class:`TestPlan` ready for :class:`CustomTester`.
 
         Raises:
-            anthropic.APIError: Propagated after all retries are exhausted.
+            LLMError: Propagated after all retries are exhausted.
             ValueError: If the response cannot be parsed into a valid plan.
         """
         user_message = (
@@ -266,37 +271,17 @@ class AIPlannerClient:
             "Generate a test plan as a JSON object."
         )
 
-        response = self._call_with_retry(user_message)
-
-        text = next((b.text for b in response.content if b.type == "text"), None)
-        if not text:
-            raise ValueError("Claude returned no text content for the test plan request.")
-
-        data = self._parse_json(text)
+        response: LLMResponse = self._call_with_retry(user_message)
+        data = self._parse_json(response.text)
         return self._parse_plan(data)
 
-    def _call_with_retry(self, user_message: str):
-        """Call messages.create with timeout and exponential-backoff retry.
+    def _call_with_retry(self, user_message: str) -> LLMResponse:
+        """Call the LLM with exponential-backoff retry on transient errors.
 
-        Retries on transient errors: rate limits, overload (529), connection
-        errors, and timeouts. Non-retryable errors (auth, bad request, etc.)
-        are re-raised immediately.  If the anthropic package is not installed
-        (e.g. in tests that inject a mock client) retry type-checking is
-        skipped and a single attempt is made.
+        Retries when :attr:`LLMError.retryable` is ``True`` (rate limits,
+        server errors, connection problems, timeouts).  Non-retryable errors
+        are re-raised immediately.
         """
-        global _RETRYABLE_ERRORS
-        if not _RETRYABLE_ERRORS:
-            try:
-                import anthropic as _anthropic
-                _RETRYABLE_ERRORS = (
-                    _anthropic.RateLimitError,
-                    _anthropic.InternalServerError,  # includes 529 overload
-                    _anthropic.APIConnectionError,
-                    _anthropic.APITimeoutError,
-                )
-            except ImportError:
-                pass  # no anthropic — proceed without retry classification
-
         last_exc: Exception | None = None
         attempts = 1 + len(_RETRY_DELAYS)
 
@@ -307,15 +292,14 @@ class AIPlannerClient:
             if delay is not None:
                 time.sleep(delay)
             try:
-                return self._client.messages.create(
-                    model=self.model,
-                    max_tokens=4096,
+                return self._client.complete(
                     system=_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": user_message}],
+                    user=user_message,
+                    max_tokens=4096,
                     timeout=_API_TIMEOUT,
                 )
-            except Exception as exc:
-                if _RETRYABLE_ERRORS and isinstance(exc, _RETRYABLE_ERRORS) and attempt < attempts:
+            except LLMError as exc:
+                if exc.retryable and attempt < attempts:
                     last_exc = exc
                     continue
                 raise  # non-retryable or final attempt — surface immediately
@@ -341,18 +325,18 @@ class AIPlannerClient:
             preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
             suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
             raise ValueError(
-                f"Claude returned invalid JSON: {exc}\n\nResponse preview:\n{preview}{suffix}"
+                f"LLM returned invalid JSON: {exc}\n\nResponse preview:\n{preview}{suffix}"
             ) from exc
 
         if not isinstance(data, dict):
-            raise ValueError(f"Claude returned JSON but not an object (got {type(data).__name__}).")
+            raise ValueError(f"LLM returned JSON but not an object (got {type(data).__name__}).")
 
         missing = _REQUIRED_KEYS - data.keys()
         if missing:
             preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
             suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
             raise ValueError(
-                f"Claude response is missing required fields: {sorted(missing)}. "
+                f"LLM response is missing required fields: {sorted(missing)}. "
                 f"The model may have returned a different schema.\n\nResponse preview:\n{preview}{suffix}"
             )
 
@@ -406,3 +390,8 @@ class AIPlannerClient:
             suggested_urls=[],  # Never trust AI-constructed URLs; user supplies all URLs
             notes=data.get("notes", ""),
         )
+
+
+def effective_model(provider: LLMProvider, model: str | None) -> str:
+    """Return the model that will actually be used (provider default if *model* is None)."""
+    return model or DEFAULT_MODELS[provider]
