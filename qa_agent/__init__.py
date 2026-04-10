@@ -11,4 +11,4 @@ try:
     __version__ = version("qa-agent")
 except PackageNotFoundError:
     # Package not installed (e.g. running from source without install)
-    __version__ = "0.1.0"
+    __version__ = "0.1.1"
