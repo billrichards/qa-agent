@@ -134,6 +134,10 @@ class OpenAIClient:
 
     _API_URL = "https://api.openai.com/v1/chat/completions"
 
+    # OpenAI reasoning models use max_completion_tokens instead of max_tokens.
+    # Match o1, o1-mini, o1-preview, o3, o3-mini, etc.
+    _REASONING_MODEL_PREFIX = ("o1", "o3")
+
     def __init__(self, model: str, api_key: str | None = None) -> None:
         self.model = model
         key = api_key or os.environ.get("OPENAI_API_KEY", "")
@@ -144,6 +148,19 @@ class OpenAIClient:
             )
         self._api_key = key
 
+    def _tokens_param(self, max_tokens: int) -> dict:
+        """Return the correct token-limit parameter for this model.
+
+        Reasoning models (o1*, o3*) require ``max_completion_tokens``; all
+        other models use the standard ``max_tokens``.
+        """
+        key = (
+            "max_completion_tokens"
+            if any(self.model.startswith(p) for p in self._REASONING_MODEL_PREFIX)
+            else "max_tokens"
+        )
+        return {key: max_tokens}
+
     def complete(self, system: str, user: str, max_tokens: int, timeout: int) -> LLMResponse:
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -151,7 +168,7 @@ class OpenAIClient:
         }
         body: dict = {
             "model": self.model,
-            "max_tokens": max_tokens,
+            **self._tokens_param(max_tokens),
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},

@@ -245,10 +245,45 @@ class TestOpenAIClient:
             client.complete("sys prompt", "user msg", max_tokens=256, timeout=10)
         body = mock_post.call_args[0][2]
         assert body["model"] == "gpt-4o"
-        assert body["max_tokens"] == 256
+        assert body["max_tokens"] == 256  # standard model — uses max_tokens
         messages = body["messages"]
         assert {"role": "system", "content": "sys prompt"} in messages
         assert {"role": "user", "content": "user msg"} in messages
+
+    # -- Reasoning model token parameter --
+
+    @pytest.mark.parametrize("model", ["o1", "o1-mini", "o1-preview", "o3", "o3-mini"])
+    def test_reasoning_models_use_max_completion_tokens(self, model):
+        """o1* and o3* models must send max_completion_tokens, not max_tokens."""
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "key"}):
+            client = OpenAIClient(model=model)
+        with patch("qa_agent.llm_client._http_post", return_value=_OPENAI_RESPONSE) as mock_post:
+            client.complete("system", "user", max_tokens=512, timeout=10)
+        body = mock_post.call_args[0][2]
+        assert "max_completion_tokens" in body, f"{model} should use max_completion_tokens"
+        assert "max_tokens" not in body, f"{model} must not send max_tokens"
+        assert body["max_completion_tokens"] == 512
+
+    @pytest.mark.parametrize("model", ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"])
+    def test_standard_models_use_max_tokens(self, model):
+        """Non-reasoning models must send max_tokens, not max_completion_tokens."""
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "key"}):
+            client = OpenAIClient(model=model)
+        with patch("qa_agent.llm_client._http_post", return_value=_OPENAI_RESPONSE) as mock_post:
+            client.complete("system", "user", max_tokens=512, timeout=10)
+        body = mock_post.call_args[0][2]
+        assert "max_tokens" in body, f"{model} should use max_tokens"
+        assert "max_completion_tokens" not in body, f"{model} must not send max_completion_tokens"
+
+    def test_tokens_param_o1_returns_max_completion_tokens(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "key"}):
+            client = OpenAIClient(model="o1")
+        assert client._tokens_param(1024) == {"max_completion_tokens": 1024}
+
+    def test_tokens_param_gpt4o_returns_max_tokens(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "key"}):
+            client = OpenAIClient(model="gpt-4o")
+        assert client._tokens_param(1024) == {"max_tokens": 1024}
 
     def test_complete_system_message_first(self):
         """System message must come before user message in the messages list."""
