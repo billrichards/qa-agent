@@ -280,18 +280,22 @@ class AIPlannerClient:
 
         Retries on transient errors: rate limits, overload (529), connection
         errors, and timeouts. Non-retryable errors (auth, bad request, etc.)
-        are re-raised immediately.
+        are re-raised immediately.  If the anthropic package is not installed
+        (e.g. in tests that inject a mock client) retry type-checking is
+        skipped and a single attempt is made.
         """
-        import anthropic
-
         global _RETRYABLE_ERRORS
         if not _RETRYABLE_ERRORS:
-            _RETRYABLE_ERRORS = (
-                anthropic.RateLimitError,
-                anthropic.InternalServerError,  # includes 529 overload
-                anthropic.APIConnectionError,
-                anthropic.APITimeoutError,
-            )
+            try:
+                import anthropic as _anthropic
+                _RETRYABLE_ERRORS = (
+                    _anthropic.RateLimitError,
+                    _anthropic.InternalServerError,  # includes 529 overload
+                    _anthropic.APIConnectionError,
+                    _anthropic.APITimeoutError,
+                )
+            except ImportError:
+                pass  # no anthropic — proceed without retry classification
 
         last_exc: Exception | None = None
         attempts = 1 + len(_RETRY_DELAYS)
@@ -310,12 +314,11 @@ class AIPlannerClient:
                     messages=[{"role": "user", "content": user_message}],
                     timeout=_API_TIMEOUT,
                 )
-            except _RETRYABLE_ERRORS as exc:
-                last_exc = exc
-                if attempt < attempts:
+            except Exception as exc:
+                if _RETRYABLE_ERRORS and isinstance(exc, _RETRYABLE_ERRORS) and attempt < attempts:
+                    last_exc = exc
                     continue
-            except Exception:
-                raise  # non-retryable — surface immediately
+                raise  # non-retryable or final attempt — surface immediately
 
         raise last_exc  # type: ignore[misc]
 
