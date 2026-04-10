@@ -6,6 +6,7 @@ testing guidance), this module calls the Claude API and returns a structured
 """
 
 import json
+import time
 
 from .models import (
     CustomStep,
@@ -180,6 +181,22 @@ _TEST_PLAN_SCHEMA = {
 }
 
 
+# Errors that are safe to retry (transient — not a bug in our request)
+_RETRYABLE_ERRORS: tuple = ()  # populated lazily after anthropic is imported
+
+# How long to wait before each retry attempt (seconds)
+_RETRY_DELAYS = (2, 5)   # up to 3 attempts total: initial + 2 retries
+
+# Timeout for a single messages.create() call (seconds)
+_API_TIMEOUT = 60
+
+# Max characters of raw API response to include in error messages
+_MAX_RAW_RESPONSE_IN_ERROR = 300
+
+# Required top-level keys in the JSON returned by the model
+_REQUIRED_KEYS = frozenset({"summary", "focus_areas", "custom_steps"})
+
+
 _SEVERITY_MAP: dict[str, Severity] = {
     "info": Severity.INFO,
     "low": Severity.LOW,
@@ -240,7 +257,7 @@ class AIPlannerClient:
             A structured :class:`TestPlan` ready for :class:`CustomTester`.
 
         Raises:
-            anthropic.APIError: Propagated if the API call fails.
+            anthropic.APIError: Propagated after all retries are exhausted.
             ValueError: If the response cannot be parsed into a valid plan.
         """
         user_message = (
@@ -249,19 +266,62 @@ class AIPlannerClient:
             "Generate a test plan as a JSON object."
         )
 
-        response = self._client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        )
+        response = self._call_with_retry(user_message)
 
         text = next((b.text for b in response.content if b.type == "text"), None)
         if not text:
             raise ValueError("Claude returned no text content for the test plan request.")
 
+        data = self._parse_json(text)
+        return self._parse_plan(data)
+
+    def _call_with_retry(self, user_message: str):
+        """Call messages.create with timeout and exponential-backoff retry.
+
+        Retries on transient errors: rate limits, overload (529), connection
+        errors, and timeouts. Non-retryable errors (auth, bad request, etc.)
+        are re-raised immediately.
+        """
+        import anthropic
+
+        global _RETRYABLE_ERRORS
+        if not _RETRYABLE_ERRORS:
+            _RETRYABLE_ERRORS = (
+                anthropic.RateLimitError,
+                anthropic.InternalServerError,  # includes 529 overload
+                anthropic.APIConnectionError,
+                anthropic.APITimeoutError,
+            )
+
+        last_exc: Exception | None = None
+        attempts = 1 + len(_RETRY_DELAYS)
+
+        for attempt, delay in enumerate(
+            [None] + list(_RETRY_DELAYS),  # None = no pre-sleep on first attempt
+            start=1,
+        ):
+            if delay is not None:
+                time.sleep(delay)
+            try:
+                return self._client.messages.create(
+                    model=self.model,
+                    max_tokens=4096,
+                    system=_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user_message}],
+                    timeout=_API_TIMEOUT,
+                )
+            except _RETRYABLE_ERRORS as exc:
+                last_exc = exc
+                if attempt < attempts:
+                    continue
+            except Exception:
+                raise  # non-retryable — surface immediately
+
+        raise last_exc  # type: ignore[misc]
+
+    def _parse_json(self, text: str) -> dict:
+        """Strip optional markdown fences and parse JSON, with a clean error on failure."""
         # Some models wrap the JSON in markdown code fences despite instructions not to.
-        # Strip them before parsing.
         stripped = text.strip()
         if stripped.startswith("```"):
             # Remove the opening fence line (```json or just ```)
@@ -275,9 +335,25 @@ class AIPlannerClient:
         try:
             data = json.loads(stripped)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Claude returned invalid JSON: {exc}\n\nRaw response:\n{text}") from exc
+            preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
+            suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
+            raise ValueError(
+                f"Claude returned invalid JSON: {exc}\n\nResponse preview:\n{preview}{suffix}"
+            ) from exc
 
-        return self._parse_plan(data)
+        if not isinstance(data, dict):
+            raise ValueError(f"Claude returned JSON but not an object (got {type(data).__name__}).")
+
+        missing = _REQUIRED_KEYS - data.keys()
+        if missing:
+            preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
+            suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
+            raise ValueError(
+                f"Claude response is missing required fields: {sorted(missing)}. "
+                f"The model may have returned a different schema.\n\nResponse preview:\n{preview}{suffix}"
+            )
+
+        return data
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -312,7 +388,7 @@ class AIPlannerClient:
             )
             custom_steps.append(
                 CustomStep(
-                    description=step_data["description"],
+                    description=step_data.get("description", ""),
                     actions=actions,
                     assertions=assertions,
                     severity=severity,
