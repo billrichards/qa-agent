@@ -392,13 +392,13 @@ def _sanitize_html(html: str) -> str:
     """Sanitize HTML using nh3 to prevent XSS attacks."""
     import nh3
 
-    return nh3.clean(
+    return str(nh3.clean(
         html,
         tags=_NH3_ALLOWED_TAGS,
         attributes=_NH3_ALLOWED_ATTRIBUTES,
         link_rel="noopener noreferrer",
         url_schemes={"http", "https", "mailto"},
-    )
+    ))
 
 
 @app.route("/files/<path:filepath>")
