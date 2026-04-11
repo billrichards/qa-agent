@@ -368,26 +368,31 @@ def serve_file(filepath: str):
 
     suffix = abs_path.suffix.lower()
 
+    import html as html_lib
+
     if suffix == ".md":
         content = abs_path.read_text(encoding="utf-8")
         try:
             import markdown as md_lib  # type: ignore[import-untyped]
             html_body = md_lib.markdown(content, extensions=["fenced_code", "tables"])
+            # Strip <script> blocks and inline event handlers to prevent XSS from
+            # finding titles/descriptions that contain payloads from tested sites.
+            html_body = re.sub(r"(?i)<script[^>]*>.*?</script>", "", html_body, flags=re.DOTALL)
+            html_body = re.sub(r"(?i)\s+on[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*')", "", html_body)
         except ImportError:
-            html_body = f"<pre>{content}</pre>"
+            html_body = f"<pre>{html_lib.escape(content)}</pre>"
         html = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>{abs_path.name}</title>
+<title>{html_lib.escape(abs_path.name)}</title>
 <style>body{{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.6;}}
 pre{{background:#1e1e1e;color:#d4d4d4;padding:1rem;overflow-x:auto;border-radius:4px;}}
 </style></head><body>{html_body}</body></html>"""
         return Response(html, mimetype="text/html")
 
     if suffix == ".json":
-        import html as html_lib
         data = json.loads(abs_path.read_text(encoding="utf-8"))
         pretty = html_lib.escape(json.dumps(data, indent=2))
         html = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>{abs_path.name}</title>
+<title>{html_lib.escape(abs_path.name)}</title>
 <style>body{{background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:1rem;margin:0;}}
 pre{{white-space:pre-wrap;word-break:break-all;}}</style></head>
 <body><pre>{pretty}</pre></body></html>"""

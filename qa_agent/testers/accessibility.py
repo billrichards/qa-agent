@@ -585,10 +585,10 @@ class AccessibilityTester(BaseTester):
     def _test_motion_preferences(self):
         """Test respect for reduced motion preference."""
         try:
-            self.page.evaluate("""() => {
+            result = self.page.evaluate("""() => {
                 const allElements = document.querySelectorAll('*');
                 let hasAnimations = false;
-                let respectsMotion = true;
+                let respectsMotion = false;
 
                 for (const el of allElements) {
                     const style = window.getComputedStyle(el);
@@ -622,8 +622,16 @@ class AccessibilityTester(BaseTester):
                 return { hasAnimations, respectsMotion };
             }""")
 
-            # Only report if we're sure there are animations and no reduced-motion handling
-            # This is a low-priority informational finding
+            if result and result.get("hasAnimations") and not result.get("respectsMotion"):
+                self.findings.append(Finding(
+                    title="Animations without reduced-motion support",
+                    description="Page has animations or transitions but no prefers-reduced-motion media query",
+                    category=FindingCategory.ACCESSIBILITY,
+                    severity=Severity.LOW,
+                    url=self.page.url,
+                    expected_behavior="Animations should be suppressed when prefers-reduced-motion is set",
+                    actual_behavior="No prefers-reduced-motion media query found in stylesheets",
+                ))
 
         except Exception:
             pass
