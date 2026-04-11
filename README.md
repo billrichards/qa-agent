@@ -25,7 +25,7 @@ Need targeted tests? Pass plain-English instructions and an LLM generates custom
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Agentic Testing](#agentic-testing)
-- [Web Interface](#web-interface)
+- [Web Interface & API](#web-interface--api)
 - [CLI Reference](#cli-reference)
 - [Programmatic Usage](#programmatic-usage)
 - [Test Categories](#test-categories)
@@ -154,7 +154,7 @@ Plans are cached to `~/.qa_agent/cache/` (24-hour TTL). Pass `--no-cache` to for
 
 ---
 
-## Web Interface
+## Web Interface & API
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/billrichards/qa-agent/main/docs/web-UI-configuration-form.png" alt="Web interface configuration form" width="700">
@@ -178,6 +178,26 @@ qa-agent-web --host 0.0.0.0 --port 8080  # custom bind
 > **No authentication** — intended for local or internal use only.
 
 Output is written to `output/` by default. CLI sessions appear in the web UI automatically (JSON is always written).
+
+### REST API
+
+The web server exposes a JSON API at `http://127.0.0.1:5000` (default).
+
+```bash
+# Launch a test run
+curl -X POST http://127.0.0.1:5000/api/run \
+  -H "Content-Type: application/json" \
+  -d '{"urls": ["https://example.com"]}'
+# → {"job_id": "a1b2c3d4", "status": "running", "stream_url": "/api/stream/a1b2c3d4"}
+
+# Stream live output (Server-Sent Events)
+curl -N http://127.0.0.1:5000/api/stream/a1b2c3d4
+
+# List past sessions
+curl http://127.0.0.1:5000/api/sessions?limit=10
+```
+
+→ [Full API reference](docs/web-api.md) — all endpoints, request body schema, and SSE event types.
 
 ---
 
@@ -312,29 +332,9 @@ for finding in session.get_all_findings():
 
 ## Test Categories
 
-### Keyboard Navigation
+Six built-in suites cover keyboard navigation, mouse interaction, form handling, accessibility (WCAG), runtime error detection, and an opt-in WCAG 2.1 AA compliance audit. Five run by default; enable the sixth with `--wcag-compliance`.
 
-TAB order and focusability · Arrow key navigation · Enter key activation · Escape key for modals · Keyboard trap detection · Focus visibility
-
-### Mouse Interaction
-
-Click targets · Hover states · Double-click · Right-click/context menus · Target size (WCAG 2.5.5, 44×44 px min) · Overlapping elements
-
-### Form Handling
-
-Required field indicators · Validation feedback · Error message accessibility · Label associations · HTML5 input types · Autocomplete attributes
-
-### Accessibility (WCAG)
-
-Alt text · Heading structure (h1–h6) · Link text quality · Color contrast · ARIA usage · Landmark regions · Language attributes · Skip navigation
-
-### Error Detection
-
-Console errors/warnings · Network errors (4xx, 5xx) · JavaScript exceptions · Broken images · Broken anchors · Mixed content
-
-### WCAG 2.1 AA Compliance (opt-in: `--wcag-compliance`)
-
-Non-text contrast (1.4.11) · Use of color (1.4.1) · Content on hover/focus (1.4.13) · Meaningful sequence (1.3.2) · Input purpose (1.3.5) · Focus visible (2.4.7) · Label in name (2.5.3) · Target size (2.5.5) · Language of parts (3.1.2) · Error identification (3.3.1) · ARIA role/property validation
+→ [Detailed test-by-test reference](docs/test-categories.md)
 
 ---
 
@@ -430,12 +430,7 @@ qa_agent/
     └── static/               # CSS and JavaScript
 ```
 
-### Adding a custom tester
-
-1. Create `testers/my_tester.py` extending [`BaseTester`](qa_agent/testers/base.py), implement `run() -> list[Finding]`
-2. Export from [`testers/__init__.py`](qa_agent/testers/__init__.py)
-3. Add a `test_my_feature: bool` flag to [`TestConfig`](qa_agent/config.py)
-4. Call from [`agent.py`](qa_agent/agent.py) in `_test_page()`
+→ [Extending QA Agent — adding custom testers](docs/architecture.md)
 
 ---
 
