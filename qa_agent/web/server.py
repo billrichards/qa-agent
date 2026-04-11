@@ -1,5 +1,6 @@
 """Flask web server for QA Agent."""
 
+import html as html_lib
 import io
 import json
 import queue
@@ -414,8 +415,6 @@ def serve_file(filepath: str):
         abort(404)
 
     suffix = abs_path.suffix.lower()
-
-    import html as html_lib
 
     if suffix == ".md":
         content = abs_path.read_text(encoding="utf-8")

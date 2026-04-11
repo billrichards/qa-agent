@@ -299,9 +299,12 @@ class KeyboardTester(BaseTester):
             self.page.evaluate("document.body.focus()")
 
             visited_indices: set[int] = set()
-            self.page.evaluate("""() =>
-                Array.from(document.querySelectorAll('*')).length
-            """)
+
+            # Build a stable element→index map once so each Tab press is O(1).
+            self.page.evaluate("""() => {
+                const all = Array.from(document.querySelectorAll('*'));
+                all.forEach((el, i) => el.setAttribute('data-qa-idx', i));
+            }""")
 
             for _ in range(min(50, total_focusable * 2)):
                 self.page.keyboard.press("Tab")
@@ -309,7 +312,8 @@ class KeyboardTester(BaseTester):
                 focused_index = self.page.evaluate("""() => {
                     const el = document.activeElement;
                     if (!el || el === document.body) return -1;
-                    return Array.from(document.querySelectorAll('*')).indexOf(el);
+                    const idx = el.getAttribute('data-qa-idx');
+                    return idx !== null ? parseInt(idx, 10) : -1;
                 }""")
 
                 if focused_index == -1:

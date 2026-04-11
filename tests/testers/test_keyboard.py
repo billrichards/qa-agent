@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from qa_agent.config import TestConfig
-from qa_agent.models import FindingCategory
+from qa_agent.models import FindingCategory, Severity
 from qa_agent.testers.keyboard import KeyboardTester
 
 
@@ -94,7 +94,7 @@ class TestTabNavigationLoop:
 
         no_focus_findings = [f for f in tester.findings if "no focusable" in f.title.lower()]
         assert len(no_focus_findings) >= 1
-        assert no_focus_findings[0].severity == FindingCategory.KEYBOARD_NAVIGATION or True  # verify finding exists
+        assert no_focus_findings[0].severity == Severity.HIGH
 
     def test_hidden_element_focus_produces_finding(self):
         """Tab navigation that focuses on a hidden element → finding."""
@@ -136,7 +136,7 @@ class TestTabNavigationLoop:
 
         error_findings = [f for f in tester.findings if "tab navigation" in f.title.lower()]
         assert len(error_findings) >= 1
-        assert error_findings[0].severity == FindingCategory.KEYBOARD_NAVIGATION or True
+        assert error_findings[0].severity == Severity.LOW
 
     def test_tab_order_logic_called_with_3_or_more_elements(self):
         """When >= 3 elements are found, _check_tab_order_logic is called."""
