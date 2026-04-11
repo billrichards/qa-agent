@@ -140,6 +140,7 @@ class TestPlan:
     custom_steps: list[CustomStep] = field(default_factory=list)
     suggested_urls: list[str] = field(default_factory=list)
     notes: str = ""
+    warnings: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

@@ -56,6 +56,10 @@ class ConsoleReporter(BaseReporter):
         """Print progress message."""
         print(f"  → {message}")
 
+    def print_warning(self, message: str) -> None:
+        """Print a test reliability warning."""
+        print(f"  ⚠  {self._color('WARNING:', '93')} {message}")
+
     def print_page_start(self, url: str):
         """Print when starting to test a new page."""
         print(f"\n{'='*60}")

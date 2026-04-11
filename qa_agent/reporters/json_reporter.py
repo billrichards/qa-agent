@@ -44,6 +44,7 @@ class JSONReporter(BaseReporter):
                     if session.end_time else None
                 ),
                 "config": session.config_summary,
+                "plan_warnings": session.config_summary.get("plan_warnings", []),
                 "recording_path": session.recording_path,
             },
             "summary": {

@@ -42,7 +42,8 @@ VALID_PLAN_JSON = """{
         }
     ],
     "suggested_urls": [],
-    "notes": "Focus on the login page"
+    "notes": "Focus on the login page",
+    "warnings": []
 }"""
 
 
@@ -98,7 +99,7 @@ class TestAIPlannerParsing:
             planner.plan("test", "https://example.com")
 
     def test_empty_custom_steps_allowed(self):
-        minimal = '{"summary": "no steps", "focus_areas": [], "custom_steps": [], "suggested_urls": [], "notes": ""}'
+        minimal = '{"summary": "no steps", "focus_areas": [], "custom_steps": [], "suggested_urls": [], "notes": "", "warnings": []}'
         planner = self._planner(minimal)
         plan = planner.plan("test", "https://example.com")
         assert plan.custom_steps == []

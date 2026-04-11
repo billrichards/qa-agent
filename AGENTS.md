@@ -14,6 +14,9 @@ playwright install chromium
 # Install with PDF support
 pip install -e ".[pdf]"
 
+# Build distribution (clean build)
+rm -rf build/ dist/ && python -m build
+
 # Run tests
 python -m qa_agent https://example.com
 
