@@ -558,7 +558,7 @@ class TestCleanInstall:
         """Fresh venv with the wheel + Flask installed (non-editable)."""
         python = _make_venv(tmp_path_factory.mktemp("ci_venv"))
         result = subprocess.run(
-            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path), "flask>=3.0"],
+            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path), "flask>=3.0", "nh3>=0.2.15"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0, (
