@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from qa_agent.config import TestConfig
-from qa_agent.models import FindingCategory, Severity
 from qa_agent.testers.accessibility import AccessibilityTester
 
 

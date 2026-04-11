@@ -34,6 +34,7 @@ pdf = [
 web = [
     "flask>=3.0",
     "markdown>=3.5",
+    "nh3>=0.2.15",
 ]
 ai = []  # LLM calls use Python's built-in urllib — no extra packages required
 dev = [
@@ -84,8 +85,11 @@ warn_unused_configs = true
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=qa_agent --cov-report=term-missing --cov-fail-under=50 -q"
+addopts = "--cov=qa_agent --cov-report=term-missing --cov-fail-under=70 -q"
 testpaths = ["tests"]
+filterwarnings = [
+    "ignore:cannot collect test class 'Test(Config|Mode|Plan|Session)' because it has a __init__ constructor:pytest.PytestCollectionWarning",
+]
 markers = [
     "integration: tests that run real Playwright against a local fixture server (deselect with -m 'not integration')",
     "network: tests that require real network access",

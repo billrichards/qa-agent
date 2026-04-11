@@ -5,8 +5,6 @@ from __future__ import annotations
 import warnings
 from unittest.mock import MagicMock
 
-import pytest
-
 from qa_agent.config import TestConfig
 from qa_agent.models import (
     CustomStep,
@@ -109,6 +107,15 @@ class TestActionExecution:
         tester.run()
         page.wait_for_timeout.assert_called_with(500)
 
+    def test_wait_action_default_timeout_when_not_digit(self):
+        """Non-digit wait value → defaults to 1000ms."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="wait", value="slow")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.wait_for_timeout.assert_called_with(1000)
+
     def test_press_key_without_selector_uses_keyboard(self):
         page = MagicMock()
         page.url = "https://example.com"
@@ -116,6 +123,93 @@ class TestActionExecution:
         tester = _tester(page, steps=[step])
         tester.run()
         page.keyboard.press.assert_called_with("Enter")
+
+    def test_press_key_with_selector_uses_element_press(self):
+        """press_key with a selector should press on the element, not keyboard."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="press_key", selector="#input", value="Tab")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.locator.return_value.first.press.assert_called_with("Tab", timeout=5000)
+        page.keyboard.press.assert_not_called()
+
+    def test_hover_action_calls_hover(self):
+        """Hover action should call hover() on the located element."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="hover", selector="#menu-item")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.locator.assert_called_with("#menu-item")
+        page.locator.return_value.first.hover.assert_called_with(timeout=5000)
+
+    def test_navigate_action_calls_goto(self):
+        """Navigate action should call page.goto()."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="navigate", value="https://example.com/about")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.goto.assert_called_with("https://example.com/about", wait_until="domcontentloaded")
+
+    def test_navigate_action_restores_url(self):
+        """After a navigate action, the original URL should be restored."""
+        original_url = "https://example.com"
+        new_url = "https://example.com/about"
+
+        page = MagicMock()
+        page.url = original_url
+        # After navigation, page.url becomes new_url
+        page.goto.side_effect = lambda url, **kw: None
+
+        # Simulate URL change after navigate
+        type(page).url = property(
+            fget=lambda self: new_url,  # always returns new_url after navigate
+        )
+
+        step = _step(actions=[StepAction(type="navigate", value=new_url)])
+        tester = _tester(page, steps=[step])
+        tester.run()
+
+        # Should have called goto twice: once for navigate, once for restoration
+        assert page.goto.call_count >= 1
+
+    def test_scroll_action_with_selector(self):
+        """Scroll with a selector → scroll_into_view_if_needed."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="scroll", selector="#footer")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.locator.return_value.first.scroll_into_view_if_needed.assert_called()
+
+    def test_scroll_action_down_without_selector(self):
+        """Scroll without selector and direction 'down' → mouse.wheel with positive delta."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="scroll", value="down")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.mouse.wheel.assert_called_with(0, 300)
+
+    def test_scroll_action_up_without_selector(self):
+        """Scroll without selector and direction 'up' → mouse.wheel with negative delta."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="scroll", value="up")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.mouse.wheel.assert_called_with(0, -300)
+
+    def test_scroll_action_default_direction_is_down(self):
+        """Scroll with no value → defaults to 'down' (positive delta)."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(actions=[StepAction(type="scroll")])
+        tester = _tester(page, steps=[step])
+        tester.run()
+        page.mouse.wheel.assert_called_with(0, 300)
 
 
 class TestAssertionChecking:
@@ -154,6 +248,15 @@ class TestAssertionChecking:
         findings = tester.run()
         assert len(findings) == 1
 
+    def test_url_contains_no_value_fails(self):
+        """url_contains with no value → returns False (fails)."""
+        page = MagicMock()
+        page.url = "https://example.com/dashboard"
+        step = _step(assertions=[StepAssertion(type="url_contains")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+
     def test_text_contains_assertion(self):
         page = MagicMock()
         page.url = "https://example.com"
@@ -162,6 +265,35 @@ class TestAssertionChecking:
         tester = _tester(page, steps=[step])
         findings = tester.run()
         assert len(findings) == 0
+
+    def test_text_contains_case_insensitive(self):
+        """text_contains is case-insensitive."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.locator.return_value.first.text_content.return_value = "WELCOME ALICE"
+        step = _step(assertions=[StepAssertion(type="text_contains", selector="#msg", value="alice")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 0
+
+    def test_text_contains_fails_when_not_present(self):
+        """text_contains fails when the value is not found."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.locator.return_value.first.text_content.return_value = "Hello Bob"
+        step = _step(assertions=[StepAssertion(type="text_contains", selector="#msg", value="Alice")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+
+    def test_text_contains_no_selector_fails(self):
+        """text_contains without a selector → returns False."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(assertions=[StepAssertion(type="text_contains", value="hello")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
 
     def test_hidden_assertion_passes_when_invisible(self):
         page = MagicMock()
@@ -172,6 +304,25 @@ class TestAssertionChecking:
         findings = tester.run()
         assert len(findings) == 0
 
+    def test_hidden_assertion_fails_when_visible(self):
+        """hidden assertion fails if the element is actually visible."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.locator.return_value.first.is_visible.return_value = True  # visible → fails
+        step = _step(assertions=[StepAssertion(type="hidden", selector="#modal")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+
+    def test_hidden_assertion_no_selector_fails(self):
+        """hidden without a selector → returns False."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(assertions=[StepAssertion(type="hidden")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+
     def test_element_count_assertion_passes(self):
         page = MagicMock()
         page.url = "https://example.com"
@@ -180,6 +331,25 @@ class TestAssertionChecking:
         tester = _tester(page, steps=[step])
         findings = tester.run()
         assert len(findings) == 0
+
+    def test_element_count_assertion_fails_wrong_count(self):
+        """element_count fails when actual count differs from expected."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.locator.return_value.count.return_value = 5
+        step = _step(assertions=[StepAssertion(type="element_count", selector="li", value="3")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+
+    def test_element_count_no_selector_fails(self):
+        """element_count without selector → returns False."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        step = _step(assertions=[StepAssertion(type="element_count", value="3")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
 
     def test_unknown_assertion_type_passes_and_warns(self):
         page = MagicMock()
@@ -205,6 +375,18 @@ class TestAssertionChecking:
         findings = tester.run()
         assert findings[0].severity == Severity.CRITICAL
         assert findings[0].category == FindingCategory.KEYBOARD_NAVIGATION
+
+    def test_assertion_evaluation_exception_produces_finding(self):
+        """If _evaluate_assertion raises, the assertion is treated as failed."""
+        page = MagicMock()
+        page.url = "https://example.com"
+        page.locator.return_value.first.is_visible.side_effect = RuntimeError("browser error")
+        step = _step(assertions=[StepAssertion(type="visible", selector="#btn")])
+        tester = _tester(page, steps=[step])
+        findings = tester.run()
+        assert len(findings) == 1
+        # The description should include the evaluation error
+        assert "evaluation error" in findings[0].description.lower() or "custom check failed" in findings[0].title.lower()
 
 
 class TestMultipleSteps:

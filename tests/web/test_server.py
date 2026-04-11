@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 import queue
+import sys
 import threading
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,11 +16,11 @@ import pytest
 from qa_agent.web import server as srv
 from qa_agent.web.server import (
     OUTPUT_DIR,
-    _MultiplexedStdout,
-    _QueueWriter,
     _build_config,
     _jobs,
     _make_job,
+    _MultiplexedStdout,
+    _QueueWriter,
     app,
 )
 
@@ -236,6 +235,36 @@ class TestApiSessions:
 
 
 # ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+class TestSecurityHeaders:
+    def test_csp_header_present(self, client):
+        """All responses include Content-Security-Policy header."""
+        resp = client.get("/")
+        assert "Content-Security-Policy" in resp.headers
+        csp = resp.headers["Content-Security-Policy"]
+        assert "script-src" in csp
+        assert "frame-ancestors 'none'" in csp
+
+    def test_x_content_type_options_header(self, client):
+        """Responses include X-Content-Type-Options: nosniff."""
+        resp = client.get("/")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_x_frame_options_header(self, client):
+        """Responses include X-Frame-Options: DENY."""
+        resp = client.get("/")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    def test_csp_on_file_routes(self, client, tmp_output):
+        """CSP header is present on /files/ routes too."""
+        (tmp_output / "test.txt").write_text("hello")
+        resp = client.get("/files/test.txt")
+        assert "Content-Security-Policy" in resp.headers
+
+
+# ---------------------------------------------------------------------------
 # /files/<path> — path traversal security
 # ---------------------------------------------------------------------------
 
@@ -275,25 +304,31 @@ class TestFileServing:
         assert resp.status_code == 200
         assert b"Hello" in resp.data
 
-    def test_md_file_script_tag_injection(self, client, tmp_output):
-        """Document current behaviour: raw <script> in markdown passes through.
-
-        This is a known security bug. The markdown library does not escape HTML
-        by default, so a finding title rendered into a .md file will execute as
-        JavaScript when served via /files/.
-
-        Fix: pass output_format='html+escape' or sanitise finding content before
-        writing to markdown, or add a Content-Security-Policy header.
-        """
+    def test_md_file_script_tag_sanitized(self, client, tmp_output):
+        """Script tags in markdown are stripped by nh3 sanitizer."""
         (tmp_output / "evil.md").write_text('<script>alert("pwned")</script>\n\n# Normal content')
         resp = client.get("/files/evil.md")
         assert resp.status_code == 200
         body = resp.data.decode()
-        # KNOWN BUG: the script tag is present in the response unescaped.
-        # Uncomment the assertion below when the bug is fixed:
-        # assert '<script>' not in body
-        # For now, just assert the page loads
-        assert b"Normal content" in resp.data or True
+        # Script tag should be stripped by nh3 sanitization
+        assert "<script>" not in body
+        assert "alert" not in body
+        assert "Normal content" in body
+
+    def test_md_file_event_handler_sanitized(self, client, tmp_output):
+        """Inline event handlers in markdown are stripped by nh3 sanitizer."""
+        (tmp_output / "evil2.md").write_text(
+            '<img src="x" onerror="alert(1)">\n\n'
+            '<a href="javascript:alert(2)">click</a>\n\n'
+            '# Safe heading'
+        )
+        resp = client.get("/files/evil2.md")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        # Event handlers and javascript: URLs should be stripped
+        assert "onerror" not in body
+        assert "javascript:" not in body
+        assert "Safe heading" in body
 
     def test_symlink_escape_blocked(self, client, tmp_output):
         """A symlink inside OUTPUT_DIR pointing outside must be blocked."""
@@ -394,6 +429,7 @@ class TestQueueWriter:
 class TestMultiplexedStdout:
     def test_no_thread_local_writes_to_original(self, capsys):
         import io
+
         from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
         buf = io.StringIO()
@@ -408,12 +444,12 @@ class TestMultiplexedStdout:
         assert "hello original" in buf.getvalue()
 
     def test_thread_local_stream_routes_writes(self):
-        from qa_agent.web import server as srv_mod
         import io
+
+        from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
         captured = io.StringIO()
 
-        import threading as thr
         srv_mod._local.stream = captured
         try:
             mux.write("routed to thread-local\n")
@@ -423,8 +459,9 @@ class TestMultiplexedStdout:
 
     def test_thread_isolation(self):
         """Writes in one thread must not appear in another thread's stream."""
-        from qa_agent.web import server as srv_mod
         import io
+
+        from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
 
         thread1_buf = io.StringIO()
@@ -452,3 +489,70 @@ class TestMultiplexedStdout:
     def test_isatty_returns_false(self):
         mux = _MultiplexedStdout()
         assert mux.isatty() is False
+
+
+# ---------------------------------------------------------------------------
+# qa_agent/web/__init__.py — serve_web_cli entry point
+# ---------------------------------------------------------------------------
+
+class TestServeWebCli:
+    def test_flask_missing_exits_1_with_helpful_message(self, capsys):
+        """simulate flask missing by forcing the inner import to fail."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "qa_agent.web.server":
+                raise ModuleNotFoundError("No module named 'flask'")
+            return real_import(name, *args, **kwargs)
+
+        # Remove server from cache so the import runs again
+        saved = sys.modules.pop("qa_agent.web.server", None)
+        try:
+            with patch("builtins.__import__", side_effect=fake_import):
+                with pytest.raises(SystemExit) as exc_info:
+                    import importlib
+
+                    import qa_agent.web as web_mod
+                    importlib.reload(web_mod)
+                    web_mod.serve_web_cli()
+        finally:
+            if saved is not None:
+                sys.modules["qa_agent.web.server"] = saved
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "flask" in captured.err.lower()
+        assert "pip install" in captured.err
+
+    def test_serve_web_cli_calls_server_function(self):
+        """When flask is available, serve_web_cli delegates to server.serve_web_cli."""
+        with patch("qa_agent.web.server.serve_web_cli") as mock_serve:
+            import qa_agent.web as web_mod
+            web_mod.serve_web_cli()
+            mock_serve.assert_called_once()
+
+    def test_non_flask_module_not_found_reraises(self):
+        """A non-flask ModuleNotFoundError propagates unchanged."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "qa_agent.web.server":
+                raise ModuleNotFoundError("No module named 'weasyprint'")
+            return real_import(name, *args, **kwargs)
+
+        saved = sys.modules.pop("qa_agent.web.server", None)
+        try:
+            with patch("builtins.__import__", side_effect=fake_import):
+                with pytest.raises(ModuleNotFoundError, match="weasyprint"):
+                    import importlib
+
+                    import qa_agent.web as web_mod
+                    importlib.reload(web_mod)
+                    web_mod.serve_web_cli()
+        finally:
+            if saved is not None:
+                sys.modules["qa_agent.web.server"] = saved

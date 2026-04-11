@@ -15,13 +15,16 @@ def serve_web_cli() -> None:
     produces a helpful error message rather than a traceback.
     """
     try:
+        import nh3  # noqa: F401 — verify optional dep is present before starting
+
         from qa_agent.web.server import serve_web_cli as _serve
     except ModuleNotFoundError as exc:
-        if "flask" in str(exc).lower():
+        missing = str(exc).lower()
+        if "flask" in missing or "nh3" in missing or "markdown" in missing:
             print(
-                "Error: the web interface requires Flask, which is not installed.\n"
+                "Error: the web interface requires Flask, nh3, and markdown, which are not installed.\n"
                 "\n"
-                "Install it with:\n"
+                "Install them with:\n"
                 "    pip install 'qa-agent[web]'\n"
                 "\n"
                 "Then re-run:  qa-agent-web",

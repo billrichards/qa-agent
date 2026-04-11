@@ -6,8 +6,6 @@ import json
 import time
 from pathlib import Path
 
-import pytest
-
 from qa_agent.models import (
     CustomStep,
     FindingCategory,

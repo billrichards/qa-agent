@@ -1,5 +1,6 @@
 """Flask web server for QA Agent."""
 
+import html as html_lib
 import io
 import json
 import queue
@@ -31,6 +32,22 @@ OUTPUT_DIR = Path.cwd() / "output"
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=str(_HERE / "templates"))
+
+
+@app.after_request
+def add_security_headers(response: Response) -> Response:
+    """Add Content-Security-Policy and other security headers to all responses."""
+    # Block inline scripts and external script sources as defense-in-depth against XSS
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
 
 # ── Thread-local stdout multiplexer ───────────────────────────────────────────
 # Redirects print() calls in job threads to their per-job queue without
@@ -353,6 +370,37 @@ def api_session_detail(domain: str, session_id: str):
     return jsonify(data)
 
 
+# Allowed HTML tags for nh3 sanitization of rendered markdown
+_NH3_ALLOWED_TAGS = {
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "ul", "ol", "li",
+    "pre", "code", "blockquote",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "a", "strong", "em", "b", "i", "u", "s", "del", "ins",
+    "img", "details", "summary",
+}
+_NH3_ALLOWED_ATTRIBUTES: dict[str, set[str]] = {
+    "a": {"href", "title"},
+    "img": {"src", "alt", "title"},
+    "th": {"align"},
+    "td": {"align"},
+}
+
+
+def _sanitize_html(html: str) -> str:
+    """Sanitize HTML using nh3 to prevent XSS attacks."""
+    import nh3
+
+    return str(nh3.clean(
+        html,
+        tags=_NH3_ALLOWED_TAGS,
+        attributes=_NH3_ALLOWED_ATTRIBUTES,
+        link_rel="noopener noreferrer",
+        url_schemes={"http", "https", "mailto"},
+    ))
+
+
 @app.route("/files/<path:filepath>")
 def serve_file(filepath: str):
     """Serve output files (reports, screenshots, recordings)."""
@@ -373,21 +421,23 @@ def serve_file(filepath: str):
         try:
             import markdown as md_lib  # type: ignore[import-untyped]
             html_body = md_lib.markdown(content, extensions=["fenced_code", "tables"])
+            # Sanitize rendered HTML to prevent XSS from finding titles/descriptions
+            # that captured payloads from tested sites
+            html_body = _sanitize_html(html_body)
         except ImportError:
-            html_body = f"<pre>{content}</pre>"
+            html_body = f"<pre>{html_lib.escape(content)}</pre>"
         html = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>{abs_path.name}</title>
+<title>{html_lib.escape(abs_path.name)}</title>
 <style>body{{font-family:system-ui;max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.6;}}
 pre{{background:#1e1e1e;color:#d4d4d4;padding:1rem;overflow-x:auto;border-radius:4px;}}
 </style></head><body>{html_body}</body></html>"""
         return Response(html, mimetype="text/html")
 
     if suffix == ".json":
-        import html as html_lib
         data = json.loads(abs_path.read_text(encoding="utf-8"))
         pretty = html_lib.escape(json.dumps(data, indent=2))
         html = f"""<!doctype html><html><head><meta charset="utf-8">
-<title>{abs_path.name}</title>
+<title>{html_lib.escape(abs_path.name)}</title>
 <style>body{{background:#1e1e1e;color:#d4d4d4;font-family:monospace;font-size:13px;padding:1rem;margin:0;}}
 pre{{white-space:pre-wrap;word-break:break-all;}}</style></head>
 <body><pre>{pretty}</pre></body></html>"""

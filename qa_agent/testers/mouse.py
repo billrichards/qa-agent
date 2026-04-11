@@ -306,13 +306,20 @@ class MouseTester(BaseTester):
 
                     size = element.evaluate("""el => {
                         const rect = el.getBoundingClientRect();
+                        const display = window.getComputedStyle(el).display;
                         return {
                             width: rect.width,
                             height: rect.height,
                             text: el.textContent?.slice(0, 30) || '',
-                            tag: el.tagName.toLowerCase()
+                            tag: el.tagName.toLowerCase(),
+                            inline: display === 'inline'
                         };
                     }""")
+
+                    # Inline text links (e.g. "Read more" in body copy) are exempt from
+                    # WCAG 2.5.5 target size — the requirement applies to discrete controls.
+                    if size['inline']:
+                        continue
 
                     if size['width'] < min_size or size['height'] < min_size:
                         small_targets.append({

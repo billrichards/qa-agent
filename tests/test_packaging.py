@@ -430,12 +430,14 @@ class TestPublicAPI:
 
     def test_testsession_get_all_findings_returns_list(self):
         from datetime import datetime
+
         from qa_agent.models import TestSession
         session = TestSession(session_id="test-id", start_time=datetime.now())
         assert isinstance(session.get_all_findings(), list)
 
     def test_testsession_to_dict_keys(self):
         from datetime import datetime
+
         from qa_agent.models import TestSession
         session = TestSession(session_id="s1", start_time=datetime.now())
         d = session.to_dict()
@@ -444,7 +446,6 @@ class TestPublicAPI:
             assert key in d, f"Key {key!r} missing from TestSession.to_dict()"
 
     def test_finding_to_dict_keys(self):
-        from datetime import datetime
         from qa_agent.models import Finding, FindingCategory, Severity
         finding = Finding(
             title="Test",
@@ -558,7 +559,7 @@ class TestCleanInstall:
         """Fresh venv with the wheel + Flask installed (non-editable)."""
         python = _make_venv(tmp_path_factory.mktemp("ci_venv"))
         result = subprocess.run(
-            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path), "flask>=3.0"],
+            [str(python), "-m", "pip", "install", "--quiet", str(wheel_path), "flask>=3.0", "nh3>=0.2.15"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0, (

@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import signal
 import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from qa_agent.agent import QAAgent, _extract_domain
-from qa_agent.config import AuthConfig, TestConfig, TestMode
+from qa_agent.config import AuthConfig, TestConfig
 from qa_agent.models import Finding, FindingCategory, Severity
 from tests.conftest import make_mock_playwright_factory
-
 
 # ---------------------------------------------------------------------------
 # _extract_domain
@@ -195,7 +192,7 @@ class TestQAAgentRun:
         assert len(session.pages_tested) == 1
 
     def test_findings_aggregate_into_session(self):
-        from qa_agent.models import Finding, FindingCategory, Severity
+        from qa_agent.models import FindingCategory, Severity
 
         config = _make_config(urls=["https://example.com/a", "https://example.com/b"])
         agent, page = _make_agent(config)
@@ -237,8 +234,6 @@ class TestQAAgentRun:
         agent, page = _make_agent(config)
 
         pages_visited = []
-        original_goto = page.goto
-
         def counting_goto(url, **kwargs):
             pages_visited.append(url)
             # Set stop after first page navigation

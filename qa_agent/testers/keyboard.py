@@ -283,33 +283,58 @@ class KeyboardTester(BaseTester):
     def _test_keyboard_traps(self):
         """Test for keyboard traps where user cannot TAB out."""
         try:
-            # Try to detect keyboard traps by tabbing many times
+            total_focusable = self.page.evaluate("""() => {
+                return document.querySelectorAll(
+                    'a[href], button:not([disabled]), input:not([disabled]), ' +
+                    'select:not([disabled]), textarea:not([disabled]), ' +
+                    '[tabindex]:not([tabindex="-1"])'
+                ).length;
+            }""")
+
+            # A page needs more than 3 focusable elements before a small cycle
+            # can be considered a trap — otherwise it's just a simple page.
+            if not total_focusable or total_focusable <= 3:
+                return
+
             self.page.evaluate("document.body.focus()")
 
-            visited_ids = set()
-            for _ in range(50):
+            visited_indices: set[int] = set()
+
+            # Build a stable element→index map once so each Tab press is O(1).
+            self.page.evaluate("""() => {
+                const all = Array.from(document.querySelectorAll('*'));
+                all.forEach((el, i) => el.setAttribute('data-qa-idx', i));
+            }""")
+
+            for _ in range(min(50, total_focusable * 2)):
                 self.page.keyboard.press("Tab")
 
-                focused_id = self.page.evaluate("""() => {
+                focused_index = self.page.evaluate("""() => {
                     const el = document.activeElement;
-                    return el ? (el.id || el.className || el.tagName) : 'body';
+                    if (!el || el === document.body) return -1;
+                    const idx = el.getAttribute('data-qa-idx');
+                    return idx !== null ? parseInt(idx, 10) : -1;
                 }""")
 
-                if focused_id in visited_ids and len(visited_ids) < 3:
-                    # Possible keyboard trap - cycling through very few elements
+                if focused_index == -1:
+                    continue
+
+                if focused_index in visited_indices and len(visited_indices) < 3:
+                    # Focus is cycling through fewer than 3 elements while the page
+                    # has more than 3 focusable elements — genuine trap.
                     self.findings.append(Finding(
                         title="Potential keyboard trap detected",
-                        description=f"Focus cycles through only {len(visited_ids)} elements repeatedly",
+                        description=f"Focus cycles through only {len(visited_indices)} elements repeatedly",
                         category=FindingCategory.KEYBOARD_NAVIGATION,
                         severity=Severity.HIGH,
                         url=self.page.url,
                         expected_behavior="User should be able to TAB through all interactive elements",
-                        actual_behavior=f"Focus trapped cycling through {len(visited_ids)} elements",
-                        metadata={"trapped_elements": list(visited_ids)},
+                        actual_behavior=f"Focus trapped cycling through {len(visited_indices)} elements",
+                        metadata={"trapped_elements": list(visited_indices)},
                     ))
                     break
 
-                visited_ids.add(focused_id)
+                visited_indices.add(focused_index)
 
         except Exception:
             pass
