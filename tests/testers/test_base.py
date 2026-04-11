@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import os
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from qa_agent.config import ScreenshotConfig, TestConfig
-from qa_agent.models import Finding, FindingCategory, Severity
 from qa_agent.testers.mouse import MouseTester  # concrete subclass of BaseTester
 
 

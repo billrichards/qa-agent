@@ -9,9 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from qa_agent.cli import parse_auth_config
-from qa_agent.config import AuthConfig, TestMode
-from qa_agent.models import Severity
-
+from qa_agent.config import TestMode
 
 # ---------------------------------------------------------------------------
 # parse_auth_config

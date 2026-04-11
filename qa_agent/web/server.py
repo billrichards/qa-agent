@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import nh3
 from flask import Flask, Response, abort, jsonify, render_template, request, send_file
 
 from ..agent import QAAgent
@@ -390,6 +389,8 @@ _NH3_ALLOWED_ATTRIBUTES: dict[str, set[str]] = {
 
 def _sanitize_html(html: str) -> str:
     """Sanitize HTML using nh3 to prevent XSS attacks."""
+    import nh3
+
     return nh3.clean(
         html,
         tags=_NH3_ALLOWED_TAGS,

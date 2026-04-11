@@ -6,7 +6,7 @@ import io
 import json
 import os
 import urllib.error
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -20,7 +20,6 @@ from qa_agent.llm_client import (
     _http_post,
     create_llm_client,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

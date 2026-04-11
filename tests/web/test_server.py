@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import json
-import os
 import queue
 import sys
 import threading
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,11 +16,11 @@ import pytest
 from qa_agent.web import server as srv
 from qa_agent.web.server import (
     OUTPUT_DIR,
-    _MultiplexedStdout,
-    _QueueWriter,
     _build_config,
     _jobs,
     _make_job,
+    _MultiplexedStdout,
+    _QueueWriter,
     app,
 )
 
@@ -431,6 +429,7 @@ class TestQueueWriter:
 class TestMultiplexedStdout:
     def test_no_thread_local_writes_to_original(self, capsys):
         import io
+
         from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
         buf = io.StringIO()
@@ -445,12 +444,12 @@ class TestMultiplexedStdout:
         assert "hello original" in buf.getvalue()
 
     def test_thread_local_stream_routes_writes(self):
-        from qa_agent.web import server as srv_mod
         import io
+
+        from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
         captured = io.StringIO()
 
-        import threading as thr
         srv_mod._local.stream = captured
         try:
             mux.write("routed to thread-local\n")
@@ -460,8 +459,9 @@ class TestMultiplexedStdout:
 
     def test_thread_isolation(self):
         """Writes in one thread must not appear in another thread's stream."""
-        from qa_agent.web import server as srv_mod
         import io
+
+        from qa_agent.web import server as srv_mod
         mux = _MultiplexedStdout()
 
         thread1_buf = io.StringIO()
@@ -512,8 +512,9 @@ class TestServeWebCli:
         try:
             with patch("builtins.__import__", side_effect=fake_import):
                 with pytest.raises(SystemExit) as exc_info:
-                    import qa_agent.web as web_mod
                     import importlib
+
+                    import qa_agent.web as web_mod
                     importlib.reload(web_mod)
                     web_mod.serve_web_cli()
         finally:
@@ -547,8 +548,9 @@ class TestServeWebCli:
         try:
             with patch("builtins.__import__", side_effect=fake_import):
                 with pytest.raises(ModuleNotFoundError, match="weasyprint"):
-                    import qa_agent.web as web_mod
                     import importlib
+
+                    import qa_agent.web as web_mod
                     importlib.reload(web_mod)
                     web_mod.serve_web_cli()
         finally:

@@ -7,11 +7,10 @@ Excluded from the default pytest run (requires Playwright browsers installed).
 from __future__ import annotations
 
 import json
-import os
 import threading
+from collections.abc import Generator
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
-from typing import Generator
 
 import pytest
 

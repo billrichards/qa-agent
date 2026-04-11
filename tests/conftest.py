@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from qa_agent.models import Finding, FindingCategory, PageAnalysis, Severity, TestSession
-
 
 # ---------------------------------------------------------------------------
 # Data factories

@@ -45,6 +45,7 @@ class TestClickTargetSizes:
             "height": 10,
             "text": "x",
             "tag": "button",
+            "inline": False,
         }
 
         mock_locator = MagicMock()
@@ -70,6 +71,7 @@ class TestClickTargetSizes:
             "height": 44,
             "text": "Submit",
             "tag": "button",
+            "inline": False,
         }
 
         mock_locator = MagicMock()

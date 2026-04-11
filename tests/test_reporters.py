@@ -7,12 +7,11 @@ from datetime import datetime
 
 import pytest
 
-from qa_agent.models import FindingCategory, PageAnalysis, Severity, TestSession
+from qa_agent.models import TestSession
 from qa_agent.reporters.console import ConsoleReporter
 from qa_agent.reporters.json_reporter import JSONReporter
 from qa_agent.reporters.markdown import MarkdownReporter
 from tests.conftest import make_finding, make_session, make_session_with_findings
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -324,7 +323,7 @@ class TestJSONReporter:
 class TestPDFReporter:
     def test_pdf_smoke(self, tmp_path):
         """Smoke test: file created and non-empty. Skipped if weasyprint absent."""
-        weasyprint = pytest.importorskip("weasyprint")
+        pytest.importorskip("weasyprint")
         from qa_agent.reporters.pdf import PDFReporter
         reporter = PDFReporter(str(tmp_path))
         path = reporter.generate(make_session_with_findings())

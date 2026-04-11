@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from qa_agent.config import TestConfig
-from qa_agent.models import FindingCategory, Severity
+from qa_agent.models import Severity
 from qa_agent.testers.forms import FormTester
 
 

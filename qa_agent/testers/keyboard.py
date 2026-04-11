@@ -299,7 +299,7 @@ class KeyboardTester(BaseTester):
             self.page.evaluate("document.body.focus()")
 
             visited_indices: set[int] = set()
-            all_elements = self.page.evaluate("""() =>
+            self.page.evaluate("""() =>
                 Array.from(document.querySelectorAll('*')).length
             """)
 

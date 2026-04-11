@@ -2,18 +2,14 @@
 
 from datetime import datetime
 
-import pytest
-
 from qa_agent.models import (
     Finding,
     FindingCategory,
-    PageAnalysis,
     Severity,
     TestSession,
     _normalize_url,
 )
 from tests.conftest import make_finding, make_page_analysis, make_session
-
 
 # ---------------------------------------------------------------------------
 # _normalize_url
