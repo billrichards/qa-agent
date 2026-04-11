@@ -32,6 +32,22 @@ OUTPUT_DIR = Path.cwd() / "output"
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=str(_HERE / "templates"))
 
+
+@app.after_request
+def add_security_headers(response: Response) -> Response:
+    """Add Content-Security-Policy and other security headers to all responses."""
+    # Block inline scripts and external script sources as defense-in-depth against XSS
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "frame-ancestors 'none'"
+    )
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 # ── Thread-local stdout multiplexer ───────────────────────────────────────────
 # Redirects print() calls in job threads to their per-job queue without
 # interfering with the main thread's stdout.
@@ -353,6 +369,37 @@ def api_session_detail(domain: str, session_id: str):
     return jsonify(data)
 
 
+# Allowed HTML tags for nh3 sanitization of rendered markdown
+_NH3_ALLOWED_TAGS = {
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "ul", "ol", "li",
+    "pre", "code", "blockquote",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "a", "strong", "em", "b", "i", "u", "s", "del", "ins",
+    "img", "details", "summary",
+}
+_NH3_ALLOWED_ATTRIBUTES: dict[str, set[str]] = {
+    "a": {"href", "title"},
+    "img": {"src", "alt", "title"},
+    "th": {"align"},
+    "td": {"align"},
+}
+
+
+def _sanitize_html(html: str) -> str:
+    """Sanitize HTML using nh3 to prevent XSS attacks."""
+    import nh3
+
+    return nh3.clean(
+        html,
+        tags=_NH3_ALLOWED_TAGS,
+        attributes=_NH3_ALLOWED_ATTRIBUTES,
+        link_rel="noopener noreferrer",
+        url_schemes={"http", "https", "mailto"},
+    )
+
+
 @app.route("/files/<path:filepath>")
 def serve_file(filepath: str):
     """Serve output files (reports, screenshots, recordings)."""
@@ -375,10 +422,9 @@ def serve_file(filepath: str):
         try:
             import markdown as md_lib  # type: ignore[import-untyped]
             html_body = md_lib.markdown(content, extensions=["fenced_code", "tables"])
-            # Strip <script> blocks and inline event handlers to prevent XSS from
-            # finding titles/descriptions that contain payloads from tested sites.
-            html_body = re.sub(r"(?i)<script[^>]*>.*?</script>", "", html_body, flags=re.DOTALL)
-            html_body = re.sub(r"(?i)\s+on[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*')", "", html_body)
+            # Sanitize rendered HTML to prevent XSS from finding titles/descriptions
+            # that captured payloads from tested sites
+            html_body = _sanitize_html(html_body)
         except ImportError:
             html_body = f"<pre>{html_lib.escape(content)}</pre>"
         html = f"""<!doctype html><html><head><meta charset="utf-8">

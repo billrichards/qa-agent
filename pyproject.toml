@@ -34,6 +34,7 @@ pdf = [
 web = [
     "flask>=3.0",
     "markdown>=3.5",
+    "nh3>=0.2.15",
 ]
 ai = []  # LLM calls use Python's built-in urllib — no extra packages required
 dev = [

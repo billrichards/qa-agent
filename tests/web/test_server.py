@@ -237,6 +237,36 @@ class TestApiSessions:
 
 
 # ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+
+class TestSecurityHeaders:
+    def test_csp_header_present(self, client):
+        """All responses include Content-Security-Policy header."""
+        resp = client.get("/")
+        assert "Content-Security-Policy" in resp.headers
+        csp = resp.headers["Content-Security-Policy"]
+        assert "script-src" in csp
+        assert "frame-ancestors 'none'" in csp
+
+    def test_x_content_type_options_header(self, client):
+        """Responses include X-Content-Type-Options: nosniff."""
+        resp = client.get("/")
+        assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_x_frame_options_header(self, client):
+        """Responses include X-Frame-Options: DENY."""
+        resp = client.get("/")
+        assert resp.headers.get("X-Frame-Options") == "DENY"
+
+    def test_csp_on_file_routes(self, client, tmp_output):
+        """CSP header is present on /files/ routes too."""
+        (tmp_output / "test.txt").write_text("hello")
+        resp = client.get("/files/test.txt")
+        assert "Content-Security-Policy" in resp.headers
+
+
+# ---------------------------------------------------------------------------
 # /files/<path> — path traversal security
 # ---------------------------------------------------------------------------
 
@@ -276,25 +306,31 @@ class TestFileServing:
         assert resp.status_code == 200
         assert b"Hello" in resp.data
 
-    def test_md_file_script_tag_injection(self, client, tmp_output):
-        """Document current behaviour: raw <script> in markdown passes through.
-
-        This is a known security bug. The markdown library does not escape HTML
-        by default, so a finding title rendered into a .md file will execute as
-        JavaScript when served via /files/.
-
-        Fix: pass output_format='html+escape' or sanitise finding content before
-        writing to markdown, or add a Content-Security-Policy header.
-        """
+    def test_md_file_script_tag_sanitized(self, client, tmp_output):
+        """Script tags in markdown are stripped by nh3 sanitizer."""
         (tmp_output / "evil.md").write_text('<script>alert("pwned")</script>\n\n# Normal content')
         resp = client.get("/files/evil.md")
         assert resp.status_code == 200
         body = resp.data.decode()
-        # KNOWN BUG: the script tag is present in the response unescaped.
-        # Uncomment the assertion below when the bug is fixed:
-        # assert '<script>' not in body
-        # For now, just assert the page loads
-        assert b"Normal content" in resp.data or True
+        # Script tag should be stripped by nh3 sanitization
+        assert "<script>" not in body
+        assert "alert" not in body
+        assert "Normal content" in body
+
+    def test_md_file_event_handler_sanitized(self, client, tmp_output):
+        """Inline event handlers in markdown are stripped by nh3 sanitizer."""
+        (tmp_output / "evil2.md").write_text(
+            '<img src="x" onerror="alert(1)">\n\n'
+            '<a href="javascript:alert(2)">click</a>\n\n'
+            '# Safe heading'
+        )
+        resp = client.get("/files/evil2.md")
+        assert resp.status_code == 200
+        body = resp.data.decode()
+        # Event handlers and javascript: URLs should be stripped
+        assert "onerror" not in body
+        assert "javascript:" not in body
+        assert "Safe heading" in body
 
     def test_symlink_escape_blocked(self, client, tmp_output):
         """A symlink inside OUTPUT_DIR pointing outside must be blocked."""
