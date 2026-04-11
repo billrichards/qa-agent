@@ -420,7 +420,7 @@ class TestAIPlannerRetry:
     def test_retryable_error_retried_then_succeeds(self):
         """A retryable error on attempt 1 should be retried and succeed on attempt 2."""
         from qa_agent.ai_planner import AIPlannerClient
-        good_response = LLMResponse(text='{"summary":"s","focus_areas":[],"custom_steps":[],"suggested_urls":[],"notes":""}',
+        good_response = LLMResponse(text='{"summary":"s","focus_areas":[],"custom_steps":[],"suggested_urls":[],"notes":"","warnings":[]}',
                                     provider=LLMProvider.ANTHROPIC, model="test")
         client = MagicMock()
         client.complete.side_effect = [
@@ -469,7 +469,7 @@ class TestAIPlannerRetry:
 
     def test_sleep_called_between_retries(self):
         good_response = LLMResponse(
-            text='{"summary":"s","focus_areas":[],"custom_steps":[],"suggested_urls":[],"notes":""}',
+            text='{"summary":"s","focus_areas":[],"custom_steps":[],"suggested_urls":[],"notes":"","warnings":[]}',
             provider=LLMProvider.ANTHROPIC, model="test",
         )
         client = MagicMock()

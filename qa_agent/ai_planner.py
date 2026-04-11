@@ -60,6 +60,18 @@ Guidelines for writing good test steps:
   or guess URLs. All navigation must happen through browser interactions (clicks, form
   submissions, keyboard) — never by constructing a URL and navigating directly to it.
 
+Reliability warnings — populate the top-level "warnings" array when the instructions
+ask for something the executor cannot meaningfully verify:
+- CSS property or computed-style checks (background-color, opacity, font-size, etc.):
+  Playwright assertions cannot read CSS values. Warn and suggest a visual-regression
+  tool.
+- Animation/transition timing: if instructions imply checking mid-transition state,
+  a wait action is required before assertions; warn if timing is ambiguous.
+- "visible" assertions on the same element being hovered: the element was already
+  visible before the hover — the assertion trivially passes and validates nothing.
+Each warning string must be actionable: state what cannot be tested and suggest an
+alternative. Leave "warnings" as an empty array if none apply.
+
 Return ONLY valid JSON matching the schema — no markdown, no commentary."""
 
 
@@ -187,8 +199,18 @@ _TEST_PLAN_SCHEMA = {
             "type": "string",
             "description": "Any extra context, caveats, or observations for the tester.",
         },
+        "warnings": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": (
+                "Reliability warnings. Populate when instructions ask for CSS property checks, "
+                "animation timing, or other things Playwright assertions cannot verify. "
+                "Each string must explain what cannot be tested and suggest an alternative. "
+                "Leave empty when none apply."
+            ),
+        },
     },
-    "required": ["summary", "focus_areas", "custom_steps", "suggested_urls", "notes"],
+    "required": ["summary", "focus_areas", "custom_steps", "suggested_urls", "notes", "warnings"],
     "additionalProperties": False,
 }
 
@@ -203,7 +225,7 @@ _API_TIMEOUT = 60
 _MAX_RAW_RESPONSE_IN_ERROR = 300
 
 # Required top-level keys in the JSON returned by the model
-_REQUIRED_KEYS = frozenset({"summary", "focus_areas", "custom_steps"})
+_REQUIRED_KEYS = frozenset({"summary", "focus_areas", "custom_steps", "warnings"})
 
 
 _SEVERITY_MAP: dict[str, Severity] = {
@@ -225,6 +247,74 @@ _CATEGORY_MAP: dict[str, FindingCategory] = {
     "performance": FindingCategory.PERFORMANCE,
     "unexpected_behavior": FindingCategory.UNEXPECTED_BEHAVIOR,
 }
+
+_KNOWN_ACTION_TYPES = frozenset({
+    "click", "fill", "hover", "press_key", "wait", "navigate", "scroll"
+})
+_KNOWN_ASSERTION_TYPES = frozenset({
+    "visible", "hidden", "text_contains", "url_contains", "element_count"
+})
+
+def validate_plan(plan: "TestPlan") -> list[str]:
+    """Return rule-based reliability warnings for a generated TestPlan.
+
+    Detects four patterns:
+    1. Steps with no assertions (actions run, nothing validated)
+    2. Unknown assertion types (silently pass — guaranteed false negative)
+    3. hover action with no subsequent wait before assertions (CSS transitions need settle time)
+    4. hover + visible assertion on the same selector (trivially passes)
+    """
+    warnings: list[str] = []
+    for i, step in enumerate(plan.custom_steps, start=1):
+        prefix = f'Step {i} ("{step.description}")'
+
+        # Rule 1: no assertions
+        if not step.assertions:
+            warnings.append(
+                f"{prefix}: has actions but no assertions — the step runs but validates "
+                "nothing. Add at least one assertion to confirm the expected outcome."
+            )
+
+        # Rule 2: unknown assertion types (silently pass in the executor)
+        for assertion in step.assertions:
+            if assertion.type not in _KNOWN_ASSERTION_TYPES:
+                warnings.append(
+                    f"{prefix}: assertion type '{assertion.type}' is not supported and "
+                    f"will always pass (false negative). Supported types: "
+                    f"{', '.join(sorted(_KNOWN_ASSERTION_TYPES))}."
+                )
+
+        # Track hover selectors and whether the last non-wait action was a hover
+        hover_selectors: set[str] = set()
+        last_non_wait_was_hover = False
+        for action in step.actions:
+            if action.type == "hover":
+                if action.selector:
+                    hover_selectors.add(action.selector)
+                last_non_wait_was_hover = True
+            elif action.type == "wait":
+                last_non_wait_was_hover = False  # wait after hover is correct
+            else:
+                last_non_wait_was_hover = False
+
+        # Rule 3: hover immediately before assertions with no wait
+        if last_non_wait_was_hover and step.assertions:
+            warnings.append(
+                f"{prefix}: ends with a hover but has no 'wait' before assertions. "
+                "CSS transitions need settle time. Add {\"type\": \"wait\", \"value\": \"300\"} "
+                "after the hover."
+            )
+
+        # Rule 4: hover + visible on same selector (trivially passes)
+        for assertion in step.assertions:
+            if assertion.type == "visible" and assertion.selector in hover_selectors:
+                warnings.append(
+                    f"{prefix}: asserts '{assertion.selector}' is visible after hovering "
+                    "it, but the element was already visible — this trivially passes. "
+                    "Assert a *different* element that appears on hover (e.g. a tooltip)."
+                )
+
+    return warnings
 
 
 class AIPlannerClient:
@@ -391,13 +481,19 @@ class AIPlannerClient:
                 )
             )
 
-        return TestPlan(
+        llm_warnings: list[str] = [
+            w for w in data.get("warnings", []) if isinstance(w, str) and w.strip()
+        ]
+        plan = TestPlan(
             summary=data.get("summary", ""),
             focus_areas=data.get("focus_areas", []),
             custom_steps=custom_steps,
             suggested_urls=[],  # Never trust AI-constructed URLs; user supplies all URLs
             notes=data.get("notes", ""),
+            warnings=llm_warnings,
         )
+        plan.warnings = plan.warnings + validate_plan(plan)
+        return plan
 
 
 def effective_model(provider: LLMProvider, model: str | None) -> str:

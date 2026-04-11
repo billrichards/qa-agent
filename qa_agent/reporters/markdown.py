@@ -79,6 +79,20 @@ class MarkdownReporter(BaseReporter):
                     lines.append(f"| {emoji} {cat_name} | {count} |")
             lines.append("")
 
+        # Test reliability warnings
+        plan_warnings = session.config_summary.get("plan_warnings", [])
+        if plan_warnings:
+            lines.append("## ⚠ Test Reliability Warnings")
+            lines.append("")
+            lines.append(
+                "> These warnings were detected before execution. Results may include "
+                "false passes where the plan cannot meaningfully verify the intended behavior."
+            )
+            lines.append("")
+            for w in plan_warnings:
+                lines.append(f"- {w}")
+            lines.append("")
+
         # Pages tested
         lines.append("## Pages Tested")
         lines.append("")

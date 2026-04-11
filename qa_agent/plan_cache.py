@@ -82,6 +82,7 @@ def _serialize(plan: TestPlan) -> dict:
         "focus_areas": plan.focus_areas,
         "notes": plan.notes,
         "suggested_urls": plan.suggested_urls,
+        "warnings": plan.warnings,
         "custom_steps": [
             {
                 "description": s.description,
@@ -128,5 +129,6 @@ def _deserialize(data: dict) -> TestPlan:
         focus_areas=data.get("focus_areas", []),
         notes=data.get("notes", ""),
         suggested_urls=data.get("suggested_urls", []),
+        warnings=data.get("warnings", []),
         custom_steps=steps,
     )

@@ -150,6 +150,8 @@ class QAAgent:
                 self.console.print_progress("Using cached AI test plan (pass --no-cache to regenerate).")
                 self.test_plan = cached
                 self._apply_test_plan()
+                if self.test_plan and self.test_plan.warnings:
+                    self.session.config_summary["plan_warnings"] = self.test_plan.warnings
                 return
 
         model_name = effective_model(self.config.llm_provider, self.config.ai_model)
@@ -168,6 +170,8 @@ class QAAgent:
                 cache.set(cache_key, self.test_plan)
 
             self._apply_test_plan()
+            if self.test_plan and self.test_plan.warnings:
+                self.session.config_summary["plan_warnings"] = self.test_plan.warnings
 
         except LLMError as exc:
             self.console.print_progress(
@@ -187,6 +191,9 @@ class QAAgent:
             self.console.print_progress(
                 "Focus areas: " + ", ".join(self.test_plan.focus_areas)
             )
+        if self.test_plan.warnings:
+            for warning in self.test_plan.warnings:
+                self.console.print_warning(warning)
         self.console.print_progress(
             f"Custom test steps: {len(self.test_plan.custom_steps)}"
         )
