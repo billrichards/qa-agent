@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from qa_agent.ai_planner import validate_plan
+from qa_agent.config import LLMProvider
 from qa_agent.models import CustomStep, StepAction, StepAssertion, TestPlan
 from qa_agent.plan_cache import _deserialize, _serialize
 from qa_agent.reporters.console import ConsoleReporter
@@ -147,7 +148,7 @@ class TestValidatePlanHoverNoWait:
         warnings = validate_plan(plan)
         assert len(warnings) == 0
 
-    def test_hover_without_selector_no_warning(self):
+    def test_hover_without_selector_still_warns_on_timing(self):
         # hover without selector (edge case) should not crash
         plan = TestPlan(
             summary="Test",
@@ -226,6 +227,29 @@ class TestValidatePlanHoverVisibleSameSelector:
         # Should trigger rule 3 (hover no wait) but NOT rule 4 (different selector)
         assert len(warnings) == 1
         assert "ends with a hover but has no 'wait' before assertions" in warnings[0]
+
+    def test_hover_without_selector_does_not_trigger_rule4(self):
+        """Edge case: hover with no selector should not add to hover_selectors set.
+        This ensures Rule 4 (trivial visible assertion) doesn't fire spuriously
+        when action.selector is None.
+        """
+        plan = TestPlan(
+            summary="Test",
+            focus_areas=[],
+            custom_steps=[
+                CustomStep(
+                    description="Hover without selector, assert visible on some element",
+                    actions=[StepAction(type="hover")],  # selector is None
+                    assertions=[StepAssertion(type="visible", selector=".tooltip")],
+                )
+            ],
+        )
+        warnings = validate_plan(plan)
+        # Should trigger rule 3 (hover no wait) but NOT rule 4 (no selector to compare)
+        assert len(warnings) == 1
+        assert "ends with a hover but has no 'wait' before assertions" in warnings[0]
+        # Ensure no rule 4 warning about trivial visible assertion
+        assert not any("trivially passes" in w for w in warnings)
 
 
 class TestValidatePlanMultiStep:
@@ -331,10 +355,10 @@ class TestParsePlanWarnings:
         mock_client = MagicMock()
         mock_client.complete.return_value = MagicMock(
             text=json.dumps(json_data),
-            provider="anthropic",
+            provider=LLMProvider.ANTHROPIC,
             model="mock",
         )
-        planner = AIPlannerClient(provider="anthropic", model="mock")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="mock")
         planner._client = mock_client
         plan = planner.plan("test", "https://example.com")
         # Should have both LLM warning and rule-based warning (no assertions)
@@ -365,10 +389,10 @@ class TestParsePlanWarnings:
         mock_client = MagicMock()
         mock_client.complete.return_value = MagicMock(
             text=json.dumps(json_data),
-            provider="anthropic",
+            provider=LLMProvider.ANTHROPIC,
             model="mock",
         )
-        planner = AIPlannerClient(provider="anthropic", model="mock")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="mock")
         planner._client = mock_client
         plan = planner.plan("test", "https://example.com")
         # No warnings
@@ -387,10 +411,10 @@ class TestParsePlanWarnings:
         mock_client = MagicMock()
         mock_client.complete.return_value = MagicMock(
             text=json.dumps(json_data),
-            provider="anthropic",
+            provider=LLMProvider.ANTHROPIC,
             model="mock",
         )
-        planner = AIPlannerClient(provider="anthropic", model="mock")
+        planner = AIPlannerClient(provider=LLMProvider.ANTHROPIC, model="mock")
         planner._client = mock_client
         plan = planner.plan("test", "https://example.com")
         # Only the valid string warning is kept, empty string filtered out

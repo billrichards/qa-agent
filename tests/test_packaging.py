@@ -9,6 +9,7 @@ fixture.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -29,6 +30,11 @@ def _build_dist(kind: str, dest: Path) -> Path:
 
     Returns the single artifact path.
     """
+    # Clean up build directory before building to prevent recursive structure issues
+    build_dir = REPO_ROOT / "build"
+    if build_dir.exists():
+        shutil.rmtree(build_dir, ignore_errors=True)
+
     flag = "--wheel" if kind == "wheel" else "--sdist"
     result = subprocess.run(
         [sys.executable, "-m", "build", flag, "--outdir", str(dest), str(REPO_ROOT)],
@@ -41,6 +47,11 @@ def _build_dist(kind: str, dest: Path) -> Path:
     ext = "*.whl" if kind == "wheel" else "*.tar.gz"
     artifacts = list(dest.glob(ext))
     assert len(artifacts) == 1, f"Expected 1 {kind} artifact, found: {artifacts}"
+
+    # Clean up build directory after building as well
+    if build_dir.exists():
+        shutil.rmtree(build_dir, ignore_errors=True)
+
     return artifacts[0]
 
 
