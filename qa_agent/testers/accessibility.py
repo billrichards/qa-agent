@@ -590,15 +590,22 @@ class AccessibilityTester(BaseTester):
                 let hasAnimations = false;
                 let respectsMotion = false;
 
+                // Returns true only if at least one time value exceeds 50ms (0.05s).
+                // Instant/zero-duration transitions are not a motion concern.
+                function hasSignificantDuration(cssTimeStr) {
+                    const times = cssTimeStr.match(/\\b(\\d*\\.?\\d+)s\\b/g) || [];
+                    return times.some(t => parseFloat(t) > 0.05);
+                }
+
                 for (const el of allElements) {
                     const style = window.getComputedStyle(el);
                     const animation = style.animation || style.webkitAnimation;
                     const transition = style.transition || style.webkitTransition;
 
-                    if (animation && animation !== 'none' && !animation.includes('0s')) {
+                    if (animation && animation !== 'none' && !animation.startsWith('none') && hasSignificantDuration(animation)) {
                         hasAnimations = true;
                     }
-                    if (transition && transition !== 'none' && transition !== 'all 0s ease 0s') {
+                    if (transition && transition !== 'none' && hasSignificantDuration(transition)) {
                         hasAnimations = true;
                     }
                 }
