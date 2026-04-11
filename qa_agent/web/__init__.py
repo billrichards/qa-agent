@@ -17,11 +17,12 @@ def serve_web_cli() -> None:
     try:
         from qa_agent.web.server import serve_web_cli as _serve
     except ModuleNotFoundError as exc:
-        if "flask" in str(exc).lower():
+        missing = str(exc).lower()
+        if "flask" in missing or "nh3" in missing:
             print(
-                "Error: the web interface requires Flask, which is not installed.\n"
+                "Error: the web interface requires Flask and nh3, which are not installed.\n"
                 "\n"
-                "Install it with:\n"
+                "Install them with:\n"
                 "    pip install 'qa-agent[web]'\n"
                 "\n"
                 "Then re-run:  qa-agent-web",
