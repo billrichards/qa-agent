@@ -105,8 +105,8 @@ Examples:
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=20,
-        help="Maximum number of pages to test in explore mode (default: 20)",
+        default=100,
+        help="Maximum number of pages to test in explore mode (default: 100)",
     )
     parser.add_argument(
         "--max-interactions",

@@ -93,7 +93,7 @@ function collectFormData(form) {
     viewport_height: parseInt(fd.get('viewport_height') || '720', 10),
     timeout: parseInt(fd.get('timeout') || '30000', 10),
     max_depth: parseInt(fd.get('max_depth') || '3', 10),
-    max_pages: parseInt(fd.get('max_pages') || '20', 10),
+    max_pages: parseInt(fd.get('max_pages') || '100', 10),
     max_interactions_per_page: parseInt(fd.get('max_interactions_per_page') || '50', 10),
     test_keyboard: !!fd.get('test_keyboard'),
     test_mouse: !!fd.get('test_mouse'),

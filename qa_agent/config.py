@@ -70,7 +70,7 @@ class TestConfig:
 
     # Exploration settings
     max_depth: int = 3  # Max navigation depth in explore mode
-    max_pages: int = 20  # Max pages to visit in explore mode
+    max_pages: int = 100  # Max pages to visit in explore mode
     max_interactions_per_page: int = 50  # Max interactions per page
 
     # Test categories to run
