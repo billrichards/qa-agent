@@ -1,6 +1,7 @@
 """Markdown report generator."""
 
 import os
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -160,13 +161,17 @@ class MarkdownReporter(BaseReporter):
 
         return "\n".join(lines)
 
+    def _escape_html_tags(self, text: str) -> str:
+        """Wrap HTML tags in backticks so they render correctly in markdown previews."""
+        return re.sub(r'(?<!`)</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>(?!`)', r'`\g<0>`', text)
+
     def _format_finding(self, finding: "Finding", index: int, emoji: str) -> list[str]:
         """Format a single finding as Markdown, with screenshot paths relative to the report file."""
         lines = []
 
         lines.append(f"#### {index}. {emoji} {finding.title}")
         lines.append("")
-        lines.append(f"**Description:** {finding.description}")
+        lines.append(f"**Description:** {self._escape_html_tags(finding.description)}")
         lines.append("")
 
         if finding.url:
@@ -188,14 +193,14 @@ class MarkdownReporter(BaseReporter):
             lines.append("")
 
         if finding.element_text:
-            lines.append(f"**Element Text:** {finding.element_text}")
+            lines.append(f"**Element Text:** {self._escape_html_tags(finding.element_text)}")
             lines.append("")
 
         if finding.expected_behavior or finding.actual_behavior:
             lines.append("| Expected | Actual |")
             lines.append("| --- | --- |")
-            expected = (finding.expected_behavior or "-").replace("|", "\\|")
-            actual = (finding.actual_behavior or "-").replace("|", "\\|")
+            expected = self._escape_html_tags(finding.expected_behavior or "-").replace("|", "\\|")
+            actual = self._escape_html_tags(finding.actual_behavior or "-").replace("|", "\\|")
             lines.append(f"| {expected} | {actual} |")
             lines.append("")
 
