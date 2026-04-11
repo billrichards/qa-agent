@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import threading
+from typing import Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from qa_agent.agent import QAAgent, _extract_domain
-from qa_agent.config import AuthConfig, TestConfig
+from qa_agent.config import AuthConfig, OutputFormat, TestConfig, TestMode
 from qa_agent.models import Finding, FindingCategory, Severity
 from tests.conftest import make_mock_playwright_factory
 
@@ -136,14 +137,75 @@ class TestShouldSkipUrl:
 # QAAgent.run — orchestration
 # ---------------------------------------------------------------------------
 
-def _make_config(**kwargs) -> TestConfig:
-    defaults = dict(
-        urls=["https://example.com"],
-        output_formats=[],  # no reporters, avoids file I/O
-        headless=True,
+def _make_config(**kwargs: object) -> TestConfig:
+    # Start with typed defaults
+    from typing import cast
+
+    from qa_agent.config import LLMProvider, RecordingConfig, ScreenshotConfig
+
+    # Extract known kwargs with type casting
+    urls = cast(list[str], kwargs.pop("urls", ["https://example.com"]))
+    output_formats = cast(list[OutputFormat], kwargs.pop("output_formats", []))
+    headless = cast(bool, kwargs.pop("headless", True))
+    mode = cast(TestMode, kwargs.pop("mode", TestMode.FOCUSED))
+    output_dir = cast(str, kwargs.pop("output_dir", "./output"))
+    viewport_width = cast(int, kwargs.pop("viewport_width", 1280))
+    viewport_height = cast(int, kwargs.pop("viewport_height", 720))
+    timeout = cast(int, kwargs.pop("timeout", 30000))
+    max_depth = cast(int, kwargs.pop("max_depth", 3))
+    max_pages = cast(int, kwargs.pop("max_pages", 20))
+    max_interactions_per_page = cast(int, kwargs.pop("max_interactions_per_page", 50))
+    test_keyboard = cast(bool, kwargs.pop("test_keyboard", True))
+    test_mouse = cast(bool, kwargs.pop("test_mouse", True))
+    test_forms = cast(bool, kwargs.pop("test_forms", True))
+    test_accessibility = cast(bool, kwargs.pop("test_accessibility", True))
+    test_console_errors = cast(bool, kwargs.pop("test_console_errors", True))
+    test_network_errors = cast(bool, kwargs.pop("test_network_errors", True))
+    test_wcag_compliance = cast(bool, kwargs.pop("test_wcag_compliance", False))
+    auth = cast(AuthConfig | None, kwargs.pop("auth", None))
+    screenshots = cast(ScreenshotConfig, kwargs.pop("screenshots", ScreenshotConfig()))
+    recording = cast(RecordingConfig, kwargs.pop("recording", RecordingConfig()))
+    ignore_patterns = cast(list[str], kwargs.pop("ignore_patterns", []))
+    same_domain_only = cast(bool, kwargs.pop("same_domain_only", True))
+    instructions = cast(str | None, kwargs.pop("instructions", None))
+    llm_provider = cast(LLMProvider, kwargs.pop("llm_provider", LLMProvider.ANTHROPIC))
+    ai_model = cast(str | None, kwargs.pop("ai_model", None))
+    use_plan_cache = cast(bool, kwargs.pop("use_plan_cache", True))
+    invocation_context = cast(Literal["cli", "web"] | None, kwargs.pop("invocation_context", None))
+
+    # Any remaining kwargs are passed as-is (will cause mypy error if they don't match TestConfig)
+    # This is fine for test code where we might pass extra kwargs for future compatibility
+    return TestConfig(
+        urls=urls,
+        output_formats=output_formats,
+        headless=headless,
+        mode=mode,
+        output_dir=output_dir,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
+        timeout=timeout,
+        max_depth=max_depth,
+        max_pages=max_pages,
+        max_interactions_per_page=max_interactions_per_page,
+        test_keyboard=test_keyboard,
+        test_mouse=test_mouse,
+        test_forms=test_forms,
+        test_accessibility=test_accessibility,
+        test_console_errors=test_console_errors,
+        test_network_errors=test_network_errors,
+        test_wcag_compliance=test_wcag_compliance,
+        auth=auth,
+        screenshots=screenshots,
+        recording=recording,
+        ignore_patterns=ignore_patterns,
+        same_domain_only=same_domain_only,
+        instructions=instructions,
+        llm_provider=llm_provider,
+        ai_model=ai_model,
+        use_plan_cache=use_plan_cache,
+        invocation_context=invocation_context,
+        **kwargs,  # type: ignore[arg-type]
     )
-    defaults.update(kwargs)
-    return TestConfig(**defaults)
 
 
 def _make_agent(config=None, mock_page=None):
