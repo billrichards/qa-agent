@@ -6,7 +6,7 @@ QA Agent ships with six test suites. Five run by default; WCAG 2.1 AA compliance
 
 ## Keyboard Navigation
 
-**Tester:** [`KeyboardTester`](../qa_agent/testers/keyboard.py)
+**Tester:** [`KeyboardTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/keyboard.py)
 
 Verifies that every interactive element is operable without a mouse.
 
@@ -23,7 +23,7 @@ Verifies that every interactive element is operable without a mouse.
 
 ## Mouse Interaction
 
-**Tester:** [`MouseTester`](../qa_agent/testers/mouse.py)
+**Tester:** [`MouseTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/mouse.py)
 
 Exercises pointer-based interactions and validates target sizing.
 
@@ -40,7 +40,7 @@ Exercises pointer-based interactions and validates target sizing.
 
 ## Form Handling
 
-**Tester:** [`FormTester`](../qa_agent/testers/forms.py)
+**Tester:** [`FormTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/forms.py)
 
 Fills and submits forms, checking validation and labelling.
 
@@ -57,7 +57,7 @@ Fills and submits forms, checking validation and labelling.
 
 ## Accessibility (WCAG)
 
-**Tester:** [`AccessibilityTester`](../qa_agent/testers/accessibility.py)
+**Tester:** [`AccessibilityTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/accessibility.py)
 
 Covers the most common WCAG 2.1 Level A and AA success criteria.
 
@@ -76,7 +76,7 @@ Covers the most common WCAG 2.1 Level A and AA success criteria.
 
 ## Error Detection
 
-**Tester:** [`ErrorDetector`](../qa_agent/testers/errors.py)
+**Tester:** [`ErrorDetector`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/errors.py)
 
 Monitors the browser console and network layer for runtime problems.
 
@@ -93,7 +93,7 @@ Monitors the browser console and network layer for runtime problems.
 
 ## WCAG 2.1 AA Compliance (opt-in)
 
-**Tester:** [`WCAGComplianceTester`](../qa_agent/testers/wcag_compliance.py)
+**Tester:** [`WCAGComplianceTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/wcag_compliance.py)
 
 > Enable with `--wcag-compliance` (CLI) or `"test_wcag_compliance": true` (API).
 

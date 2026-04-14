@@ -196,7 +196,7 @@ curl -N http://127.0.0.1:5000/api/stream/a1b2c3d4
 curl http://127.0.0.1:5000/api/sessions?limit=10
 ```
 
-→ [Full API reference](docs/web-api.md) — all endpoints, request body schema, and SSE event types.
+→ [Full API reference](https://github.com/billrichards/qa-agent/blob/main/docs/web-api.md) — all endpoints, request body schema, and SSE event types.
 
 ---
 
@@ -334,7 +334,7 @@ for finding in session.get_all_findings():
 
 Six built-in suites cover keyboard navigation, mouse interaction, form handling, accessibility (WCAG), runtime error detection, and an opt-in WCAG 2.1 AA compliance audit. Five run by default; enable the sixth with `--wcag-compliance`.
 
-→ [Detailed test-by-test reference](docs/test-categories.md)
+→ [Detailed test-by-test reference](https://github.com/billrichards/qa-agent/blob/main/docs/test-categories.md)
 
 ---
 
@@ -430,7 +430,7 @@ qa_agent/
     └── static/               # CSS and JavaScript
 ```
 
-→ [Extending QA Agent — adding custom testers](docs/architecture.md)
+→ [Extending QA Agent — adding custom testers](https://github.com/billrichards/qa-agent/blob/main/docs/architecture.md)
 
 ---
 
@@ -453,7 +453,7 @@ ruff check .
 mypy qa_agent
 ```
 
-CI runs unit tests across Python 3.10–3.12 on Ubuntu, macOS, and Windows. Integration tests run on Ubuntu with Playwright. See [`.github/workflows/test.yml`](.github/workflows/test.yml).
+CI runs unit tests across Python 3.10–3.12 on Ubuntu, macOS, and Windows. Integration tests run on Ubuntu with Playwright. See [`.github/workflows/test.yml`](https://github.com/billrichards/qa-agent/blob/main/.github/workflows/test.yml).
 
 ---
 
@@ -525,4 +525,4 @@ Requires **3.10+**. Check with `python --version`.
 
 ## License
 
-MIT — Copyright (c) 2026 Bill Richards. See [LICENSE](LICENSE).
+MIT — Copyright (c) 2026 Bill Richards. See [LICENSE](https://github.com/billrichards/qa-agent/blob/main/LICENSE).

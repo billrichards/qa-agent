@@ -39,11 +39,11 @@ qa_agent/
 
 ## Request Flow
 
-1. **Entry** — [`cli.py`](../qa_agent/cli.py) parses arguments and builds a [`TestConfig`](../qa_agent/config.py).
-2. **Planning** — If `--instructions` is provided, [`ai_planner.py`](../qa_agent/ai_planner.py) calls the LLM via [`llm_client.py`](../qa_agent/llm_client.py) to generate a `TestPlan`. Plans are cached to disk by [`plan_cache.py`](../qa_agent/plan_cache.py) (24-hour TTL).
-3. **Orchestration** — [`agent.py`](../qa_agent/agent.py) launches Playwright, iterates over target URLs (or crawls in explore mode), and calls each enabled tester on every page.
-4. **Testing** — Each tester (see [Test Categories](test-categories.md)) receives the Playwright `Page` and returns a `list[Finding]`.
-5. **Reporting** — Reporters in [`reporters/`](../qa_agent/reporters/) consume the `TestSession` and write output in the requested formats.
+1. **Entry** — [`cli.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/cli.py) parses arguments and builds a [`TestConfig`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/config.py).
+2. **Planning** — If `--instructions` is provided, [`ai_planner.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/ai_planner.py) calls the LLM via [`llm_client.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/llm_client.py) to generate a `TestPlan`. Plans are cached to disk by [`plan_cache.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/plan_cache.py) (24-hour TTL).
+3. **Orchestration** — [`agent.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/agent.py) launches Playwright, iterates over target URLs (or crawls in explore mode), and calls each enabled tester on every page.
+4. **Testing** — Each tester (see [Test Categories](https://github.com/billrichards/qa-agent/blob/main/docs/test-categories.md)) receives the Playwright `Page` and returns a `list[Finding]`.
+5. **Reporting** — Reporters in [`reporters/`](https://github.com/billrichards/qa-agent/tree/main/qa_agent/reporters/) consume the `TestSession` and write output in the requested formats.
 
 ---
 
@@ -51,7 +51,7 @@ qa_agent/
 
 ### 1. Create the tester module
 
-Add a file in [`testers/`](../qa_agent/testers/) that extends [`BaseTester`](../qa_agent/testers/base.py):
+Add a file in [`testers/`](https://github.com/billrichards/qa-agent/tree/main/qa_agent/testers/) that extends [`BaseTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/base.py):
 
 ```python
 # qa_agent/testers/my_tester.py
@@ -74,12 +74,12 @@ class MyTester(BaseTester):
         return findings
 ```
 
-[`BaseTester`](../qa_agent/testers/base.py) provides:
+[`BaseTester`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/base.py) provides:
 
 | Member | Purpose |
 |---|---|
 | `self.page` | The Playwright [`Page`](https://playwright.dev/python/docs/api/class-page) under test |
-| `self.config` | The active [`TestConfig`](../qa_agent/config.py) instance |
+| `self.config` | The active [`TestConfig`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/config.py) instance |
 | `self.findings` | A convenience list (you can also return your own) |
 | `_safe_execute()` | Wraps an action in a try/except and returns an error dict on failure |
 | `_get_element_info()` | Returns visibility, text, and tag info for a CSS selector |
@@ -87,7 +87,7 @@ class MyTester(BaseTester):
 
 ### 2. Export from the package
 
-Add your class to [`testers/__init__.py`](../qa_agent/testers/__init__.py):
+Add your class to [`testers/__init__.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/testers/__init__.py):
 
 ```python
 from .my_tester import MyTester
@@ -100,7 +100,7 @@ __all__ = [
 
 ### 3. Add a config flag
 
-In [`config.py`](../qa_agent/config.py), add a boolean to [`TestConfig`](../qa_agent/config.py:56):
+In [`config.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/config.py), add a boolean to [`TestConfig`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/config.py#L56):
 
 ```python
 @dataclass
@@ -111,7 +111,7 @@ class TestConfig:
 
 ### 4. Wire it into the orchestrator
 
-In [`agent.py`](../qa_agent/agent.py), call your tester inside `_test_page()`:
+In [`agent.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/agent.py), call your tester inside `_test_page()`:
 
 ```python
 if self.config.test_my_feature:
@@ -122,7 +122,7 @@ if self.config.test_my_feature:
 
 ### 5. (Optional) Add a CLI flag
 
-In [`cli.py`](../qa_agent/cli.py), add `--skip-my-feature` or `--my-feature` following the pattern of the existing suite flags.
+In [`cli.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/cli.py), add `--skip-my-feature` or `--my-feature` following the pattern of the existing suite flags.
 
 ---
 
@@ -136,12 +136,12 @@ In [`cli.py`](../qa_agent/cli.py), add `--skip-my-feature` or `--my-feature` fol
 | `LOW` | Minor improvements, best-practice suggestions |
 | `INFO` | Informational observations |
 
-Defined in [`models.Severity`](../qa_agent/models.py:10).
+Defined in [`models.Severity`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/models.py#L10).
 
 ---
 
 ## Finding Categories
 
-Each finding is tagged with a [`FindingCategory`](../qa_agent/models.py:19):
+Each finding is tagged with a [`FindingCategory`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/models.py#L19):
 
 `KEYBOARD_NAVIGATION` · `MOUSE_INTERACTION` · `FORM_HANDLING` · `ACCESSIBILITY` · `CONSOLE_ERROR` · `NETWORK_ERROR` · `VISUAL_ISSUE` · `PERFORMANCE` · `UNEXPECTED_BEHAVIOR`

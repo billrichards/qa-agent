@@ -1,6 +1,6 @@
 # Web API Reference
 
-QA Agent's web server exposes a REST + SSE API for launching test runs, streaming live output, and browsing past sessions. All endpoints are served by the Flask app in [`server.py`](../qa_agent/web/server.py).
+QA Agent's web server exposes a REST + SSE API for launching test runs, streaming live output, and browsing past sessions. All endpoints are served by the Flask app in [`server.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/web/server.py).
 
 **Base URL:** `http://127.0.0.1:5000` (default; configurable with `--host` / `--port`)
 
