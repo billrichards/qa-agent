@@ -172,7 +172,13 @@ class MarkdownReporter(BaseReporter):
         return "\n".join(lines)
 
     def _escape_html_tags(self, text: str) -> str:
-        """Wrap HTML tags in backticks so they render correctly in markdown previews."""
+        """Wrap HTML tags in backticks so they render correctly in markdown previews.
+
+        Note: [^>]* in the attribute group stops at the first '>', so attribute values
+        containing '>' (e.g. class="a > b") will cause partial wrapping. Acceptable
+        given AI-generated input is unlikely to hit this; a full fix would require
+        matching quoted attribute values explicitly.
+        """
         return re.sub(r'(?<!`)</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>(?!`)', r'`\g<0>`', text)
 
     def _format_finding(self, finding: "Finding", index: int, emoji: str) -> list[str]:
