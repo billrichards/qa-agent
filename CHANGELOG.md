@@ -16,6 +16,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-14
+
+### Added
+
+- **Multi-LLM support**: Anthropic (Claude) and OpenAI (GPT-4o) providers via Python's built-in `urllib` — no third-party AI SDK required. New `--llm` and `--ai-model` CLI flags. New `llm_client.py` module.
+- **AI plan validation warnings**: `validate_plan()` detects four patterns in LLM-generated test plans — steps with no assertions, unknown assertion types, hover actions without wait, and trivially-passing hover+visible assertions. Warnings appear in console, Markdown, and JSON reports.
+- `--max-interactions` CLI flag to control the maximum number of interactions per page (default: 50).
+- `nh3` HTML sanitizer for Markdown report rendering in the web UI, preventing XSS from finding titles/descriptions that captured payloads from tested sites.
+- Content-Security-Policy and security headers (`X-Content-Type-Options`, `X-Frame-Options`) on all web server responses.
+- HTML tag escaping in Markdown report output to prevent injection.
+- Markdown reports now list all affected pages under each deduplicated finding.
+- Documentation restructured: new `docs/test-categories.md`, `docs/architecture.md`, and `docs/web-api.md`; README trimmed with links to detailed docs.
+
+### Changed
+
+- **`max_pages` default increased** from `20` to `100` (CLI, web API, and config).
+- Inline text links are now exempt from the small click-target check in the mouse tester (reduces false positives).
+- Animations under 50 ms are now ignored in the reduced-motion accessibility check.
+- Test coverage improved from 67 % to 77 % across all modules.
+
+### Fixed
+
+- Keyboard trap detection rewritten for reliability — no longer produces false positives on pages with few focusable elements.
+- XSS vulnerabilities in the `/files/` endpoint (path traversal via symlinks, unescaped JSON rendering).
+- `nh3` import moved to module level for consistent startup-time failure when the package is missing.
+- `mypy` no-any-return errors in `llm_client` and `ai_planner`.
+
 ## [0.1.1] - 2026-04-07
 
 ### Added
@@ -54,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional dependency extras: `pdf`, `web`, `all`.
 - CI/CD integration via exit codes (0 = pass, 1 = critical/high issues, 2 = error, 130 = interrupted).
 
-[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/billrichards/qa-agent/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/billrichards/qa-agent/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/billrichards/qa-agent/releases/tag/v0.1.0

@@ -207,6 +207,15 @@ class TestWebUIAssets:
         assert path.exists(), "style.css not found"
         assert path.stat().st_size > 0, "style.css is empty"
 
+    def test_pyproject_no_ai_extra(self):
+        """The [ai] convenience extra was removed in v0.2.0 — ensure it stays gone."""
+        content = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        # Match only a bare `ai = [` extras declaration, not substrings like "main" or "fail"
+        assert not re.search(r"^ai\s*=\s*\[", content, re.MULTILINE), (
+            "pyproject.toml still declares an [ai] extra — it was removed in v0.2.0 "
+            "because agentic testing requires no additional packages"
+        )
+
     def test_pyproject_declares_package_data_for_web(self):
         """``[tool.setuptools.package-data]`` must cover web templates and static files."""
         content = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -284,6 +293,19 @@ class TestReadmeConsistency:
             full_path = REPO_ROOT / rel_path
             assert full_path.exists(), (
                 f"README references image that doesn't exist: {rel_path!r}"
+            )
+
+    def test_readme_references_docs(self, readme):
+        """README must link to the three reference docs added in v0.2.0."""
+        for doc in ("docs/web-api.md", "docs/test-categories.md", "docs/architecture.md"):
+            assert doc in readme, f"README does not reference {doc!r}"
+
+    def test_docs_files_exist(self):
+        """All three reference docs added in v0.2.0 must exist on disk."""
+        for name in ("web-api.md", "test-categories.md", "architecture.md"):
+            path = REPO_ROOT / "docs" / name
+            assert path.exists() and path.stat().st_size > 0, (
+                f"docs/{name} is missing or empty"
             )
 
     def test_readme_programmatic_imports_importable(self, readme):
@@ -391,6 +413,16 @@ class TestCLISmoke:
         )
         assert result.returncode != 0
 
+    def test_help_flag_mentions_max_interactions(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "qa_agent", "--help"],
+            capture_output=True, text=True,
+        )
+        output = result.stdout + result.stderr
+        assert "--max-interactions" in output, (
+            f"'--max-interactions' not found in --help output: {output[:500]}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Public API smoke tests
@@ -484,6 +516,98 @@ class TestPublicAPI:
         from qa_agent.testers.mouse import MouseTester
         for cls in (AccessibilityTester, ErrorDetector, FormTester, KeyboardTester, MouseTester):
             assert callable(cls), f"{cls} is not callable"
+
+
+# ---------------------------------------------------------------------------
+# Markdown reporter unit tests
+# ---------------------------------------------------------------------------
+
+class TestMarkdownReporter:
+    """Unit tests for MarkdownReporter behaviour added in v0.2.0."""
+
+    @pytest.fixture
+    def reporter(self, tmp_path):
+        from qa_agent.reporters.markdown import MarkdownReporter
+        return MarkdownReporter(output_dir=str(tmp_path))
+
+    def test_escape_html_tags_wraps_tag(self, reporter):
+        assert reporter._escape_html_tags("<div>") == "`<div>`"
+
+    def test_escape_html_tags_wraps_closing_tag(self, reporter):
+        assert reporter._escape_html_tags("</span>") == "`</span>`"
+
+    def test_escape_html_tags_wraps_tag_with_attributes(self, reporter):
+        result = reporter._escape_html_tags('<a href="x">')
+        assert result == '`<a href="x">`'
+
+    def test_escape_html_tags_skips_already_wrapped(self, reporter):
+        already = "`<div>`"
+        assert reporter._escape_html_tags(already) == already
+
+    def test_escape_html_tags_leaves_plain_text_alone(self, reporter):
+        assert reporter._escape_html_tags("no tags here") == "no tags here"
+
+    def test_pages_tested_clean_page_renders_bullet(self, reporter):
+        """Pages with no findings must render as a plain markdown list item."""
+        from datetime import datetime
+        from unittest.mock import MagicMock
+
+        from qa_agent.models import TestSession
+        session = TestSession(session_id="s1", start_time=datetime.now())
+        page = MagicMock()
+        page.title = "Home"
+        page.url = "https://example.com/"
+        page.findings = []
+        session.pages_tested = [page]
+        content = reporter._build_report(session)
+        assert "- [Home](https://example.com/) - ✅" in content
+
+    def test_pages_tested_findings_renders_details(self, reporter):
+        """Pages with findings must render a <details> block listing finding titles."""
+        from datetime import datetime
+        from unittest.mock import MagicMock
+
+        from qa_agent.models import Finding, FindingCategory, Severity, TestSession
+        session = TestSession(session_id="s2", start_time=datetime.now())
+        finding = Finding(
+            title="Missing alt text",
+            description="desc",
+            category=FindingCategory.ACCESSIBILITY,
+            severity=Severity.MEDIUM,
+            url="https://example.com/",
+        )
+        page = MagicMock()
+        page.title = "Home"
+        page.url = "https://example.com/"
+        page.findings = [finding]
+        session.pages_tested = [page]
+        content = reporter._build_report(session)
+        assert "<details>" in content
+        assert "<summary>" in content
+        assert "Missing alt text" in content
+
+    def test_pages_tested_singular_issue_label(self, reporter):
+        """Exactly one finding must render '1 issue' not '1 issues'."""
+        from datetime import datetime
+        from unittest.mock import MagicMock
+
+        from qa_agent.models import Finding, FindingCategory, Severity, TestSession
+        session = TestSession(session_id="s3", start_time=datetime.now())
+        finding = Finding(
+            title="One problem",
+            description="desc",
+            category=FindingCategory.ACCESSIBILITY,
+            severity=Severity.LOW,
+            url="https://example.com/",
+        )
+        page = MagicMock()
+        page.title = "Page"
+        page.url = "https://example.com/"
+        page.findings = [finding]
+        session.pages_tested = [page]
+        content = reporter._build_report(session)
+        assert "1 issue" in content
+        assert "1 issues" not in content
 
 
 # ---------------------------------------------------------------------------

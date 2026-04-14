@@ -67,7 +67,6 @@ playwright install chromium     # required — downloads browser binaries
 Optional extras:
 
 ```bash
-pip install "qa-agent[ai]"     # agentic testing (convenience marker — no extra packages needed)
 pip install "qa-agent[pdf]"    # PDF reports (adds WeasyPrint)
 pip install "qa-agent[web]"    # web UI (adds Flask)
 pip install "qa-agent[all]"    # everything above
@@ -220,7 +219,8 @@ qa-agent --mode explore https://example.com    # crawl and test discovered pages
 | Flag | Default | Description |
 |---|---|---|
 | `--max-depth N` | `3` | Max link depth |
-| `--max-pages N` | `20` | Max pages to test |
+| `--max-pages N` | `100` | Max pages to test |
+| `--max-interactions N` | `50` | Max interactions per page |
 | `--allow-external` | off | Follow links to other domains |
 | `--ignore PATTERN` | — | URL regex to skip (repeatable) |
 

@@ -103,8 +103,8 @@ class MarkdownReporter(BaseReporter):
             if finding_count == 0:
                 lines.append(f"- [{label}]({page.url}) - ✅")
             else:
-                status = f"⚠️ {finding_count} issues"
-                lines.append(f"<details>")
+                status = f"⚠️ {finding_count} {'issue' if finding_count == 1 else 'issues'}"
+                lines.append("<details>")
                 lines.append(f"<summary><a href=\"{page.url}\">{label}</a> - {status}</summary>")
                 lines.append("")
                 for finding in page.findings:

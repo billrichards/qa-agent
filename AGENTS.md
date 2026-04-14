@@ -37,6 +37,7 @@ qa_agent/
 ├── agent.py             # Core QA agent orchestrator
 ├── ai_planner.py        # AI-powered test planning (optional)
 ├── config.py            # Configuration dataclasses
+├── llm_client.py        # Anthropic & OpenAI clients via stdlib urllib
 ├── models.py            # Data models (Finding, PageAnalysis, TestSession)
 ├── plan_cache.py        # Caching for AI test plans
 ├── testers/             # Test modules
@@ -117,7 +118,7 @@ Key settings:
 
 - `mode`: FOCUSED or EXPLORE
 - `max_depth`: Link depth for exploration
-- `max_pages`: Max pages to test
+- `max_pages`: Max pages to test (default: 100)
 - `test_*`: Enable/disable test categories
 - `screenshots`: Screenshot configuration
 - `recording`: Video recording configuration
@@ -153,6 +154,7 @@ Key settings:
 
 ### Optional Dependencies
 
-- anthropic>=0.50.0 (agentic testing with `--instructions` — install with `pip install "qa-agent[ai]"`)
 - weasyprint>=60.0 (PDF output support — install with `pip install "qa-agent[pdf]"`)
-- flask>=3.0, markdown>=3.5 (web UI — install with `pip install "qa-agent[web]"`)
+- flask>=3.0, markdown>=3.5, nh3>=0.2.15 (web UI — install with `pip install "qa-agent[web]"`)
+
+> **Note:** Agentic testing (`--instructions`) uses Python's built-in `urllib` — no third-party AI packages required.

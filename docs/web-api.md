@@ -423,7 +423,7 @@ The [`/api/stream/:job_id`](#get-apistreamjob_id) endpoint emits the following S
 
 ```
 event: log
-data: {"message": "QA Agent v1.0.0 — starting test run"}
+data: {"message": "QA Agent v0.2.0 — starting test run"}
 
 event: progress
 data: {"url": "https://example.com", "message": "Testing: https://example.com"}

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qa-agent"
-version = "0.1.1"
+version = "0.2.0"
 description = "Agentic exploratory QA testing for web applications"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -36,7 +36,6 @@ web = [
     "markdown>=3.5",
     "nh3>=0.2.15",
 ]
-ai = []  # LLM calls use Python's built-in urllib — no extra packages required
 dev = [
     "pytest>=7.0.0",
     "pytest-playwright>=0.4.0",
@@ -48,7 +47,7 @@ dev = [
     "build>=1.0.0",
 ]
 all = [
-    "qa-agent[pdf,web,ai]",
+    "qa-agent[pdf,web]",
 ]
 
 [project.scripts]
