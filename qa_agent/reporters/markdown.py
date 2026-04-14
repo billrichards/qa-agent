@@ -99,8 +99,18 @@ class MarkdownReporter(BaseReporter):
         lines.append("")
         for page in session.pages_tested:
             finding_count = len(page.findings)
-            status = "✅" if finding_count == 0 else f"⚠️ {finding_count} issues"
-            lines.append(f"- [{page.title or page.url}]({page.url}) - {status}")
+            label = page.title or page.url
+            if finding_count == 0:
+                lines.append(f"- [{label}]({page.url}) - ✅")
+            else:
+                status = f"⚠️ {finding_count} issues"
+                lines.append(f"<details>")
+                lines.append(f"<summary><a href=\"{page.url}\">{label}</a> - {status}</summary>")
+                lines.append("")
+                for finding in page.findings:
+                    lines.append(f"- {finding.title}")
+                lines.append("")
+                lines.append("</details>")
         lines.append("")
 
         # Detailed findings
