@@ -702,7 +702,7 @@ def _build_config(body: dict) -> TestConfig:
         viewport_height=int(body.get("viewport_height", 720)),
         timeout=int(body.get("timeout", 30000)),
         max_depth=int(body.get("max_depth", 3)),
-        max_pages=int(body.get("max_pages", 20)),
+        max_pages=int(body.get("max_pages", 100)),
         max_interactions_per_page=int(body.get("max_interactions_per_page", 50)),
         test_keyboard=bool(body.get("test_keyboard", True)),
         test_mouse=bool(body.get("test_mouse", True)),

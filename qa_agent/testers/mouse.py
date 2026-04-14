@@ -125,8 +125,8 @@ class MouseTester(BaseTester):
                         text: el.textContent?.slice(0, 30)
                     })""")
 
-                    # Hover over element
-                    element.hover()
+                    # Hover over element (3 s cap — covered elements fail fast)
+                    element.hover(timeout=3000)
                     self.page.wait_for_timeout(150)  # Wait for transition
 
                     # Get styles after hover
@@ -292,7 +292,12 @@ class MouseTester(BaseTester):
     def _test_click_target_sizes(self):
         """Test that click targets meet minimum size requirements."""
         try:
-            interactive = self.page.locator('button:visible, a:visible, input:visible, [role="button"]:visible')
+            interactive = self.page.locator(
+                'button:visible, a:visible, [role="button"]:visible, '
+                'input[type="submit"]:visible, input[type="button"]:visible, '
+                'input[type="reset"]:visible, input[type="checkbox"]:visible, '
+                'input[type="radio"]:visible'
+            )
             count = min(interactive.count(), 20)
 
             small_targets = []
@@ -321,7 +326,15 @@ class MouseTester(BaseTester):
                     if size['inline']:
                         continue
 
-                    if size['width'] < min_size or size['height'] < min_size:
+                    # For <a> elements both dimensions must be small — text links are
+                    # naturally wide so a wide-but-short link is not a usability problem.
+                    # For discrete controls (button, input) flag if either dimension is small.
+                    if size['tag'] == 'a':
+                        too_small = size['width'] < min_size and size['height'] < min_size
+                    else:
+                        too_small = size['width'] < min_size or size['height'] < min_size
+
+                    if too_small:
                         small_targets.append({
                             "text": size['text'],
                             "tag": size['tag'],

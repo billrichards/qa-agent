@@ -1,6 +1,7 @@
 """Markdown report generator."""
 
 import os
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -98,8 +99,18 @@ class MarkdownReporter(BaseReporter):
         lines.append("")
         for page in session.pages_tested:
             finding_count = len(page.findings)
-            status = "✅" if finding_count == 0 else f"⚠️ {finding_count} issues"
-            lines.append(f"- [{page.title or page.url}]({page.url}) - {status}")
+            label = page.title or page.url
+            if finding_count == 0:
+                lines.append(f"- [{label}]({page.url}) - ✅")
+            else:
+                status = f"⚠️ {finding_count} issues"
+                lines.append(f"<details>")
+                lines.append(f"<summary><a href=\"{page.url}\">{label}</a> - {status}</summary>")
+                lines.append("")
+                for finding in page.findings:
+                    lines.append(f"- {finding.title}")
+                lines.append("")
+                lines.append("</details>")
         lines.append("")
 
         # Detailed findings
@@ -160,13 +171,23 @@ class MarkdownReporter(BaseReporter):
 
         return "\n".join(lines)
 
+    def _escape_html_tags(self, text: str) -> str:
+        """Wrap HTML tags in backticks so they render correctly in markdown previews.
+
+        Note: [^>]* in the attribute group stops at the first '>', so attribute values
+        containing '>' (e.g. class="a > b") will cause partial wrapping. Acceptable
+        given AI-generated input is unlikely to hit this; a full fix would require
+        matching quoted attribute values explicitly.
+        """
+        return re.sub(r'(?<!`)</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>(?!`)', r'`\g<0>`', text)
+
     def _format_finding(self, finding: "Finding", index: int, emoji: str) -> list[str]:
         """Format a single finding as Markdown, with screenshot paths relative to the report file."""
         lines = []
 
         lines.append(f"#### {index}. {emoji} {finding.title}")
         lines.append("")
-        lines.append(f"**Description:** {finding.description}")
+        lines.append(f"**Description:** {self._escape_html_tags(finding.description)}")
         lines.append("")
 
         if finding.url:
@@ -188,14 +209,14 @@ class MarkdownReporter(BaseReporter):
             lines.append("")
 
         if finding.element_text:
-            lines.append(f"**Element Text:** {finding.element_text}")
+            lines.append(f"**Element Text:** {self._escape_html_tags(finding.element_text)}")
             lines.append("")
 
         if finding.expected_behavior or finding.actual_behavior:
             lines.append("| Expected | Actual |")
             lines.append("| --- | --- |")
-            expected = (finding.expected_behavior or "-").replace("|", "\\|")
-            actual = (finding.actual_behavior or "-").replace("|", "\\|")
+            expected = self._escape_html_tags(finding.expected_behavior or "-").replace("|", "\\|")
+            actual = self._escape_html_tags(finding.actual_behavior or "-").replace("|", "\\|")
             lines.append(f"| {expected} | {actual} |")
             lines.append("")
 

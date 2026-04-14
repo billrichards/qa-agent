@@ -105,8 +105,15 @@ Examples:
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=20,
-        help="Maximum number of pages to test in explore mode (default: 20)",
+        default=100,
+        help="Maximum number of pages to test in explore mode (default: 100)",
+    )
+    parser.add_argument(
+        "--max-interactions",
+        type=int,
+        default=50,
+        dest="max_interactions_per_page",
+        help="Maximum number of interactions per page (default: 50)",
     )
     parser.add_argument(
         "--same-domain",
@@ -356,6 +363,7 @@ Examples:
         timeout=args.timeout,
         max_depth=args.max_depth,
         max_pages=args.max_pages,
+        max_interactions_per_page=args.max_interactions_per_page,
         test_keyboard=not args.skip_keyboard,
         test_mouse=not args.skip_mouse,
         test_forms=not args.skip_forms,

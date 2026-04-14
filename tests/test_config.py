@@ -38,7 +38,7 @@ class TestTestConfigDefaults:
         assert TestConfig().max_depth == 3
 
     def test_default_max_pages(self):
-        assert TestConfig().max_pages == 20
+        assert TestConfig().max_pages == 100
 
     def test_default_all_test_categories_enabled(self):
         cfg = TestConfig()
