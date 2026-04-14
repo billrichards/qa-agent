@@ -328,7 +328,7 @@ The [`POST /api/run`](#post-apirun) endpoint accepts a JSON object. Only `urls` 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `max_depth` | integer | `3` | Maximum link depth |
-| `max_pages` | integer | `20` | Maximum pages to test |
+| `max_pages` | integer | `100` | Maximum pages to test |
 | `max_interactions_per_page` | integer | `50` | Maximum interactions per page |
 | `same_domain_only` | boolean | `true` | Stay within the same domain |
 | `ignore_patterns` | string[] | `[]` | URL regex patterns to skip |
