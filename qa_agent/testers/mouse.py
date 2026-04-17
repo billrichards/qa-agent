@@ -205,14 +205,6 @@ class MouseTester(BaseTester):
     def _test_right_click(self):
         """Test right-click/context menu behavior."""
         try:
-            # Check if page prevents default context menu globally
-            self.page.evaluate("""() => {
-                // Check for contextmenu event listeners that might prevent default
-                const body = document.body;
-                const events = getEventListeners ? getEventListeners(body) : {};
-                return events.contextmenu?.some(e => e.passive === false) || false;
-            }""")
-
             # Try right-clicking on the page
             self.page.click('body', button='right')
             self.page.wait_for_timeout(200)
@@ -251,8 +243,9 @@ class MouseTester(BaseTester):
                 # Close menu
                 self.page.keyboard.press("Escape")
 
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).debug("_test_right_click failed: %s", e)
 
     def _test_drag_and_drop_targets(self):
         """Test drag-and-drop elements."""
