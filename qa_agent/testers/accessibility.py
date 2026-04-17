@@ -1,10 +1,14 @@
 """Accessibility testing module."""
 
+import logging
+
 from playwright.sync_api import Page
 
 from ..config import TestConfig
 from ..models import Finding, FindingCategory, Severity
 from .base import BaseTester
+
+logger = logging.getLogger(__name__)
 
 
 class AccessibilityTester(BaseTester):
@@ -78,7 +82,8 @@ class AccessibilityTester(BaseTester):
                         if info['isInLink'] and info['alt'] in ['click here', 'read more', 'link', 'image']:
                             issues['suspicious_alt'].append({"alt": info['alt'], "src": info['src'], "issue": "link_image"})
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating image element: %s", self.__class__.__name__, e)
                     continue
 
             if len(issues['missing_alt']) > 0:
@@ -105,8 +110,8 @@ class AccessibilityTester(BaseTester):
                     metadata={"images": issues['suspicious_alt'][:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_images_alt_text failed: %s", self.__class__.__name__, e)
 
     def _test_headings_structure(self):
         """Test heading hierarchy (h1-h6)."""
@@ -171,8 +176,8 @@ class AccessibilityTester(BaseTester):
                     metadata={"skips": skipped_levels[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_headings_structure failed: %s", self.__class__.__name__, e)
 
     def _test_link_text(self):
         """Test that links have descriptive text."""
@@ -220,7 +225,8 @@ class AccessibilityTester(BaseTester):
                             "href": info['href']
                         })
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating link element: %s", self.__class__.__name__, e)
                     continue
 
             empty_links = [lnk for lnk in bad_links if lnk['issue'] == 'empty']
@@ -250,8 +256,8 @@ class AccessibilityTester(BaseTester):
                     metadata={"links": generic_links[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_link_text failed: %s", self.__class__.__name__, e)
 
     def _test_color_contrast(self):
         """Test color contrast of text elements."""
@@ -315,7 +321,8 @@ class AccessibilityTester(BaseTester):
                     if contrast_info and not contrast_info.get('passes') and not contrast_info.get('isTransparentBg'):
                         low_contrast.append(contrast_info)
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating contrast for element: %s", self.__class__.__name__, e)
                     continue
 
             if len(low_contrast) > 3:
@@ -330,8 +337,8 @@ class AccessibilityTester(BaseTester):
                     metadata={"elements": low_contrast[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_color_contrast failed: %s", self.__class__.__name__, e)
 
     def _test_aria_usage(self):
         """Test correct usage of ARIA attributes."""
@@ -439,8 +446,8 @@ class AccessibilityTester(BaseTester):
                             actual_behavior=f"Referenced ID '{issue['id']}' not found",
                         ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_aria_usage failed: %s", self.__class__.__name__, e)
 
     def _test_landmark_regions(self):
         """Test for proper landmark regions."""
@@ -477,8 +484,8 @@ class AccessibilityTester(BaseTester):
                     actual_behavior=f"Found {landmarks['main']} main landmarks",
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_landmark_regions failed: %s", self.__class__.__name__, e)
 
     def _test_language_attribute(self):
         """Test for lang attribute on html element."""
@@ -510,8 +517,8 @@ class AccessibilityTester(BaseTester):
                     actual_behavior=f"Lang attribute value: '{lang_info.get('lang')}'",
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_language_attribute failed: %s", self.__class__.__name__, e)
 
     def _test_skip_links(self):
         """Test for skip navigation links."""
@@ -579,8 +586,8 @@ class AccessibilityTester(BaseTester):
                     actual_behavior="Skip link target ID not found",
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_skip_links failed: %s", self.__class__.__name__, e)
 
     def _test_motion_preferences(self):
         """Test respect for reduced motion preference."""
@@ -640,5 +647,5 @@ class AccessibilityTester(BaseTester):
                     actual_behavior="No prefers-reduced-motion media query found in stylesheets",
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_motion_preferences failed: %s", self.__class__.__name__, e)

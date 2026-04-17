@@ -1,10 +1,14 @@
 """Mouse interaction testing."""
 
+import logging
+
 from playwright.sync_api import Page
 
 from ..config import TestConfig
 from ..models import Finding, FindingCategory, Severity
 from .base import BaseTester
+
+logger = logging.getLogger(__name__)
 
 
 class MouseTester(BaseTester):
@@ -94,11 +98,12 @@ class MouseTester(BaseTester):
                                     actual_behavior=f"Disabled element has opacity {styles['opacity']}",
                                 ))
 
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error evaluating clickable element %s: %s", self.__class__.__name__, selector, e)
                         continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_clickable_elements failed: %s", self.__class__.__name__, e)
 
     def _test_hover_states(self):
         """Test hover states on interactive elements."""
@@ -148,7 +153,8 @@ class MouseTester(BaseTester):
                     if not style_changed:
                         elements_without_hover.append(before_styles.get('text', 'unknown'))
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating hover state: %s", self.__class__.__name__, e)
                     continue
 
             if len(elements_without_hover) > count * 0.5 and count > 3:
@@ -163,8 +169,8 @@ class MouseTester(BaseTester):
                     metadata={"elements": elements_without_hover[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_hover_states failed: %s", self.__class__.__name__, e)
 
     def _test_double_click(self):
         """Test double-click behavior on elements."""
@@ -196,11 +202,12 @@ class MouseTester(BaseTester):
                                 expected_behavior="Double-click handler should produce visible effect",
                                 actual_behavior="No visible change after double-click",
                             ))
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error testing double-click handler: %s", self.__class__.__name__, e)
                         continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_double_click failed: %s", self.__class__.__name__, e)
 
     def _test_right_click(self):
         """Test right-click/context menu behavior."""
@@ -244,8 +251,7 @@ class MouseTester(BaseTester):
                 self.page.keyboard.press("Escape")
 
         except Exception as e:
-            import logging
-            logging.getLogger(__name__).debug("_test_right_click failed: %s", e)
+            logger.debug("%s: _test_right_click failed: %s", self.__class__.__name__, e)
 
     def _test_drag_and_drop_targets(self):
         """Test drag-and-drop elements."""
@@ -276,11 +282,12 @@ class MouseTester(BaseTester):
                                 expected_behavior="Draggable elements should have aria-grabbed and proper role",
                                 actual_behavior="Missing ARIA attributes for drag-and-drop accessibility",
                             ))
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error evaluating draggable element ARIA: %s", self.__class__.__name__, e)
                         continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_drag_and_drop_targets failed: %s", self.__class__.__name__, e)
 
     def _test_click_target_sizes(self):
         """Test that click targets meet minimum size requirements."""
@@ -334,7 +341,8 @@ class MouseTester(BaseTester):
                             "size": f"{size['width']:.0f}x{size['height']:.0f}px"
                         })
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error measuring click target size: %s", self.__class__.__name__, e)
                     continue
 
             if len(small_targets) > 3:
@@ -349,8 +357,8 @@ class MouseTester(BaseTester):
                     metadata={"small_targets": small_targets[:10]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_click_target_sizes failed: %s", self.__class__.__name__, e)
 
     def _test_overlapping_elements(self):
         """Test for overlapping clickable elements."""
@@ -372,7 +380,8 @@ class MouseTester(BaseTester):
                             };
                         }""")
                         elements_data.append(rect)
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error measuring element overlap rect: %s", self.__class__.__name__, e)
                     continue
 
             # Check for overlaps
@@ -396,5 +405,5 @@ class MouseTester(BaseTester):
                     metadata={"overlaps": overlaps[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_overlapping_elements failed: %s", self.__class__.__name__, e)
