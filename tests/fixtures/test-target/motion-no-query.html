@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animation Without Reduced-Motion Query Test</title>
+  <style>
+    /*
+      Trigger condition:
+      - Page contains animations/transitions with non-zero, non-'none' duration
+      - NO @media (prefers-reduced-motion: ...) query anywhere in the stylesheets
+
+      Intentionally omitting the prefers-reduced-motion media query.
+    */
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+
+    /* Spinning loader animation */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    /* Pulsing animation */
+    @keyframes pulse {
+      0%   { opacity: 1; }
+      50%  { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    /* Sliding banner */
+    @keyframes slide-in {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(0); }
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid #ddd;
+      border-top-color: #0066cc;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 20px 0;
+    }
+
+    .pulse-box {
+      width: 100%;
+      height: 60px;
+      background: #0066cc;
+      border-radius: 6px;
+      animation: pulse 2s ease-in-out infinite;
+      margin: 20px 0;
+    }
+
+    .slide-banner {
+      background: #e8f4f8;
+      border: 1px solid #b3d9ea;
+      padding: 16px;
+      border-radius: 4px;
+      animation: slide-in 0.6s ease-out forwards;
+      margin: 20px 0;
+    }
+
+    /* CSS transition — also counts as animation/transition with non-zero duration */
+    .hover-card {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 16px;
+      border-radius: 4px;
+      transition: background 0.3s ease, transform 0.3s ease;
+      cursor: pointer;
+      margin: 20px 0;
+    }
+
+    .hover-card:hover {
+      background: #e0e7ff;
+      transform: translateY(-4px);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Animation Without Reduced-Motion Query</h1>
+    <p>This page uses CSS animations and transitions but does <strong>not</strong> include a <code>@media (prefers-reduced-motion)</code> media query. This should trigger the "Animations without reduced-motion support" finding.</p>
+
+    <h2>Spinning Loader</h2>
+    <p>A continuously rotating spinner with a 1-second animation duration:</p>
+    <div class="spinner" role="status" aria-label="Loading"></div>
+
+    <h2>Pulsing Element</h2>
+    <p>A pulsing box with a 2-second animation duration:</p>
+    <div class="pulse-box" aria-hidden="true"></div>
+
+    <h2>Slide-In Banner</h2>
+    <p>A banner that slides in with a 0.6-second animation:</p>
+    <div class="slide-banner">
+      <strong>Welcome!</strong> This content slides in from the left.
+    </div>
+
+    <h2>Hover Transition Card</h2>
+    <p>A card with a 0.3-second CSS transition on hover:</p>
+    <div class="hover-card">
+      Hover over this card to see the transition effect.
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

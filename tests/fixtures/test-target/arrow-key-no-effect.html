@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arrow Keys Not Functional in Widget Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    [role="listbox"] { border: 1px solid #ccc; padding: 8px; max-width: 250px; }
+    [role="option"] { padding: 6px 12px; cursor: pointer; }
+    [role="option"]:hover { background: #f0f0f0; }
+    [role="menu"] { border: 1px solid #ccc; padding: 8px; max-width: 200px; background: white; }
+    [role="menuitem"] { padding: 6px 12px; cursor: pointer; display: block; }
+    [role="menuitem"]:hover { background: #f0f0f0; }
+  </style>
+  <!-- Intentionally NO JavaScript for arrow key handling -->
+</head>
+<body>
+  <main>
+    <h1>Arrow Keys Not Functional in Widget Test Page</h1>
+    <p>These ARIA widgets (<code>role="listbox"</code> and <code>role="menu"</code>) have no JavaScript to handle arrow key navigation. The agent focuses each widget and presses ArrowDown — expecting the state to change.</p>
+
+    <!-- Trigger: [role="listbox"] or [role="menu"] where ArrowDown produces no change in value/aria-selected/aria-activedescendant -->
+
+    <div class="widget">
+      <h2>Fruit Listbox (no arrow key handler)</h2>
+      <div role="listbox" tabindex="0" aria-label="Select a fruit">
+        <div role="option">Apple</div>
+        <div role="option">Banana</div>
+        <div role="option">Cherry</div>
+        <div role="option">Date</div>
+        <div role="option">Elderberry</div>
+      </div>
+    </div>
+
+    <div class="widget">
+      <h2>Actions Menu (no arrow key handler)</h2>
+      <div role="menu" tabindex="0" aria-label="Actions">
+        <div role="menuitem" tabindex="-1">Edit</div>
+        <div role="menuitem" tabindex="-1">Duplicate</div>
+        <div role="menuitem" tabindex="-1">Archive</div>
+        <div role="menuitem" tabindex="-1">Delete</div>
+      </div>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

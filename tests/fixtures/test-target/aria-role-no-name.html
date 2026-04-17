@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARIA Role Elements Missing Accessible Name Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 12px 0; border-radius: 4px; }
+    [role="button"] { display: inline-block; padding: 8px 16px; background: #0066cc; color: white; border-radius: 4px; cursor: pointer; margin: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ARIA Role Elements Missing Accessible Name Test Page</h1>
+    <p>These elements have interactive ARIA roles but no accessible name — no text content, no <code>aria-label</code>, no <code>aria-labelledby</code>, and no <code>title</code>. Screen readers announce the role but cannot say what the element does.</p>
+
+    <!-- Trigger (wcag 4.1.2): element with interactive role and no accessible name -->
+
+    <div class="widget">
+      <p>Empty role="button" (no text):</p>
+      <div role="button" tabindex="0"></div>
+    </div>
+
+    <div class="widget">
+      <p>Empty role="link":</p>
+      <span role="link" tabindex="0"></span>
+    </div>
+
+    <div class="widget">
+      <p>Empty role="checkbox":</p>
+      <div role="checkbox" aria-checked="false" tabindex="0"></div>
+    </div>
+
+    <div class="widget">
+      <p>Empty role="tab":</p>
+      <div role="tab" tabindex="0"></div>
+    </div>
+
+    <div class="widget">
+      <p>Empty role="menuitem":</p>
+      <div role="menuitem" tabindex="0"></div>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

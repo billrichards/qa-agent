@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Native Title Tooltips Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    abbr { cursor: help; }
+    .info-icon { display: inline-block; width: 20px; height: 20px; background: #0066cc; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-size: 12px; cursor: help; }
+    button { padding: 8px 16px; margin: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Native Title Tooltips Test Page</h1>
+    <p>These elements use the <code>title</code> attribute to convey content that is not visible as the element's text. The <code>title</code> tooltip is not keyboard-accessible, not screen-reader reliable, and fails WCAG 1.4.13 (Content on Hover or Focus).</p>
+
+    <!-- Trigger: element with title attribute where title differs from visible text -->
+
+    <p>
+      The form collects your
+      <span title="We use this to send your receipt and account updates. We will not sell your address.">email address</span>
+      and
+      <span title="Your phone number is optional and used only for two-factor authentication.">phone number</span>.
+    </p>
+
+    <p>
+      <abbr title="Web Content Accessibility Guidelines — the international standard for web accessibility">WCAG</abbr>
+      compliance is required for government websites.
+    </p>
+
+    <p>
+      <span class="info-icon" title="This feature is only available on paid plans. Upgrade to access it.">i</span>
+      Premium feature
+    </p>
+
+    <button title="This will permanently delete your account and all associated data. This action cannot be undone.">Delete Account</button>
+
+    <button title="Download a PDF copy of this report with all charts and data tables included.">Export</button>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

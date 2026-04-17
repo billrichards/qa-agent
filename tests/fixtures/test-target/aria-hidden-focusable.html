@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focusable Element Inside aria-hidden Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    button, a { padding: 6px 12px; margin: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Focusable Element Inside aria-hidden Test</h1>
+    <p>These widgets have <code>aria-hidden="true"</code> on a container that still has visible, focusable children (buttons and links). This hides the content from assistive technology while leaving it keyboard-accessible — a contradiction.</p>
+
+    <!-- Trigger: aria-hidden="true" container with focusable children that have offsetParent !== null -->
+
+    <div class="widget" aria-hidden="true">
+      <p>This section is aria-hidden but contains a focusable button:</p>
+      <button type="button">Hidden from AT, but focusable</button>
+    </div>
+
+    <div class="widget" aria-hidden="true">
+      <p>Another aria-hidden container with a link:</p>
+      <a href="#">This link is tabbable but invisible to screen readers</a>
+    </div>
+
+    <div class="widget" aria-hidden="true">
+      <p>Container with an input:</p>
+      <input type="text" placeholder="Focusable but aria-hidden">
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Missing Text Alternative Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    audio { display: block; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Audio Missing Text Alternative Test Page</h1>
+    <p>These <code>&lt;audio&gt;</code> elements have no accessible transcript track. Users who are deaf or hard of hearing cannot access the content.</p>
+
+    <!-- Trigger: <audio> with no <track kind="captions"> or <track kind="subtitles"> -->
+
+    <h2>Podcast Episode</h2>
+    <audio controls>
+      <source src="podcast.mp3" type="audio/mpeg">
+      <!-- intentionally no <track> for captions/subtitles -->
+    </audio>
+
+    <h2>Interview Recording</h2>
+    <audio controls>
+      <source src="interview.mp3" type="audio/mpeg">
+      <!-- also no transcript track -->
+    </audio>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

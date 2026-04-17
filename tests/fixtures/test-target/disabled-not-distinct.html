@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Disabled Element Not Visually Distinct Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .row { margin: 16px 0; display: flex; align-items: center; gap: 16px; }
+    button { padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    /*
+      Trigger: disabled element with opacity > 0.7 (looks the same as enabled)
+      Normal browser default for :disabled is opacity: 1 (no visual change unless CSS overrides).
+      We set opacity: 0.9 — above the 0.7 threshold — so it's flagged.
+    */
+    button:disabled {
+      opacity: 0.9;   /* too high — should be <= 0.7 to be visually distinct */
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Disabled Element Not Visually Distinct Test Page</h1>
+    <p>These buttons are <code>disabled</code> but have <code>opacity: 0.9</code> — above the 0.7 threshold. They appear almost identical to enabled buttons, making it unclear to users that they cannot be clicked.</p>
+
+    <!-- Trigger: disabled button/a with computed opacity > 0.7 -->
+
+    <div class="row">
+      <button type="button" disabled>Submit Form</button>
+      <span>← disabled but opacity: 0.9 (nearly invisible difference)</span>
+    </div>
+
+    <div class="row">
+      <button type="button" disabled>Upload File</button>
+      <span>← disabled, opacity: 0.9</span>
+    </div>
+
+    <div class="row">
+      <button type="button" disabled>Delete Record</button>
+      <span>← disabled, opacity: 0.9</span>
+    </div>
+
+    <div class="row">
+      <button type="button">Enabled Button (for comparison)</button>
+      <span>← this one is enabled</span>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accessible Name Does Not Include Visible Label Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    button { padding: 8px 16px; margin: 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    a { color: #0066cc; margin: 8px; display: inline-block; }
+    .widget { margin: 16px 0; padding: 16px; border: 1px solid #ddd; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Accessible Name Does Not Include Visible Label Test</h1>
+    <p>These elements have <code>aria-label</code> values that do not include the visible text content. Speech input users say the visible text to activate elements — if the accessible name is different, the element cannot be activated by voice.</p>
+
+    <!-- Trigger: aria-label is present, visible text is non-empty, but aria-label doesn't contain the visible text (first 20 chars) -->
+
+    <div class="widget">
+      <p>Button with mismatched aria-label:</p>
+      <button aria-label="Submit the registration form">Go</button>
+      <!-- visible text: "Go", aria-label: "Submit the registration form" — doesn't contain "Go" -->
+    </div>
+
+    <div class="widget">
+      <p>Link with mismatched aria-label:</p>
+      <a href="#" aria-label="Navigate to the about page">Learn more</a>
+      <!-- visible text: "Learn more", aria-label: "Navigate to the about page" — doesn't contain "learn more" -->
+    </div>
+
+    <div class="widget">
+      <p>Button with overridden label:</p>
+      <button aria-label="Close the navigation drawer">Menu</button>
+      <!-- visible text: "Menu", aria-label doesn't contain "menu" -->
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

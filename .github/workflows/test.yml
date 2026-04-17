@@ -47,7 +47,7 @@ jobs:
         run: playwright install chromium
 
       - name: Run integration tests
-        run: pytest -v -m integration --no-cov
+        run: pytest -v -m integration --no-cov -n auto
 
   install-extras:
     name: Smoke-test extras install

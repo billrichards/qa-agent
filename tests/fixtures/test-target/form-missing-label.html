@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Inputs Missing Accessible Label Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; margin: 16px 0; }
+    input, select, textarea { display: block; width: 100%; padding: 8px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Form Inputs Missing Accessible Label Test Page</h1>
+    <p>These inputs have no associated <code>&lt;label&gt;</code>, no <code>aria-label</code>, no <code>aria-labelledby</code>, and no <code>title</code>. Screen readers cannot announce what each field is for.</p>
+
+    <!-- Trigger (wcag 3.3.2): inputs without label/aria-label/aria-labelledby/title/wrapping label -->
+
+    <form>
+      <!-- No label, no aria-label, no title, no placeholder-with-label, nothing -->
+      <input type="text" name="first_name">
+      <input type="text" name="last_name">
+      <input type="email" name="email">
+      <input type="tel" name="phone">
+      <textarea name="message" rows="3"></textarea>
+      <select name="country">
+        <option value="">Country</option>
+        <option value="us">United States</option>
+        <option value="uk">United Kingdom</option>
+      </select>
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

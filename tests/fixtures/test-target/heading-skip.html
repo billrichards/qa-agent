@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heading Level Skip Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    .note {
+      background: #f5f5f5;
+      border-left: 4px solid #ccc;
+      padding: 8px 12px;
+      font-size: 0.85em;
+      color: #555;
+      margin: 4px 0 16px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Heading Level Skip Test Page</h1>
+    <div class="note">h1 present above</div>
+
+    <!--
+      Trigger condition:
+      Heading hierarchy jumps more than one level (e.g., h1 → h3 or h2 → h4)
+    -->
+
+    <h3>Section A — skips h2</h3>
+    <div class="note">h1 → h3 skips one level (h2 missing)</div>
+    <p>This section jumps directly from h1 to h3, skipping h2 entirely. Screen readers and assistive technologies rely on a logical heading hierarchy to understand document structure. Skipping levels breaks that structure.</p>
+
+    <h5>Subsection A.1 — skips h4</h5>
+    <div class="note">h3 → h5 skips one level (h4 missing)</div>
+    <p>Another skip: from h3 directly to h5, bypassing h4.</p>
+
+    <h3>Section B</h3>
+    <p>A second h3 section. The hierarchy is still broken from the initial skip.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

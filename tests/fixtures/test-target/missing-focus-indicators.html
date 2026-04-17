@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Focus Indicators Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+
+    /*
+      Trigger: > 3 consecutive focusable elements with no visible focus indicator.
+      The agent checks: hasOutline = (outlineStyle !== 'none' && outlineWidth !== '0px')
+      and hasSomeFocusIndicator = hasOutline || hasBoxShadow.
+      We suppress outline and box-shadow globally for interactive elements.
+    */
+    * {
+      outline: none !important;
+      /* Note: this also suppresses the focus-outline-suppressed finding in wcag_compliance.py
+         because outline:none is applied via the * selector which doesn't have :focus in the selector text */
+    }
+
+    /* Explicitly remove focus styles for the specific element types the agent cycles through */
+    a:focus, button:focus, input:focus, [tabindex]:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    button {
+      display: block;
+      padding: 10px 20px;
+      margin: 8px 0;
+      background: #0066cc;
+      color: white;
+      border: 1px solid #004499;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 200px;
+    }
+    a { display: block; padding: 8px 0; color: #0066cc; margin: 4px 0; }
+    input { padding: 8px; border: 1px solid #ccc; margin: 8px 0; display: block; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Missing Focus Indicators Test Page</h1>
+    <p>All interactive elements on this page have their focus outline and box-shadow suppressed. More than 3 consecutive elements will have no visible focus indicator when tabbed to.</p>
+
+    <button type="button">Button 1</button>
+    <button type="button">Button 2</button>
+    <button type="button">Button 3</button>
+    <button type="button">Button 4</button>
+    <button type="button">Button 5</button>
+
+    <a href="#">Link One</a>
+    <a href="#">Link Two</a>
+    <a href="#">Link Three</a>
+
+    <input type="text" placeholder="Text input">
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

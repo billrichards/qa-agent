@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Inputs Without Labels Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    input, textarea, select { display: block; width: 100%; padding: 8px; margin: 8px 0 16px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Form Inputs Without Labels Test Page</h1>
+    <p>These inputs have no accessible name at all — no <code>&lt;label&gt;</code>, no <code>aria-label</code>, no <code>aria-labelledby</code>, no <code>title</code>, no <code>placeholder</code>, and no wrapping label element. Completely opaque to screen readers.</p>
+
+    <!-- Trigger: input with no label/aria-label/aria-labelledby/title/placeholder/parent label -> "no_label" issue -->
+
+    <form>
+      <input type="text" name="field_a">
+      <input type="text" name="field_b">
+      <input type="email" name="field_c">
+      <input type="password" name="field_d">
+      <textarea name="field_e" rows="3"></textarea>
+      <select name="field_f">
+        <option value="1">Option 1</option>
+        <option value="2">Option 2</option>
+      </select>
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Double-Click Handler Has No Effect Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .dbl-target { border: 2px solid #ccc; padding: 20px; margin: 16px 0; border-radius: 4px; cursor: pointer; user-select: none; }
+    .dbl-target:hover { background: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Double-Click Handler Has No Effect Test Page</h1>
+    <p>These elements have <code>ondblclick</code> event handlers, but double-clicking them produces no visible change to the page content. The agent compares the DOM snapshot before and after the double-click.</p>
+
+    <!-- Trigger: element with ondblclick where initial_state == after_state (no visible DOM change) -->
+
+    <div class="dbl-target" ondblclick="return false;">
+      <strong>Double-click me</strong>
+      <p>This element has <code>ondblclick="return false;"</code> — the handler fires but suppresses the event without changing anything visible.</p>
+    </div>
+
+    <div class="dbl-target" ondblclick="void 0;">
+      <strong>Double-click me too</strong>
+      <p>This element has <code>ondblclick="void 0;"</code> — no-op handler, nothing changes.</p>
+    </div>
+
+    <div class="dbl-target" ondblclick="console.log('dblclick');">
+      <strong>Double-click for console log</strong>
+      <p>This element logs to the console on double-click — but the page content remains unchanged.</p>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

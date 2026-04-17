@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notification Elements Missing Live Region Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    button { padding: 8px 16px; margin: 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    /*
+      Trigger (wcag 4.1.3): element matching 2+ of these signals:
+        Signal 1: class name matches toast/snackbar/notification/alert-box/etc.
+        Signal 2: position fixed/absolute + z-index > 100 + height 0-200px + width > 100px
+        Signal 3: short text (< 150 chars) containing status keyword
+      AND no role="status"/role="alert"/aria-live attribute.
+    */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 999;
+      height: 56px;
+      width: 280px;
+      background: #333;
+      color: white;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      border-radius: 4px;
+      /* No role="status" or aria-live — that's the bug */
+    }
+    .snackbar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      height: 48px;
+      width: 320px;
+      background: #323232;
+      color: white;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Notification Elements Missing Live Region Test Page</h1>
+    <p>These notification elements look like toasts and snackbars but lack <code>role="status"</code>, <code>role="alert"</code>, or <code>aria-live</code>. Screen readers won't announce them automatically when they appear.</p>
+
+    <p>The agent detects probable notification elements via 2+ of three signals: class name pattern, overlay positioning, and status text keywords.</p>
+
+    <button type="button">Trigger Action</button>
+  </main>
+
+  <!--
+    Toast: matches Signal 1 (class "toast") + Signal 2 (fixed, z-index 999, 56px height, 280px width) + Signal 3 (text "saved")
+    No aria-live or role="status" — finding should fire.
+  -->
+  <div class="toast">
+    Document saved successfully
+  </div>
+
+  <!--
+    Snackbar: matches Signal 1 (class "snackbar") + Signal 2 (fixed, z-index 999, 48px height) + Signal 3 ("error")
+  -->
+  <div class="snackbar">
+    <span>Error: upload failed</span>
+    <button type="button" style="background:transparent;color:white;border:none;cursor:pointer;">Dismiss</button>
+  </div>
+
+  <p style="margin-top: 120px;"><a href="index.html">Back to index</a></p>
+</body>
+</html>

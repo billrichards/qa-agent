@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Low Color Contrast Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; background: #ffffff; }
+    /* Light gray on white = ratio ≈ 2.32:1 (well below 4.5:1 required) */
+    .low-contrast { color: #aaaaaa; background: #ffffff; }
+    .low-contrast-2 { color: #bbbbbb; background: #ffffff; }
+    .low-contrast-3 { color: #cccccc; background: #ffffff; }
+    .low-contrast-4 { color: #999999; background: #ffffff; }
+    .low-contrast-5 { color: #b0b0b0; background: #ffffff; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Low Color Contrast Test Page</h1>
+    <p>This page contains more than 3 text elements with insufficient color contrast. The agent samples up to 20 visible elements and flags the finding when more than 3 fail.</p>
+
+    <!-- Trigger: >3 visible p/span/a/li/td elements with contrast ratio < 4.5:1 -->
+    <!-- #aaa on #fff = ~2.32:1; #bbb on #fff = ~1.78:1; all well below threshold -->
+
+    <p class="low-contrast">This paragraph uses #aaaaaa text on a white background — contrast ratio ≈ 2.32:1.</p>
+    <p class="low-contrast-2">This paragraph uses #bbbbbb text on a white background — contrast ratio ≈ 1.78:1.</p>
+    <p class="low-contrast-3">This paragraph uses #cccccc text on a white background — contrast ratio ≈ 1.60:1.</p>
+    <p class="low-contrast-4">This paragraph uses #999999 text on a white background — contrast ratio ≈ 2.85:1.</p>
+    <p class="low-contrast-5">This paragraph uses #b0b0b0 text on a white background — contrast ratio ≈ 1.94:1.</p>
+
+    <span class="low-contrast">Inline span with #aaa text.</span><br>
+    <a href="#" class="low-contrast">Low contrast link text</a>
+    <ul>
+      <li class="low-contrast">Low contrast list item one</li>
+      <li class="low-contrast-2">Low contrast list item two</li>
+    </ul>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

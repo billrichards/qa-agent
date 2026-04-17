@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSS Visual Order Differs from DOM Order Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .flex-container { display: flex; border: 1px solid #ddd; padding: 12px; margin: 16px 0; gap: 8px; }
+    .item { padding: 12px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CSS Visual Order Differs from DOM Order Test Page</h1>
+    <p>These elements use inline <code>style="order: N"</code> (non-zero) to resequence their visual order away from their DOM order. This can cause reading order confusion for screen reader users.</p>
+
+    <!-- Trigger: inline style with order != 0 or flex-direction: row-reverse with children -->
+
+    <h2>Flex Items Reordered via inline order property</h2>
+    <div class="flex-container">
+      <div class="item" style="order: 3">DOM first, visual last (order: 3)</div>
+      <div class="item" style="order: 1">DOM second, visual first (order: 1)</div>
+      <div class="item" style="order: 2">DOM third, visual middle (order: 2)</div>
+    </div>
+
+    <h2>Reverse-direction flex container</h2>
+    <div class="flex-container" style="flex-direction: row-reverse">
+      <div class="item">Child A (DOM first, visual last)</div>
+      <div class="item">Child B (DOM middle)</div>
+      <div class="item">Child C (DOM last, visual first)</div>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

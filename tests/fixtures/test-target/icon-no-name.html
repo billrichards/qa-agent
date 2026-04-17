@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Icon Missing Accessible Name Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    /* Simulate icon font behavior — content via CSS */
+    .fa-home::before { content: "🏠"; }
+    .fa-envelope::before { content: "✉"; }
+    .fa-phone::before { content: "📞"; }
+    .icon-search::before { content: "🔍"; }
+    .bi-star::before { content: "★"; }
+    .material-icons { font-size: 24px; }
+    .icon-row { margin: 12px 0; display: flex; align-items: center; gap: 12px; }
+    button { padding: 6px 12px; display: flex; align-items: center; gap: 6px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Icon Missing Accessible Name Test Page</h1>
+    <p>These icon elements match icon class patterns (<code>fa-</code>, <code>icon-</code>, <code>bi-</code>, etc.) but are not hidden with <code>aria-hidden="true"</code> and have no <code>aria-label</code> or text content.</p>
+
+    <!-- Trigger: <i> or <span> with icon class pattern, no aria-hidden="true", no aria-label, no text -->
+
+    <div class="icon-row">
+      <i class="fa fa-home"></i>
+      <span>Navigation home icon — no aria-hidden, no label</span>
+    </div>
+
+    <div class="icon-row">
+      <i class="fa fa-envelope"></i>
+      <span>Email icon — no aria-hidden, no label</span>
+    </div>
+
+    <div class="icon-row">
+      <i class="fa fa-phone"></i>
+      <span>Phone icon — no aria-hidden, no label</span>
+    </div>
+
+    <div class="icon-row">
+      <span class="icon-search"></span>
+      <span>Search icon span — matches icon- pattern</span>
+    </div>
+
+    <div class="icon-row">
+      <span class="bi bi-star"></span>
+      <span>Bootstrap Icon star — matches bi- pattern</span>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

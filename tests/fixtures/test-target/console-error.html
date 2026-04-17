@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Console Error Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .error-output { background: #fff3f3; border: 1px solid #ffaaaa; padding: 16px; border-radius: 4px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Console Error Test Page</h1>
+    <p>This page emits console errors on load. The agent's error detector listens for <code>console.error</code> messages and reports them as findings.</p>
+
+    <div class="error-output">
+      <p>Errors emitted by this page's script:</p>
+      <ul>
+        <li><code>console.error("Failed to load user preferences")</code></li>
+        <li><code>console.error("API request failed: 500 Internal Server Error")</code></li>
+        <li><code>console.error("TypeError: Cannot read properties of undefined")</code></li>
+      </ul>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+
+  <script>
+    /* Trigger: console messages of type "error" */
+    console.error("Failed to load user preferences");
+    console.error("API request failed: 500 Internal Server Error");
+    console.error("TypeError: Cannot read properties of undefined (reading 'name')");
+  </script>
+</body>
+</html>

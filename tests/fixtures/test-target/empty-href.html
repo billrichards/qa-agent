@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Empty Href Links Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .link-row { margin: 12px 0; }
+    a { color: #0066cc; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Empty Href Links Test Page</h1>
+    <p>These links have <code>href="#"</code> or <code>href=""</code> and no <code>onclick</code> handler. Clicking them scrolls to the top of the page (for <code>#</code>) or reloads the page (for empty string) — neither is the intended destination.</p>
+
+    <!-- Trigger: a[href="#"] or a[href=""] with no onclick — issue "empty_href" -->
+
+    <div class="link-row">
+      <a href="#">Home</a>
+      <span>← href="#", no onclick</span>
+    </div>
+
+    <div class="link-row">
+      <a href="#">Products</a>
+      <span>← href="#", no onclick</span>
+    </div>
+
+    <div class="link-row">
+      <a href="">Contact Us</a>
+      <span>← href="" (empty string), no onclick</span>
+    </div>
+
+    <div class="link-row">
+      <a href="#">Sign In</a>
+      <span>← href="#", no onclick</span>
+    </div>
+
+    <div class="link-row">
+      <a href="">Get Started</a>
+      <span>← href="" (empty string), no onclick</span>
+    </div>
+
+    <!-- This one has onclick so it won't be flagged -->
+    <div class="link-row">
+      <a href="#" onclick="alert('handled'); return false;">This one has an onclick handler (not flagged)</a>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>No Visual Feedback for Invalid Input Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    /*
+      Deliberately no :invalid styles, no .error class, no JS validation.
+      When the agent types invalid values and presses Tab, there will be no
+      visual error state — triggering "No visual feedback for invalid {type}".
+    */
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>No Visual Feedback for Invalid Input Test Page</h1>
+    <p>These typed inputs accept specific formats (email, number, URL, tel) but provide no visual error feedback when invalid values are entered. There are no CSS <code>:invalid</code> rules and no JavaScript validation.</p>
+
+    <!-- Trigger: input[type="email/number/url/tel"] where typing invalid value + Tab produces no error state -->
+    <!-- The agent checks: validity.valid===false AND no .error/.invalid class AND no aria-invalid AND no .invalid-feedback -->
+
+    <form>
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" placeholder="user@example.com" autocomplete="email">
+
+      <label for="age">Age</label>
+      <input type="number" id="age" name="age" placeholder="25" min="0" max="150">
+
+      <label for="website">Website</label>
+      <input type="url" id="website" name="website" placeholder="https://example.com">
+
+      <label for="phone">Phone Number</label>
+      <input type="tel" id="phone" name="phone" placeholder="+1 555 123 4567" autocomplete="tel">
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canvas Missing Fallback Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    canvas { display: block; border: 1px solid #ccc; margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Canvas Missing Fallback Content Test Page</h1>
+    <p>These <code>&lt;canvas&gt;</code> elements have no fallback text content and no <code>aria-label</code> or <code>aria-labelledby</code>.</p>
+
+    <!-- Trigger: canvas not aria-hidden, no text content, no aria-label/labelledby -->
+
+    <canvas width="300" height="150"></canvas>
+
+    <canvas width="300" height="150" id="chart-canvas"></canvas>
+
+    <script>
+      // Draw something on the canvases to make them visually meaningful
+      const canvases = document.querySelectorAll('canvas');
+      canvases.forEach((canvas, i) => {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#e8f4f8';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0066cc';
+        ctx.fillRect(20, 20, 80 + i * 40, 110);
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.fillText('Canvas ' + (i + 1) + ' — no fallback', 10, canvas.height - 10);
+      });
+    </script>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

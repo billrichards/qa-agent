@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiple Main Landmarks Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    main { border: 2px solid #0066cc; padding: 16px; margin: 16px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Multiple Main Landmarks Test Page</h1>
+
+  <!-- Trigger: more than one <main> element in the document -->
+
+  <main>
+    <h2>First Main Region</h2>
+    <p>This is the first <code>&lt;main&gt;</code> element. There should only be one per page. Screen readers and landmarks navigation rely on a single main landmark.</p>
+  </main>
+
+  <main>
+    <h2>Second Main Region</h2>
+    <p>This is a second <code>&lt;main&gt;</code> element — which is invalid. A document must have at most one main landmark. This confuses assistive technology about which region contains the primary content.</p>
+  </main>
+
+  <p><a href="index.html">Back to index</a></p>
+</body>
+</html>

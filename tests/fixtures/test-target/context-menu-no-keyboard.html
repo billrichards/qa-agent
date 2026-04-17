@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Context Menu Not Keyboard Accessible Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .right-click-area { border: 2px dashed #ccc; padding: 40px; text-align: center; border-radius: 4px; margin: 20px 0; background: #f9f9f9; cursor: context-menu; }
+    .context-menu {
+      position: fixed;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-shadow: 2px 4px 12px rgba(0,0,0,0.15);
+      min-width: 160px;
+      display: none;
+      z-index: 1000;
+    }
+    .context-menu li { list-style: none; padding: 8px 16px; cursor: pointer; }
+    .context-menu li:hover { background: #f0f0f0; }
+    .context-menu ul { margin: 0; padding: 4px 0; }
+    /* No focus styles on menu items — they don't participate in keyboard navigation */
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Context Menu Not Keyboard Accessible Test Page</h1>
+    <p>Right-clicking in the area below shows a custom context menu. However, the menu has no arrow-key navigation — pressing ArrowDown does not move focus within the menu.</p>
+
+    <div class="right-click-area" id="target">
+      Right-click here to open the custom context menu
+    </div>
+  </main>
+
+  <!--
+    Trigger: custom context menu appears ([role="menu"] or .context-menu visible),
+    then agent presses ArrowDown — focus does NOT move into the menu.
+    No JS keydown handler for arrow keys is attached to the menu.
+  -->
+  <div class="context-menu" id="ctx-menu" role="menu">
+    <ul>
+      <li role="menuitem">Copy</li>
+      <li role="menuitem">Cut</li>
+      <li role="menuitem">Paste</li>
+      <li role="menuitem">Select All</li>
+      <li role="menuitem">Open in New Tab</li>
+    </ul>
+  </div>
+
+  <script>
+    const target = document.getElementById('target');
+    const menu = document.getElementById('ctx-menu');
+
+    // Show the custom context menu on right-click (contextmenu event)
+    target.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      menu.style.display = 'block';
+      menu.style.left = e.clientX + 'px';
+      menu.style.top = e.clientY + 'px';
+    });
+
+    // Also right-click on body in case agent clicks body
+    document.body.addEventListener('contextmenu', function(e) {
+      if (e.target === target || target.contains(e.target)) return;
+      e.preventDefault();
+      menu.style.display = 'block';
+      menu.style.left = e.clientX + 'px';
+      menu.style.top = e.clientY + 'px';
+    });
+
+    // Hide on click elsewhere
+    document.addEventListener('click', function() {
+      menu.style.display = 'none';
+    });
+
+    // NOTE: Deliberately NO arrow key handler — the menu is not keyboard navigable.
+    // A correct implementation would add a keydown listener on the menu
+    // to move focus between menuitems with ArrowUp/ArrowDown.
+  </script>
+</body>
+</html>

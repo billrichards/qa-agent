@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error Fields Missing Error Message Association Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 2px solid #cc0000; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Error Fields Missing Error Message Association Test Page</h1>
+    <p>These fields are marked <code>aria-invalid="true"</code> (red border), but there is no <code>aria-describedby</code> pointing to an error message, and no adjacent <code>role="alert"</code> element. Screen readers see the invalid state but can't announce why.</p>
+
+    <!-- Trigger (wcag 3.3.1): aria-invalid="true" with no aria-describedby linking to error text, no adjacent role="alert" -->
+
+    <form>
+      <label for="email">Email Address</label>
+      <input type="email" id="email" name="email" aria-invalid="true" value="notvalid">
+      <!-- No aria-describedby, no role="alert" nearby -->
+
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" aria-invalid="true" value="a">
+      <!-- Same: aria-invalid but no error description -->
+
+      <label for="postal">Postal Code</label>
+      <input type="text" id="postal" name="postal" aria-invalid="true" value="XXXXX">
+      <!-- Same pattern -->
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

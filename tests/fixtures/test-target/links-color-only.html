@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Links Distinguished by Color Only Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    /* Links in body text with no underline, no border, no font-weight difference */
+    p a, li a, td a {
+      color: #0066cc;
+      text-decoration: none;   /* no underline */
+      font-weight: 400;        /* same weight as surrounding text */
+      /* no border-bottom either */
+    }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    td { border: 1px solid #ccc; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Links Distinguished by Color Only Test Page</h1>
+    <p>This page contains links inside <code>&lt;p&gt;</code>, <code>&lt;li&gt;</code>, and <code>&lt;td&gt;</code> elements that are only differentiated from surrounding text by color. There is no underline, no border, and no font-weight difference.</p>
+
+    <!-- Trigger: p/li/td > a with no underline, no border-bottom, no font-weight difference from parent -->
+
+    <p>Read the <a href="#">accessibility guidelines</a> to learn more about color contrast requirements. The <a href="#">WCAG documentation</a> provides detailed technical specifications.</p>
+
+    <ul>
+      <li>Visit the <a href="#">getting started guide</a> for beginners</li>
+      <li>Read about <a href="#">keyboard navigation</a> patterns</li>
+      <li>Learn about <a href="#">ARIA landmarks</a> for screen readers</li>
+    </ul>
+
+    <table>
+      <tr>
+        <th>Resource</th>
+        <th>Description</th>
+      </tr>
+      <tr>
+        <td><a href="#">WCAG 2.1</a></td>
+        <td>Web Content Accessibility Guidelines</td>
+      </tr>
+      <tr>
+        <td><a href="#">ARIA Spec</a></td>
+        <td>Accessible Rich Internet Applications</td>
+      </tr>
+    </table>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generic Link Text Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    article {
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 4px;
+    }
+    article h2 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Generic Link Text Test Page</h1>
+    <p>This page contains more than 3 links with non-descriptive text, which should trigger the "Generic link text used" finding. The threshold is &gt;3 instances.</p>
+
+    <!--
+      Trigger condition:
+      Link text matches: 'click here', 'here', 'read more', 'more', 'link', 'click', 'this'
+      Minimum threshold: > 3 instances
+    -->
+
+    <article>
+      <h2>Article One</h2>
+      <p>We recently published a comprehensive guide on web accessibility standards and best practices for modern web applications.</p>
+      <p><a href="#">Read more</a></p>
+    </article>
+
+    <article>
+      <h2>Article Two</h2>
+      <p>Our team has released new documentation covering WCAG 2.1 AA compliance requirements and how to audit your site.</p>
+      <p><a href="#">Click here</a> to view the full document.</p>
+    </article>
+
+    <article>
+      <h2>Article Three</h2>
+      <p>Sign up for our newsletter to receive updates about accessibility tooling, research, and community events.</p>
+      <p><a href="#">Click here</a> to subscribe.</p>
+    </article>
+
+    <article>
+      <h2>Article Four</h2>
+      <p>Download the latest version of our accessibility audit checklist, updated for 2024.</p>
+      <p><a href="#">Read more</a></p>
+    </article>
+
+    <article>
+      <h2>Article Five</h2>
+      <p>Watch a recorded webinar on keyboard navigation patterns and focus management in single-page applications.</p>
+      <p><a href="#">Click here</a> to watch.</p>
+    </article>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

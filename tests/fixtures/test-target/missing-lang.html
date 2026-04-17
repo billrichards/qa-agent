@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Language Attribute Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <!-- Trigger: <html> element has no lang attribute -->
+  <!-- Note: intentionally omitted lang="en" from <html> tag above -->
+
+  <main>
+    <h1>Missing Language Attribute Test Page</h1>
+    <p>The <code>&lt;html&gt;</code> element on this page has no <code>lang</code> attribute. Screen readers use the language attribute to select the correct voice and pronunciation rules.</p>
+
+    <p>Without a language declaration, assistive technologies may use the system default language or make an incorrect guess, resulting in mispronounced content for users.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inputs Not Using Semantic HTML5 Types Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Inputs Not Using Semantic HTML5 Types Test Page</h1>
+    <p>These <code>type="text"</code> inputs are collecting specific data types (email, phone, URL, date, number) but use the generic text type. The agent infers the intended type from the input's <code>name</code> and <code>id</code>.</p>
+
+    <!-- Trigger: type="text" inputs where name/id/label suggests a more specific type -->
+
+    <form>
+      <label for="email">Email Address</label>
+      <input type="text" id="email" name="email" autocomplete="email">
+      <!-- should be type="email" -->
+
+      <label for="phone">Phone Number</label>
+      <input type="text" id="phone" name="phone" autocomplete="tel">
+      <!-- should be type="tel" -->
+
+      <label for="website">Website URL</label>
+      <input type="text" id="website" name="url">
+      <!-- should be type="url" -->
+
+      <label for="age">Age</label>
+      <input type="text" id="age" name="age">
+      <!-- should be type="number" -->
+
+      <label for="dob">Date of Birth</label>
+      <input type="text" id="dob" name="date">
+      <!-- should be type="date" -->
+
+      <label for="qty">Quantity</label>
+      <input type="text" id="qty" name="quantity">
+      <!-- should be type="number" -->
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

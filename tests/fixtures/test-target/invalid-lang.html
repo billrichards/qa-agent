@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="x">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invalid Language Code Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <!-- Trigger: lang attribute value is only 1 character (< 2 chars) -->
+  <!-- lang="x" on the <html> element above is intentionally invalid -->
+
+  <main>
+    <h1>Invalid Language Code Test Page</h1>
+    <p>The <code>&lt;html&gt;</code> element on this page uses <code>lang="x"</code> — a single-character value that is not a valid BCP 47 language tag. Valid codes are at least two characters (e.g., <code>en</code>, <code>fr</code>, <code>en-US</code>).</p>
+
+    <p>The agent checks that the lang attribute value is at least 2 characters long. A single character like <code>x</code> appears invalid and will trigger the "Invalid language code" finding.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

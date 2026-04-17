@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Table Missing Header Markup Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    td { border: 1px solid #ccc; padding: 8px 12px; }
+    /* Intentionally styled without <th> elements */
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Data Table Missing Header Markup Test Page</h1>
+    <p>These data tables have 2+ rows but no <code>&lt;th&gt;</code> elements, no <code>scope</code> attributes, and no <code>&lt;caption&gt;</code>. Screen readers cannot identify which cells are headers.</p>
+
+    <!-- Trigger: table with 2+ rows, no <th>, no scope, no <caption> -->
+
+    <h2>Employee Directory</h2>
+    <table>
+      <tr>
+        <td>Name</td>
+        <td>Department</td>
+        <td>Location</td>
+        <td>Email</td>
+      </tr>
+      <tr>
+        <td>Alice Johnson</td>
+        <td>Engineering</td>
+        <td>San Francisco</td>
+        <td>alice@example.com</td>
+      </tr>
+      <tr>
+        <td>Bob Smith</td>
+        <td>Design</td>
+        <td>New York</td>
+        <td>bob@example.com</td>
+      </tr>
+      <tr>
+        <td>Carol White</td>
+        <td>Marketing</td>
+        <td>Chicago</td>
+        <td>carol@example.com</td>
+      </tr>
+    </table>
+
+    <h2>Product Pricing</h2>
+    <table>
+      <tr>
+        <td>Plan</td>
+        <td>Price</td>
+        <td>Users</td>
+      </tr>
+      <tr>
+        <td>Basic</td>
+        <td>$9/mo</td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td>Pro</td>
+        <td>$29/mo</td>
+        <td>5</td>
+      </tr>
+    </table>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Info Inputs Missing Autocomplete Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Personal Info Inputs Missing Autocomplete Test Page</h1>
+    <p>These inputs collect personal information (name, email, phone, address) but lack <code>autocomplete</code> attributes. Browsers and assistive technologies use autocomplete to help users fill forms faster and more accurately.</p>
+
+    <!-- Trigger: inputs matching personal data patterns (name/email/phone/address) without autocomplete attribute -->
+
+    <form>
+      <label for="fullname">Full Name</label>
+      <input type="text" id="fullname" name="name" placeholder="Jane Doe">
+      <!-- missing autocomplete="name" -->
+
+      <label for="email">Email Address</label>
+      <input type="text" id="email" name="email" placeholder="jane@example.com">
+      <!-- missing autocomplete="email", also using type="text" instead of type="email" -->
+
+      <label for="phone">Phone Number</label>
+      <input type="text" id="phone" name="phone" placeholder="+1 555 123 4567">
+      <!-- missing autocomplete="tel" -->
+
+      <label for="address">Street Address</label>
+      <input type="text" id="address" name="address" placeholder="123 Main St">
+      <!-- missing autocomplete="street-address" -->
+
+      <label for="postal">Postal Code</label>
+      <input type="text" id="postal" name="postal" placeholder="94105">
+      <!-- missing autocomplete="postal-code" -->
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

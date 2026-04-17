@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redundant ARIA Roles Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 12px; margin: 12px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Redundant ARIA Roles Test Page</h1>
+    <p>These elements duplicate their native HTML semantics with explicit ARIA roles. The roles are already conveyed by the element itself — adding them is redundant noise.</p>
+
+    <!-- Trigger: semantic element + its own implicit role explicitly set -->
+
+    <div class="widget">
+      <button role="button">Submit Form</button>
+      <!-- <button> already has implicit role="button" -->
+    </div>
+
+    <div class="widget">
+      <nav role="navigation" aria-label="Main">
+        <a href="#">Home</a>
+        <a href="#">About</a>
+      </nav>
+      <!-- <nav> already has implicit role="navigation" -->
+    </div>
+
+    <div class="widget">
+      <a href="#" role="link">Click here</a>
+      <!-- <a href> already has implicit role="link" -->
+    </div>
+
+    <div class="widget">
+      <ul role="list">
+        <li role="listitem">Item one</li>
+        <li role="listitem">Item two</li>
+        <li role="listitem">Item three</li>
+      </ul>
+      <!-- <ul> already has role="list", <li> already has role="listitem" -->
+    </div>
+
+    <div class="widget">
+      <table role="table">
+        <tr role="row">
+          <th>Name</th>
+          <th>Value</th>
+        </tr>
+        <tr role="row">
+          <td>Alpha</td>
+          <td>1</td>
+        </tr>
+      </table>
+      <!-- table/tr already have implicit roles -->
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

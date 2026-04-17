@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broken ARIA Reference Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    .widget {
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 4px;
+    }
+    .note {
+      background: #f5f5f5;
+      border-left: 4px solid #ccc;
+      padding: 8px 12px;
+      font-size: 0.85em;
+      color: #555;
+      margin: 8px 0;
+    }
+    input, button {
+      padding: 6px 10px;
+      margin: 4px 0;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Broken ARIA Reference Test Page</h1>
+    <p>This page contains elements whose <code>aria-labelledby</code> or <code>aria-describedby</code> attributes reference IDs that do not exist in the document, triggering the "ARIA reference points to missing element" finding.</p>
+
+    <!--
+      Trigger condition:
+      aria-labelledby or aria-describedby references a non-existent element ID
+      (verified via document.getElementById())
+    -->
+
+    <div class="widget">
+      <h2>Search Widget</h2>
+      <div class="note">aria-labelledby="search-heading-label" — but id="search-heading-label" does not exist</div>
+      <input
+        type="search"
+        aria-labelledby="search-heading-label"
+        placeholder="Search..."
+      >
+    </div>
+
+    <div class="widget">
+      <h2>User Profile Region</h2>
+      <div class="note">aria-describedby="profile-desc" — but id="profile-desc" does not exist</div>
+      <section aria-describedby="profile-desc">
+        <p>Name: Jane Doe</p>
+        <p>Role: Administrator</p>
+      </section>
+    </div>
+
+    <div class="widget">
+      <h2>Submit Button</h2>
+      <div class="note">aria-labelledby="submit-label" — but id="submit-label" does not exist</div>
+      <button aria-labelledby="submit-label">Submit</button>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

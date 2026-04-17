@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QA Agent Test Target</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    h1 { color: #333; }
+    h2 { color: #555; margin-top: 32px; border-bottom: 2px solid #eee; padding-bottom: 6px; }
+    ul { padding-left: 20px; }
+    li { margin: 6px 0; }
+    a { color: #0066cc; }
+    .desc { color: #555; font-size: 0.875em; margin-left: 8px; }
+    .finding { font-family: monospace; font-size: 0.875em; color: #333; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>QA Agent Test Target</h1>
+    <p>Each page below is designed to trigger one specific finding from the QA agent testers. Serve this directory with <code>python3 -m http.server 8080</code> and point the agent at any page.</p>
+
+    <!-- ============================================================ -->
+    <h2>accessibility.py</h2>
+    <ul>
+      <li><a href="missing-alt.html">missing-alt.html</a> <span class="desc">→ <span class="finding">Images missing alt attribute</span></span></li>
+      <li><a href="unhelpful-alt.html">unhelpful-alt.html</a> <span class="desc">→ <span class="finding">Images with unhelpful alt text</span></span></li>
+      <li><a href="missing-h1.html">missing-h1.html</a> <span class="desc">→ <span class="finding">Page missing h1 heading</span></span></li>
+      <li><a href="multiple-h1.html">multiple-h1.html</a> <span class="desc">→ <span class="finding">Multiple h1 headings</span></span></li>
+      <li><a href="heading-skip.html">heading-skip.html</a> <span class="desc">→ <span class="finding">Heading level skipped</span></span></li>
+      <li><a href="empty-links.html">empty-links.html</a> <span class="desc">→ <span class="finding">Empty links found</span></span></li>
+      <li><a href="generic-links.html">generic-links.html</a> <span class="desc">→ <span class="finding">Generic link text used</span></span></li>
+      <li><a href="low-contrast.html">low-contrast.html</a> <span class="desc">→ <span class="finding">Low color contrast detected</span></span></li>
+      <li><a href="aria-hidden-focusable.html">aria-hidden-focusable.html</a> <span class="desc">→ <span class="finding">Focusable element inside aria-hidden</span></span></li>
+      <li><a href="invalid-aria-role.html">invalid-aria-role.html</a> <span class="desc">→ <span class="finding">Invalid ARIA role</span></span></li>
+      <li><a href="aria-reference.html">aria-reference.html</a> <span class="desc">→ <span class="finding">ARIA reference points to missing element</span></span></li>
+      <li><a href="missing-main-landmark.html">missing-main-landmark.html</a> <span class="desc">→ <span class="finding">Missing main landmark</span></span></li>
+      <li><a href="multiple-main-landmarks.html">multiple-main-landmarks.html</a> <span class="desc">→ <span class="finding">Multiple main landmarks</span></span></li>
+      <li><a href="missing-lang.html">missing-lang.html</a> <span class="desc">→ <span class="finding">Missing language attribute</span></span></li>
+      <li><a href="invalid-lang.html">invalid-lang.html</a> <span class="desc">→ <span class="finding">Invalid language code</span></span></li>
+      <li><a href="missing-skip-link.html">missing-skip-link.html</a> <span class="desc">→ <span class="finding">Missing skip navigation link</span></span></li>
+      <li><a href="broken-skip-link.html">broken-skip-link.html</a> <span class="desc">→ <span class="finding">Skip link target missing</span></span></li>
+      <li><a href="motion-no-query.html">motion-no-query.html</a> <span class="desc">→ <span class="finding">Animations without reduced-motion support</span></span></li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2>wcag_compliance.py</h2>
+    <ul>
+      <li><a href="svg-no-name.html">svg-no-name.html</a> <span class="desc">→ <span class="finding">SVG elements missing accessible name</span> (WCAG 1.1.1)</span></li>
+      <li><a href="canvas-no-fallback.html">canvas-no-fallback.html</a> <span class="desc">→ <span class="finding">Canvas elements missing fallback content</span> (WCAG 1.1.1)</span></li>
+      <li><a href="video-no-captions.html">video-no-captions.html</a> <span class="desc">→ <span class="finding">Video elements missing captions track</span> (WCAG 1.2.2)</span></li>
+      <li><a href="audio-no-transcript.html">audio-no-transcript.html</a> <span class="desc">→ <span class="finding">Audio elements missing text alternative</span> (WCAG 1.2.1)</span></li>
+      <li><a href="icon-no-name.html">icon-no-name.html</a> <span class="desc">→ <span class="finding">Icon elements missing accessible name</span> (WCAG 1.1.1)</span></li>
+      <li><a href="table-no-headers.html">table-no-headers.html</a> <span class="desc">→ <span class="finding">Data tables missing header markup</span> (WCAG 1.3.1)</span></li>
+      <li><a href="radio-no-fieldset.html">radio-no-fieldset.html</a> <span class="desc">→ <span class="finding">Radio/checkbox group not in fieldset</span> (WCAG 1.3.1)</span></li>
+      <li><a href="css-order-resequence.html">css-order-resequence.html</a> <span class="desc">→ <span class="finding">CSS visual order differs from DOM order</span> (WCAG 1.3.2)</span></li>
+      <li><a href="personal-no-autocomplete.html">personal-no-autocomplete.html</a> <span class="desc">→ <span class="finding">Personal info inputs missing autocomplete</span> (WCAG 1.3.5)</span></li>
+      <li><a href="links-color-only.html">links-color-only.html</a> <span class="desc">→ <span class="finding">Links distinguished by color only</span> (WCAG 1.4.1)</span></li>
+      <li><a href="input-low-border-contrast.html">input-low-border-contrast.html</a> <span class="desc">→ <span class="finding">Form input borders have low contrast</span> (WCAG 1.4.11)</span></li>
+      <li><a href="title-tooltip.html">title-tooltip.html</a> <span class="desc">→ <span class="finding">Native title tooltips used for content</span> (WCAG 1.4.13)</span></li>
+      <li><a href="no-page-title.html">no-page-title.html</a> <span class="desc">→ <span class="finding">Page has no title</span> (WCAG 2.4.2)</span></li>
+      <li><a href="generic-page-title.html">generic-page-title.html</a> <span class="desc">→ <span class="finding">Page title is generic/boilerplate</span> (WCAG 2.4.2)</span></li>
+      <li><a href="focus-outline-suppressed.html">focus-outline-suppressed.html</a> <span class="desc">→ <span class="finding">Focus indicator suppressed without replacement</span> (WCAG 2.4.7)</span></li>
+      <li><a href="aria-label-mismatch.html">aria-label-mismatch.html</a> <span class="desc">→ <span class="finding">Accessible name does not include visible label</span> (WCAG 2.5.3)</span></li>
+      <li><a href="small-click-targets.html">small-click-targets.html</a> <span class="desc">→ <span class="finding">Small click targets detected</span> (WCAG 2.5.5)</span></li>
+      <li><a href="form-missing-label.html">form-missing-label.html</a> <span class="desc">→ <span class="finding">Form inputs missing accessible label</span> (WCAG 3.3.2)</span></li>
+      <li><a href="aria-invalid-no-msg.html">aria-invalid-no-msg.html</a> <span class="desc">→ <span class="finding">Error fields missing error message association</span> (WCAG 3.3.1)</span></li>
+      <li><a href="duplicate-ids.html">duplicate-ids.html</a> <span class="desc">→ <span class="finding">Duplicate id attributes found</span> (WCAG 4.1.1)</span></li>
+      <li><a href="aria-role-no-name.html">aria-role-no-name.html</a> <span class="desc">→ <span class="finding">ARIA role elements missing accessible name</span> (WCAG 4.1.2)</span></li>
+      <li><a href="clickable-div-no-role.html">clickable-div-no-role.html</a> <span class="desc">→ <span class="finding">Clickable elements without role or keyboard access</span> (WCAG 4.1.2)</span></li>
+      <li><a href="notification-no-live.html">notification-no-live.html</a> <span class="desc">→ <span class="finding">Probable notification elements missing live region</span> (WCAG 4.1.3)</span></li>
+      <li><a href="aria-missing-required-props.html">aria-missing-required-props.html</a> <span class="desc">→ <span class="finding">ARIA roles missing required properties</span> (WCAG 4.1.2)</span></li>
+      <li><a href="aria-widget-violations.html">aria-widget-violations.html</a> <span class="desc">→ <span class="finding">ARIA widget pattern violations</span> (WCAG 4.1.2)</span></li>
+      <li><a href="aria-child-wrong-parent.html">aria-child-wrong-parent.html</a> <span class="desc">→ <span class="finding">ARIA child roles outside required parent</span> (WCAG 4.1.2)</span></li>
+      <li><a href="redundant-aria-roles.html">redundant-aria-roles.html</a> <span class="desc">→ <span class="finding">Redundant ARIA roles on semantic HTML</span> (WCAG 4.1.2)</span></li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2>forms.py</h2>
+    <ul>
+      <li><a href="required-unmarked.html">required-unmarked.html</a> <span class="desc">→ <span class="finding">Required fields not visually marked</span></span></li>
+      <li><a href="input-no-validation-ui.html">input-no-validation-ui.html</a> <span class="desc">→ <span class="finding">No visual feedback for invalid input</span></span></li>
+      <li><a href="error-msg-not-associated.html">error-msg-not-associated.html</a> <span class="desc">→ <span class="finding">Error message not associated with input</span></span></li>
+      <li><a href="placeholder-only-label.html">placeholder-only-label.html</a> <span class="desc">→ <span class="finding">Form inputs use placeholder as only label</span></span></li>
+      <li><a href="form-inputs-no-label.html">form-inputs-no-label.html</a> <span class="desc">→ <span class="finding">Form inputs without labels</span></span></li>
+      <li><a href="wrong-input-type.html">wrong-input-type.html</a> <span class="desc">→ <span class="finding">Inputs not using semantic HTML5 types</span></span></li>
+      <li><a href="missing-autocomplete.html">missing-autocomplete.html</a> <span class="desc">→ <span class="finding">Missing autocomplete attributes</span></span></li>
+      <li><a href="form-no-submit.html">form-no-submit.html</a> <span class="desc">→ <span class="finding">Form without submit button</span></span></li>
+      <li><a href="single-field-no-enter.html">single-field-no-enter.html</a> <span class="desc">→ <span class="finding">Single-field form may not submit on Enter</span></span></li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2>keyboard.py</h2>
+    <ul>
+      <li><a href="hidden-focusable.html">hidden-focusable.html</a> <span class="desc">→ <span class="finding">Hidden element receives focus</span></span></li>
+      <li><a href="illogical-tab-order.html">illogical-tab-order.html</a> <span class="desc">→ <span class="finding">Illogical tab order detected</span></span></li>
+      <li><a href="arrow-key-no-effect.html">arrow-key-no-effect.html</a> <span class="desc">→ <span class="finding">Arrow keys not functional in widget</span></span></li>
+      <li><a href="modal-no-escape.html">modal-no-escape.html</a> <span class="desc">→ <span class="finding">Escape key doesn't close modal</span></span></li>
+      <li><a href="keyboard-trap.html">keyboard-trap.html</a> <span class="desc">→ <span class="finding">Potential keyboard trap detected</span></span></li>
+      <li><a href="missing-focus-indicators.html">missing-focus-indicators.html</a> <span class="desc">→ <span class="finding">Missing focus indicators</span></span></li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2>mouse.py</h2>
+    <ul>
+      <li><a href="wrong-cursor.html">wrong-cursor.html</a> <span class="desc">→ <span class="finding">Clickable element has wrong cursor</span></span></li>
+      <li><a href="disabled-not-distinct.html">disabled-not-distinct.html</a> <span class="desc">→ <span class="finding">Disabled element not visually distinct</span></span></li>
+      <li><a href="no-hover-feedback.html">no-hover-feedback.html</a> <span class="desc">→ <span class="finding">Interactive elements lack hover feedback</span></span></li>
+      <li><a href="dblclick-no-effect.html">dblclick-no-effect.html</a> <span class="desc">→ <span class="finding">Double-click handler has no effect</span></span></li>
+      <li><a href="context-menu-no-keyboard.html">context-menu-no-keyboard.html</a> <span class="desc">→ <span class="finding">Context menu not keyboard accessible</span></span></li>
+      <li><a href="draggable-no-aria.html">draggable-no-aria.html</a> <span class="desc">→ <span class="finding">Draggable element lacks ARIA attributes</span></span></li>
+      <li><a href="small-click-targets.html">small-click-targets.html</a> <span class="desc">→ <span class="finding">Small click targets detected</span></span></li>
+      <li><a href="overlapping-targets.html">overlapping-targets.html</a> <span class="desc">→ <span class="finding">Overlapping clickable elements</span></span></li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2>errors.py</h2>
+    <ul>
+      <li><a href="console-error.html">console-error.html</a> <span class="desc">→ <span class="finding">Console error detected</span></span></li>
+      <li><a href="console-warnings.html">console-warnings.html</a> <span class="desc">→ <span class="finding">Multiple console warnings</span></span></li>
+      <li><a href="js-exception.html">js-exception.html</a> <span class="desc">→ <span class="finding">JavaScript exception</span></span></li>
+      <li><a href="broken-images.html">broken-images.html</a> <span class="desc">→ <span class="finding">Broken images detected</span></span></li>
+      <li><a href="empty-href.html">empty-href.html</a> <span class="desc">→ <span class="finding">Empty href links</span></span></li>
+      <li><a href="broken-anchors.html">broken-anchors.html</a> <span class="desc">→ <span class="finding">Broken anchor links</span></span></li>
+    </ul>
+  </main>
+</body>
+</html>

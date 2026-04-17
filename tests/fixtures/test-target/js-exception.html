@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JavaScript Exception Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .error-output { background: #fff3f3; border: 1px solid #ffaaaa; padding: 16px; border-radius: 4px; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>JavaScript Exception Test Page</h1>
+    <p>This page throws an uncaught JavaScript exception on load. The agent's error detector listens for the <code>pageerror</code> event (uncaught exceptions) and reports them as findings.</p>
+
+    <div class="error-output">
+      <p>The following error is thrown on page load:</p>
+      <code>TypeError: Cannot read properties of null (reading 'addEventListener')</code>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+
+  <script>
+    /*
+      Trigger: uncaught page error caught by the page.on("pageerror", ...) listener.
+      We throw after a short delay to ensure the page has loaded enough for
+      the agent's listeners to be attached.
+    */
+    setTimeout(function() {
+      // Simulate accessing a property on null — a common real-world bug
+      var el = document.getElementById('nonexistent-element');
+      el.addEventListener('click', function() {}); // TypeError: null.addEventListener
+    }, 50);
+  </script>
+</body>
+</html>

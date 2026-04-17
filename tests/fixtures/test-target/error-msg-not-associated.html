@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error Message Not Associated with Input Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .error-message { color: #cc0000; font-size: 0.875em; margin-top: 4px; display: block; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Error Message Not Associated with Input Test Page</h1>
+    <p>These error messages are visible and have IDs, but the corresponding inputs do not have <code>aria-describedby</code> pointing to those IDs. Screen readers cannot associate the error text with the field.</p>
+
+    <!--
+      Trigger: error element with an id exists, but no input has aria-describedby="that-id"
+      The agent checks: if info['id'] exists, look for [aria-describedby*="that-id"] — if count == 0, flag it.
+    -->
+
+    <form>
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" value="a">
+      <!-- No aria-describedby="username-error" on the input -->
+      <span class="error-message" id="username-error">Username must be at least 3 characters</span>
+
+      <label for="email-field">Email</label>
+      <input type="email" id="email-field" name="email" value="notanemail">
+      <!-- No aria-describedby="email-field-error" on the input -->
+      <span class="error-message" id="email-field-error">Please enter a valid email address</span>
+
+      <label for="password-field">Password</label>
+      <input type="password" id="password-field" name="password" value="abc">
+      <!-- No aria-describedby="password-error" on the input -->
+      <span class="error-message" id="password-error">Password must be at least 8 characters</span>
+
+      <button type="submit">Create Account</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

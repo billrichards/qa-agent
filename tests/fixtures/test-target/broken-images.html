@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broken Images Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    img { display: block; width: 200px; height: 150px; border: 1px solid #ccc; margin: 12px 0; background: #f5f5f5; }
+    figure { margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Broken Images Test Page</h1>
+    <p>These images reference files that do not exist. They will fail to load, resulting in <code>naturalWidth === 0</code>. The agent checks all <code>&lt;img&gt;</code> elements and flags those that fail to load.</p>
+
+    <!-- Trigger: img where !complete || naturalWidth === 0 -->
+
+    <figure>
+      <img src="images/photo-not-found.jpg" alt="Missing product photo" width="200" height="150">
+      <figcaption>Photo that doesn't exist</figcaption>
+    </figure>
+
+    <figure>
+      <img src="assets/banner-missing.png" alt="Missing banner image" width="200" height="150">
+      <figcaption>Banner that doesn't exist</figcaption>
+    </figure>
+
+    <figure>
+      <img src="uploads/user-avatar-99999.jpg" alt="Missing user avatar" width="200" height="150">
+      <figcaption>Avatar that doesn't exist</figcaption>
+    </figure>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

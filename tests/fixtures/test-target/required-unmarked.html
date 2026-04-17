@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Required Fields Not Visually Marked Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input, select, textarea { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Required Fields Not Visually Marked Test Page</h1>
+    <p>These fields are HTML-required (<code>required</code> attribute) but have no visual indicator: no asterisk in the label, no "required" text, and no <code>aria-required="true"</code>. Sighted users have no way to know these fields must be filled.</p>
+
+    <!-- Trigger: input[required] where label has no "*" or "required" text, and input has no aria-required -->
+
+    <form>
+      <label for="first-name">First Name</label>
+      <input type="text" id="first-name" name="first_name" required autocomplete="given-name">
+      <!-- label has no asterisk or "required" text; input has no aria-required -->
+
+      <label for="last-name">Last Name</label>
+      <input type="text" id="last-name" name="last_name" required autocomplete="family-name">
+
+      <label for="email-addr">Email Address</label>
+      <input type="email" id="email-addr" name="email" required autocomplete="email">
+
+      <label for="agree">Agree to Terms</label>
+      <select id="agree" name="agree" required>
+        <option value="">Select…</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+
+      <button type="submit">Create Account</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Main Landmark Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <!-- Trigger: no <main> element and no element with role="main" anywhere on the page -->
+
+  <header>
+    <h1>Missing Main Landmark Test Page</h1>
+    <nav>
+      <a href="#">Home</a> |
+      <a href="#">About</a> |
+      <a href="#">Contact</a>
+    </nav>
+  </header>
+
+  <div>
+    <h2>Primary Content</h2>
+    <p>This page deliberately omits the <code>&lt;main&gt;</code> element and any <code>role="main"</code>. All content sits inside generic <code>&lt;div&gt;</code> elements. Screen reader users cannot jump directly to the main content.</p>
+
+    <h2>Secondary Content</h2>
+    <p>Without a main landmark, keyboard and screen reader users must navigate through all navigation links to reach page content. This is a significant accessibility barrier.</p>
+  </div>
+
+  <footer>
+    <p><a href="index.html">Back to index</a></p>
+  </footer>
+</body>
+</html>

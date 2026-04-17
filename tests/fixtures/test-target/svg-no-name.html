@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Missing Accessible Name Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    svg { display: block; margin: 16px 0; }
+    figure { margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>SVG Missing Accessible Name Test Page</h1>
+    <p>These SVG elements are not aria-hidden, have no <code>&lt;title&gt;</code> child, no <code>aria-label</code>, no <code>aria-labelledby</code>, and no <code>role="presentation"</code>.</p>
+
+    <!-- Trigger: svg not aria-hidden, no <title>, no aria-label/labelledby, role != presentation/none -->
+
+    <figure>
+      <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="40" fill="#0066cc"/>
+      </svg>
+      <figcaption>Circle SVG — no accessible name</figcaption>
+    </figure>
+
+    <figure>
+      <svg width="100" height="60" viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100" height="60" fill="#cc6600"/>
+        <text x="10" y="35" fill="white" font-size="14">Chart</text>
+      </svg>
+      <figcaption>Bar SVG — no title element, no aria-label</figcaption>
+    </figure>
+
+    <figure>
+      <svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="40,5 75,70 5,70" fill="#006600"/>
+      </svg>
+      <figcaption>Triangle SVG — meaningful but unannotated</figcaption>
+    </figure>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

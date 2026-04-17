@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duplicate ID Attributes Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 16px 0; border-radius: 4px; }
+    label { font-weight: bold; display: block; margin-bottom: 4px; }
+    input { padding: 6px; border: 1px solid #ccc; width: 200px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Duplicate ID Attributes Test Page</h1>
+    <p>Multiple elements on this page share the same <code>id</code> value. Duplicate IDs break ARIA references, label associations, and anchor links.</p>
+
+    <!-- Trigger (wcag 4.1.1): multiple elements with the same id value -->
+
+    <div class="widget">
+      <label for="email">Email (first form)</label>
+      <input type="email" id="email" name="email1">
+    </div>
+
+    <div class="widget">
+      <!-- Same id="email" used again -->
+      <label for="email">Email (second form)</label>
+      <input type="email" id="email" name="email2">
+    </div>
+
+    <div class="widget" id="section-intro">
+      <h2>Introduction</h2>
+      <p>First element with id="section-intro".</p>
+    </div>
+
+    <div class="widget" id="section-intro">
+      <h2>Introduction (duplicate)</h2>
+      <p>Second element with the same id="section-intro" — only one ID is valid, the second is an error.</p>
+    </div>
+
+    <!-- Anchor targeting a duplicated id — browser finds the first one -->
+    <p>Jump to: <a href="#section-intro">Introduction</a></p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

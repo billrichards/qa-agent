@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unhelpful Alt Text Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    img {
+      display: block;
+      width: 200px;
+      height: 150px;
+      background: #ccc;
+      margin: 12px 0;
+      border: 1px solid #999;
+    }
+    figure { margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Unhelpful Alt Text Test Page</h1>
+    <p>This page contains images with generic, non-descriptive alt text that should trigger the "Images with unhelpful alt text" finding.</p>
+
+    <!--
+      Trigger condition:
+      Alt text matches patterns: 'image', 'picture', 'photo', 'img', '.jpg', '.png', '.gif', 'untitled'
+      AND length < 20 characters
+    -->
+
+    <figure>
+      <img src="https://placehold.co/200x150" alt="image" width="200" height="150">
+      <figcaption>alt="image" — matches the word "image"</figcaption>
+    </figure>
+
+    <figure>
+      <img src="https://placehold.co/200x150" alt="photo.jpg" width="200" height="150">
+      <figcaption>alt="photo.jpg" — contains ".jpg"</figcaption>
+    </figure>
+
+    <figure>
+      <img src="https://placehold.co/200x150" alt="picture" width="200" height="150">
+      <figcaption>alt="picture" — matches the word "picture"</figcaption>
+    </figure>
+
+    <figure>
+      <img src="https://placehold.co/200x150" alt="img" width="200" height="150">
+      <figcaption>alt="img" — matches the word "img"</figcaption>
+    </figure>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

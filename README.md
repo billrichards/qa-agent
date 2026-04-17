@@ -448,6 +448,9 @@ pytest -v -m "not integration and not network"
 # Integration tests (real Playwright)
 pytest -v -m integration --no-cov
 
+# Browse the test harness in a browser
+cd tests/fixtures/test-target && python3 -m http.server 8181
+
 # Lint & type check
 ruff check .
 mypy qa_agent

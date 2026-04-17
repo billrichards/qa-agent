@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clickable Elements Without Role or Keyboard Access Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .fake-btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #0066cc;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 8px;
+      user-select: none;
+    }
+    .fake-btn:hover { background: #004499; }
+    .card {
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin: 12px 0;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .card:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Clickable Elements Without Role or Keyboard Access Test</h1>
+    <p>These <code>&lt;div&gt;</code> and <code>&lt;span&gt;</code> elements have <code>onclick</code> handlers but no <code>role</code> or <code>tabindex</code>. They are inaccessible to keyboard users and not announced as interactive by screen readers.</p>
+
+    <!-- Trigger (wcag 4.1.2): div/span with onclick, no role, no tabindex -->
+
+    <div class="fake-btn" onclick="alert('Button 1 clicked')">Save Document</div>
+    <div class="fake-btn" onclick="alert('Button 2 clicked')">Discard Changes</div>
+    <span class="fake-btn" onclick="alert('Span clicked')">Export PDF</span>
+
+    <div class="card" onclick="alert('Card clicked')">
+      <h2>Clickable Card</h2>
+      <p>This entire card is clickable via onclick but has no role="button" and no tabindex. Keyboard users cannot activate it.</p>
+    </div>
+
+    <div class="card" onclick="alert('Card 2 clicked')">
+      <h2>Another Clickable Card</h2>
+      <p>Same pattern — onclick without role or tabindex.</p>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

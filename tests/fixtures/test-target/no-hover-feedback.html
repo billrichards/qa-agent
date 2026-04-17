@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Elements Lack Hover Feedback Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .row { margin: 12px 0; }
+
+    /*
+      Trigger: > 50% of interactive elements (of 4+) have no style change on hover.
+      We need 8+ buttons/links with no :hover rules that change any of:
+      backgroundColor, color, transform, boxShadow, borderColor, textDecoration.
+    */
+    button.no-hover {
+      padding: 10px 20px;
+      background: #0066cc;
+      color: white;
+      border: 1px solid #004499;
+      border-radius: 4px;
+      cursor: pointer;
+      display: block;
+      margin: 8px 0;
+      width: 200px;
+      /* Deliberately NO :hover rule — no visual change on hover */
+    }
+    a.no-hover {
+      color: #0066cc;
+      text-decoration: underline;
+      display: block;
+      margin: 6px 0;
+      /* No :hover rule */
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Interactive Elements Lack Hover Feedback Test Page</h1>
+    <p>These buttons and links have no CSS <code>:hover</code> rules. When the mouse hovers over them, nothing changes visually — no color change, no shadow, no transform, no border change.</p>
+
+    <!-- Trigger: > 50% of 4+ interactive elements with no hover state change -->
+
+    <div class="row">
+      <button type="button" class="no-hover">Button One</button>
+      <button type="button" class="no-hover">Button Two</button>
+      <button type="button" class="no-hover">Button Three</button>
+      <button type="button" class="no-hover">Button Four</button>
+      <button type="button" class="no-hover">Button Five</button>
+    </div>
+
+    <div class="row">
+      <a href="#" class="no-hover">Link One</a>
+      <a href="#" class="no-hover">Link Two</a>
+      <a href="#" class="no-hover">Link Three</a>
+      <a href="#" class="no-hover">Link Four</a>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Missing Captions Track Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    video { display: block; margin: 16px 0; background: #000; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Video Missing Captions Track Test Page</h1>
+    <p>These <code>&lt;video&gt;</code> elements have no <code>&lt;track kind="captions"&gt;</code> or <code>&lt;track kind="subtitles"&gt;</code>. Deaf and hard-of-hearing users cannot access the audio content.</p>
+
+    <!-- Trigger: <video> with no <track kind="captions"> or <track kind="subtitles"> -->
+
+    <video width="400" height="225" controls>
+      <source src="sample-video.mp4" type="video/mp4">
+      <!-- intentionally no <track> element -->
+    </video>
+
+    <video width="400" height="225" controls>
+      <source src="another-video.mp4" type="video/mp4">
+      <!-- This video has a metadata track but NOT a captions track -->
+      <track kind="metadata" src="metadata.vtt" label="Metadata">
+    </video>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

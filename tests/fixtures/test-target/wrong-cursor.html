@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clickable Element Has Wrong Cursor Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .row { margin: 12px 0; display: flex; align-items: center; gap: 16px; }
+
+    /* Trigger: button or a element with cursor: text */
+    button.text-cursor {
+      padding: 8px 16px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: text;   /* wrong cursor — should be pointer */
+    }
+    a.text-cursor {
+      color: #0066cc;
+      cursor: text;   /* wrong cursor for a link */
+    }
+    /* The agent checks: if info['cursor'] not in ['pointer', 'default', 'auto'] and tag in ['button','a'] and cursor == 'text' */
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Clickable Element Has Wrong Cursor Test Page</h1>
+    <p>These <code>&lt;button&gt;</code> and <code>&lt;a&gt;</code> elements have <code>cursor: text</code> instead of the expected pointer cursor. Users hovering over them see a text-insertion cursor rather than the interactive hand cursor.</p>
+
+    <!-- Trigger: button or a with cursor === 'text' -->
+
+    <div class="row">
+      <button type="button" class="text-cursor">Save Changes</button>
+      <span>← button with cursor: text</span>
+    </div>
+
+    <div class="row">
+      <button type="button" class="text-cursor">Delete Account</button>
+      <span>← another button with cursor: text</span>
+    </div>
+
+    <div class="row">
+      <a href="#" class="text-cursor">Learn more about our services</a>
+      <span>← link with cursor: text</span>
+    </div>
+
+    <div class="row">
+      <a href="#" class="text-cursor">Download the report</a>
+      <span>← another link with cursor: text</span>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

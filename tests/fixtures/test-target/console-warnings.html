@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiple Console Warnings Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .warning-output { background: #fffbf0; border: 1px solid #ffd700; padding: 16px; border-radius: 4px; font-family: monospace; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Multiple Console Warnings Test Page</h1>
+    <p>This page emits more than 3 significant console warnings matching keywords: <code>deprecated</code>, <code>security</code>, <code>performance</code>, <code>accessibility</code>, <code>mixed content</code>, <code>violation</code>.</p>
+
+    <div class="warning-output">
+      <p>Warnings emitted by this page:</p>
+      <ul>
+        <li>deprecated API usage warning</li>
+        <li>security policy violation warning</li>
+        <li>performance issue detected warning</li>
+        <li>accessibility violation found warning</li>
+        <li>mixed content detected warning</li>
+      </ul>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+
+  <script>
+    /*
+      Trigger: > 3 console.warn messages matching significant patterns:
+      "deprecated", "security", "performance", "accessibility", "mixed content", "violation"
+    */
+    console.warn("deprecated: element.attachEvent is deprecated and will be removed");
+    console.warn("security: Content Security Policy violation detected for inline scripts");
+    console.warn("performance: Long task detected (250ms) blocking the main thread");
+    console.warn("accessibility: aria-hidden element contains focusable children");
+    console.warn("mixed content: HTTP resource loaded on HTTPS page (passive)");
+  </script>
+</body>
+</html>

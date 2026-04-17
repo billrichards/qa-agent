@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlapping Clickable Elements Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .relative-container { position: relative; height: 200px; border: 1px solid #ddd; margin: 20px 0; border-radius: 4px; }
+
+    /* Two buttons positioned absolutely so their bounding boxes overlap */
+    .btn-a {
+      position: absolute;
+      top: 40px;
+      left: 40px;
+      width: 180px;
+      height: 60px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .btn-b {
+      position: absolute;
+      top: 60px;    /* overlaps .btn-a by 40px vertically */
+      left: 100px;  /* overlaps .btn-a by 120px horizontally */
+      width: 180px;
+      height: 60px;
+      background: #cc6600;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .link-a {
+      position: absolute;
+      top: 130px;
+      left: 40px;
+      display: block;
+      width: 160px;
+      height: 40px;
+      background: #006600;
+      color: white;
+      text-align: center;
+      line-height: 40px;
+      border-radius: 4px;
+      text-decoration: none;
+      z-index: 1;
+    }
+    .link-b {
+      position: absolute;
+      top: 150px;   /* overlaps .link-a by 20px */
+      left: 120px;  /* overlaps .link-a */
+      display: block;
+      width: 160px;
+      height: 40px;
+      background: #660066;
+      color: white;
+      text-align: center;
+      line-height: 40px;
+      border-radius: 4px;
+      text-decoration: none;
+      z-index: 2;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Overlapping Clickable Elements Test Page</h1>
+    <p>These interactive elements are positioned so their bounding rectangles overlap. Clicking in the overlap area is ambiguous — users may accidentally activate the wrong element.</p>
+
+    <!-- Trigger: interactive elements whose getBoundingClientRect rectangles overlap -->
+
+    <div class="relative-container" aria-label="Demo area with overlapping buttons">
+      <button class="btn-a" type="button">Button A (blue)</button>
+      <button class="btn-b" type="button">Button B (orange) — overlaps A</button>
+      <a class="link-a" href="#">Link A (green)</a>
+      <a class="link-b" href="#">Link B (purple) — overlaps A</a>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

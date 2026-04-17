@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broken Skip Link Target Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: #000;
+      color: #fff;
+      padding: 8px;
+      z-index: 1000;
+    }
+    .skip-link:focus { top: 0; }
+    nav { background: #f5f5f5; padding: 12px; margin-bottom: 24px; }
+    nav a { margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Trigger: skip link found (text includes "skip" and "content"), but the target ID does not exist -->
+
+  <!-- Skip link present, but points to #main-content which doesn't exist on the page -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <nav>
+    <a href="#">Home</a>
+    <a href="#">Products</a>
+    <a href="#">Services</a>
+    <a href="#">About Us</a>
+    <a href="#">Our Team</a>
+    <a href="#">Blog</a>
+    <a href="#">Contact</a>
+  </nav>
+
+  <!-- Note: intentionally NO id="main-content" on any element below -->
+  <div>
+    <h1>Broken Skip Link Target Test Page</h1>
+    <p>This page has a skip link (<code>&lt;a href="#main-content"&gt;Skip to main content&lt;/a&gt;</code>) visible when focused, but no element with <code>id="main-content"</code> exists. Activating the skip link goes nowhere.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </div>
+</body>
+</html>

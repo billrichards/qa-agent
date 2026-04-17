@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hidden Element Receives Focus Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    button { padding: 8px 16px; margin: 8px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    /*
+      position: fixed elements have offsetParent === null in browsers.
+      Using large negative coordinates makes them visually invisible.
+      But they still receive Tab focus because they are not display:none or visibility:hidden.
+    */
+    .off-screen-link {
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+    }
+
+    .sr-only-link {
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      top: -9999px;
+      left: -9999px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Hidden Element Receives Focus Test Page</h1>
+    <p>This page has visually hidden elements (<code>position: fixed; top: -9999px</code>) that still participate in Tab order. The agent flags elements where <code>offsetParent === null</code> but focus is received.</p>
+
+    <!-- Trigger: element where isVisible = (offsetParent !== null) is false, but Tab navigates to it -->
+    <!-- position:fixed gives offsetParent === null in all browsers -->
+
+    <a href="#" class="off-screen-link" tabindex="0">Hidden navigation link</a>
+
+    <button type="button">Visible Button 1</button>
+
+    <a href="#" class="sr-only-link" tabindex="0">Another hidden link</a>
+
+    <button type="button">Visible Button 2</button>
+
+    <a href="#" class="off-screen-link" tabindex="0">Third hidden link</a>
+
+    <button type="button">Visible Button 3</button>
+
+    <p>Tab through this page — the hidden links (invisible, off-screen) will appear in the tab sequence.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

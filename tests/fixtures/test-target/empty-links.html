@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Empty Links Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .link-row { margin: 12px 0; }
+    a { color: #0066cc; }
+    .empty-link { display: inline-block; width: 24px; height: 24px; background: #eee; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Empty Links Test Page</h1>
+    <p>These links have no accessible name — no text content, no <code>aria-label</code>, no image with alt text, and no <code>title</code>. The agent should report them as empty links.</p>
+
+    <!-- Trigger: links with no accessible name (no text, no aria-label, no img alt, no title) -->
+
+    <div class="link-row">
+      <a href="#"></a>
+      <span> ← empty anchor tag (no content at all)</span>
+    </div>
+
+    <div class="link-row">
+      <a href="#" class="empty-link"></a>
+      <span> ← styled but empty link (no text or label)</span>
+    </div>
+
+    <div class="link-row">
+      <a href="#">   </a>
+      <span> ← link with only whitespace</span>
+    </div>
+
+    <div class="link-row">
+      <a href="#"><img src="https://placehold.co/30x30" alt=""></a>
+      <span> ← link with image that has empty alt (no accessible name)</span>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

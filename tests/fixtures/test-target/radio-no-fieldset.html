@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radio Group Not in Fieldset Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .form-group { margin: 24px 0; padding: 16px; border: 1px solid #eee; }
+    label { display: block; margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Radio/Checkbox Group Not in Fieldset Test Page</h1>
+    <p>These radio button and checkbox groups are not wrapped in <code>&lt;fieldset&gt;</code>/<code>&lt;legend&gt;</code>. Screen readers cannot associate the group label with individual options.</p>
+
+    <!-- Trigger: 2+ inputs with same name, not inside <fieldset> -->
+
+    <form>
+      <div class="form-group">
+        <p><strong>Preferred contact method:</strong></p>
+        <!-- Same name, outside fieldset -->
+        <label><input type="radio" name="contact" value="email"> Email</label>
+        <label><input type="radio" name="contact" value="phone"> Phone</label>
+        <label><input type="radio" name="contact" value="text"> Text message</label>
+        <label><input type="radio" name="contact" value="mail"> Postal mail</label>
+      </div>
+
+      <div class="form-group">
+        <p><strong>Interests (select all that apply):</strong></p>
+        <!-- Checkboxes with same name, outside fieldset -->
+        <label><input type="checkbox" name="interests" value="tech"> Technology</label>
+        <label><input type="checkbox" name="interests" value="design"> Design</label>
+        <label><input type="checkbox" name="interests" value="business"> Business</label>
+        <label><input type="checkbox" name="interests" value="science"> Science</label>
+      </div>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

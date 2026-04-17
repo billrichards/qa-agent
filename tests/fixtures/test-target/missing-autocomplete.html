@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Autocomplete Attributes Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { margin-top: 16px; padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Missing Autocomplete Attributes Test Page</h1>
+    <p>These common personal-data inputs (email, name, phone, address, password) lack <code>autocomplete</code> attributes. The agent flags when more than 2 such fields are missing autocomplete.</p>
+
+    <!--
+      Trigger (forms.py _test_autocomplete):
+      Selects inputs matching name*="email|name|phone|address|city|zip|postal" or type="password"
+      and checks for missing autocomplete. Fires when > 2 are missing.
+    -->
+
+    <form>
+      <label for="fname">Full Name</label>
+      <input type="text" id="fname" name="name" placeholder="Jane Doe">
+      <!-- no autocomplete -->
+
+      <label for="femail">Email</label>
+      <input type="email" id="femail" name="email" placeholder="jane@example.com">
+      <!-- no autocomplete -->
+
+      <label for="fphone">Phone</label>
+      <input type="tel" id="fphone" name="phone" placeholder="+1 555 0000">
+      <!-- no autocomplete -->
+
+      <label for="faddress">Address</label>
+      <input type="text" id="faddress" name="address" placeholder="123 Main St">
+      <!-- no autocomplete -->
+
+      <label for="fzip">Zip Code</label>
+      <input type="text" id="fzip" name="zip" placeholder="94105">
+      <!-- no autocomplete -->
+
+      <label for="fpw">Password</label>
+      <input type="password" id="fpw" name="password">
+      <!-- no autocomplete -->
+
+      <button type="submit">Create Account</button>
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

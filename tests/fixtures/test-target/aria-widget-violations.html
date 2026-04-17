@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARIA Widget Pattern Violations Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 12px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ARIA Widget Pattern Violations Test Page</h1>
+    <p>These ARIA widgets violate required composition patterns: tablist without tabs, combobox without aria-expanded, menu without menuitems.</p>
+
+    <!-- Trigger: tablist with no [role="tab"] children -->
+    <div class="widget">
+      <p><strong>Tablist with no tabs:</strong></p>
+      <div role="tablist" aria-label="Empty tablist">
+        <!-- Missing role="tab" children -->
+        <div>Not a tab</div>
+        <div>Also not a tab</div>
+      </div>
+    </div>
+
+    <!-- Trigger: combobox without aria-expanded -->
+    <div class="widget">
+      <p><strong>Combobox without aria-expanded:</strong></p>
+      <div role="combobox" tabindex="0" style="border:1px solid #ccc;padding:6px;width:200px;" aria-label="Choose country">
+        United States
+        <!-- Missing aria-expanded -->
+      </div>
+    </div>
+
+    <!-- Trigger: menu with no menuitem children -->
+    <div class="widget">
+      <p><strong>Menu with no menuitems:</strong></p>
+      <div role="menu" aria-label="Empty menu">
+        <!-- No role="menuitem" children -->
+        <div>Not a menuitem</div>
+        <div>Also not a menuitem</div>
+      </div>
+    </div>
+
+    <!-- Trigger: menubar with no menuitems -->
+    <div class="widget">
+      <p><strong>Menubar with no menuitems:</strong></p>
+      <div role="menubar" aria-label="Empty menubar">
+        <span>File</span>
+        <span>Edit</span>
+        <span>View</span>
+        <!-- No role="menuitem" on any child -->
+      </div>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

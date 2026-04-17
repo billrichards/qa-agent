@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Skip Navigation Link Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    nav { background: #f5f5f5; padding: 12px; margin-bottom: 24px; }
+    nav a { margin-right: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Trigger: more than 5 links before <main>, and no skip link found -->
+  <!-- No skip link present anywhere on this page -->
+
+  <nav>
+    <a href="#">Home</a>
+    <a href="#">Products</a>
+    <a href="#">Services</a>
+    <a href="#">About Us</a>
+    <a href="#">Our Team</a>
+    <a href="#">Blog</a>
+    <a href="#">Case Studies</a>
+    <a href="#">Contact</a>
+  </nav>
+
+  <main id="main-content">
+    <h1>Missing Skip Navigation Link Test Page</h1>
+    <p>This page has 8 navigation links before the <code>&lt;main&gt;</code> element, but no skip link. Keyboard users must tab through all 8 navigation links on every page load before reaching the main content.</p>
+    <p>A proper skip link would look like: <code>&lt;a href="#main-content"&gt;Skip to main content&lt;/a&gt;</code> placed before the navigation, allowing keyboard users to jump directly to the content.</p>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

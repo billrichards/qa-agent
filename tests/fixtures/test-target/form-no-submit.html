@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Without Submit Button Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    form { max-width: 400px; border: 1px solid #ddd; padding: 20px; border-radius: 4px; margin: 16px 0; }
+    label { display: block; margin-top: 16px; font-weight: bold; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    /* Deliberately no submit button or submit input in these forms */
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Form Without Submit Button Test Page</h1>
+    <p>These forms have input fields but no submit button (<code>&lt;input type="submit"&gt;</code>, <code>&lt;button type="submit"&gt;</code>, or untyped <code>&lt;button&gt;</code>). Users have no way to submit the form.</p>
+
+    <!-- Trigger: form with inputs but no submit button -->
+
+    <form id="search-form">
+      <label for="q1">Search Query</label>
+      <input type="text" id="q1" name="q" autocomplete="off">
+      <label for="q2">Filter by Category</label>
+      <input type="text" id="q2" name="category">
+      <!-- No submit button, no button[type="submit"], no input[type="submit"] -->
+    </form>
+
+    <form id="contact-form">
+      <label for="name">Your Name</label>
+      <input type="text" id="name" name="name" autocomplete="name">
+      <label for="email">Your Email</label>
+      <input type="email" id="email" name="email" autocomplete="email">
+      <!-- Also no submit button -->
+    </form>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broken Anchor Links Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    nav { background: #f5f5f5; padding: 12px; margin-bottom: 24px; border-radius: 4px; }
+    nav a { margin-right: 16px; }
+    section { margin: 24px 0; padding: 16px; border: 1px solid #eee; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Broken Anchor Links Test Page</h1>
+    <p>These in-page anchor links point to element IDs that do not exist in this document. Clicking them will scroll to the top of the page instead of the intended section.</p>
+
+    <!-- Page navigation with broken anchors -->
+    <nav>
+      <a href="#introduction">Introduction</a>
+      <!-- id="introduction" exists -->
+
+      <a href="#getting-started">Getting Started</a>
+      <!-- id="getting-started" does NOT exist — broken anchor -->
+
+      <a href="#configuration">Configuration</a>
+      <!-- id="configuration" does NOT exist — broken anchor -->
+
+      <a href="#api-reference">API Reference</a>
+      <!-- id="api-reference" does NOT exist — broken anchor -->
+
+      <a href="#faq">FAQ</a>
+      <!-- id="faq" does NOT exist — broken anchor -->
+
+      <a href="#changelog">Changelog</a>
+      <!-- id="changelog" does NOT exist — broken anchor -->
+    </nav>
+
+    <!-- Only "introduction" actually exists -->
+    <section id="introduction">
+      <h2>Introduction</h2>
+      <p>This is the only section with a valid ID. The other navigation links above target IDs that do not exist on this page — they are broken anchor links.</p>
+    </section>
+
+    <!-- getting-started, configuration, api-reference, faq, changelog sections are intentionally absent -->
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

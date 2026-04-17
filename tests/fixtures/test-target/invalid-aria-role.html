@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invalid ARIA Role Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 12px; margin: 12px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Invalid ARIA Role Test Page</h1>
+    <p>These elements use role values that are not in the WAI-ARIA specification. The agent checks a hard-coded list of valid roles.</p>
+
+    <!-- Trigger: role value not in the valid WAI-ARIA roles list -->
+
+    <div class="widget" role="foobar">
+      <p>role="foobar" — not a valid ARIA role</p>
+    </div>
+
+    <div class="widget" role="superbutton">
+      <p>role="superbutton" — not a valid ARIA role</p>
+    </div>
+
+    <span role="clickable-thing">role="clickable-thing" — invented role</span>
+
+    <div class="widget" role="container">
+      <p>role="container" — not in WAI-ARIA spec (use role="region" with aria-label instead)</p>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

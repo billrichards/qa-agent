@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Missing Alt Attribute Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    img { display: block; width: 200px; height: 150px; background: #ccc; margin: 12px 0; border: 1px solid #999; }
+    figure { margin: 16px 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Missing Alt Attribute Test Page</h1>
+    <p>These images have no <code>alt</code> attribute at all (not even empty). They are visible and larger than 20×20px, so the agent should flag them.</p>
+
+    <!-- Trigger: img with no alt attribute, no role="presentation", no aria-hidden, width/height >= 20px -->
+
+    <figure>
+      <img src="https://placehold.co/200x150" width="200" height="150">
+      <figcaption>No alt attribute whatsoever</figcaption>
+    </figure>
+
+    <figure>
+      <img src="https://placehold.co/200x150" width="200" height="150">
+      <figcaption>Second image — also missing alt</figcaption>
+    </figure>
+
+    <figure>
+      <img src="https://placehold.co/200x150" width="200" height="150">
+      <figcaption>Third image — still no alt</figcaption>
+    </figure>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

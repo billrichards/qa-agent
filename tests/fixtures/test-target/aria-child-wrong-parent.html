@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARIA Child Roles Outside Required Parent Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .widget { border: 1px solid #ddd; padding: 16px; margin: 12px 0; border-radius: 4px; }
+    [role="tab"], [role="option"], [role="menuitem"], [role="treeitem"] {
+      display: block; padding: 6px 12px; margin: 4px 0; background: #f5f5f5; border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ARIA Child Roles Outside Required Parent Test Page</h1>
+    <p>These elements use child roles that require a specific parent context, but are placed outside that parent.</p>
+
+    <!-- role="tab" requires parent role="tablist" -->
+    <div class="widget">
+      <p><strong>role="tab" without a role="tablist" parent:</strong></p>
+      <div role="tab" tabindex="0">Overview</div>
+      <div role="tab" tabindex="-1">Details</div>
+      <div role="tab" tabindex="-1">History</div>
+    </div>
+
+    <!-- role="option" requires parent role="listbox" or role="combobox" -->
+    <div class="widget">
+      <p><strong>role="option" without a role="listbox" parent:</strong></p>
+      <div role="option" tabindex="0">Apple</div>
+      <div role="option" tabindex="-1">Banana</div>
+      <div role="option" tabindex="-1">Cherry</div>
+    </div>
+
+    <!-- role="menuitem" requires parent role="menu" or role="menubar" -->
+    <div class="widget">
+      <p><strong>role="menuitem" without a role="menu" parent:</strong></p>
+      <div role="menuitem" tabindex="0">Cut</div>
+      <div role="menuitem" tabindex="-1">Copy</div>
+      <div role="menuitem" tabindex="-1">Paste</div>
+    </div>
+
+    <!-- role="treeitem" requires parent role="tree" or role="group" -->
+    <div class="widget">
+      <p><strong>role="treeitem" without a role="tree" parent:</strong></p>
+      <div role="treeitem" tabindex="0">Root item</div>
+      <div role="treeitem" tabindex="-1">Child item</div>
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>

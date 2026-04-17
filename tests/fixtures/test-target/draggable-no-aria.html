@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draggable Element Lacks ARIA Attributes Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .drag-list { list-style: none; padding: 0; max-width: 300px; }
+    .drag-item { padding: 12px 16px; margin: 8px 0; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; cursor: grab; user-select: none; }
+    .drag-item:active { cursor: grabbing; }
+    .drop-zone { min-height: 80px; border: 2px dashed #aaa; padding: 16px; margin: 16px 0; border-radius: 4px; color: #888; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Draggable Element Lacks ARIA Attributes Test Page</h1>
+    <p>These items have <code>draggable="true"</code> but no <code>aria-grabbed</code> attribute and no <code>role</code>. Screen reader users cannot determine that these items are draggable or track their drag state.</p>
+
+    <!-- Trigger: draggable="true" elements without aria-grabbed and without role -->
+
+    <h2>Draggable Items</h2>
+    <ul class="drag-list">
+      <li class="drag-item" draggable="true">Task: Write report</li>
+      <li class="drag-item" draggable="true">Task: Review designs</li>
+      <li class="drag-item" draggable="true">Task: Fix accessibility bugs</li>
+      <li class="drag-item" draggable="true">Task: Deploy to staging</li>
+      <li class="drag-item" draggable="true">Task: Update documentation</li>
+    </ul>
+
+    <h2>Drop Zone</h2>
+    <div class="drop-zone" ondragover="event.preventDefault()" ondrop="event.preventDefault()">
+      Drop tasks here
+    </div>
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+
+  <script>
+    // Basic drag visual feedback only — no ARIA state management
+    document.querySelectorAll('.drag-item').forEach(item => {
+      item.addEventListener('dragstart', () => item.style.opacity = '0.5');
+      item.addEventListener('dragend', () => item.style.opacity = '1');
+    });
+  </script>
+</body>
+</html>

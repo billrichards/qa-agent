@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keyboard Trap Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+    }
+    nav { margin-bottom: 24px; }
+    nav a { margin-right: 16px; }
+
+    /*
+      Trigger condition:
+      - Total focusable elements on the page > 3 (nav links + modal controls = 5)
+      - Tab cycling visits fewer than 3 unique elements before repeating
+        (JS traps focus between the 2 modal controls only)
+    */
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      width: 360px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .modal h2 { margin-top: 0; }
+    .modal input[type="email"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      margin: 8px 0 16px;
+    }
+    .modal button {
+      padding: 10px 20px;
+      font-size: 1em;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #modal-subscribe {
+      background: #0066cc;
+      color: #fff;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Focusable elements outside the modal (3 nav links) -->
+  <nav aria-label="Site navigation">
+    <a href="index.html">Home</a>
+    <a href="heading-skip.html">Headings</a>
+    <a href="generic-links.html">Links</a>
+  </nav>
+
+  <main>
+    <h1>Keyboard Trap Test Page</h1>
+    <p>This page opens a modal dialog on load. The modal's JavaScript intercepts Tab and Shift+Tab to keep focus trapped between the email field and the subscribe button, preventing the user from tabbing to the navigation links above.</p>
+    <p>Total focusable elements: 3 nav links + 2 modal controls = 5 (above the detection threshold of 3). The trap cycles through only 2 unique elements (below the threshold of 3), which should trigger the "Potential keyboard trap detected" finding.</p>
+  </main>
+
+  <!-- Modal: 2 focusable elements (email input + subscribe button) -->
+  <div class="modal-backdrop" id="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <h2 id="modal-title">Subscribe to our newsletter</h2>
+      <p>Enter your email address to receive updates.</p>
+      <label for="modal-email">Email address</label>
+      <input type="email" id="modal-email" placeholder="you@example.com">
+      <button id="modal-subscribe">Subscribe</button>
+    </div>
+  </div>
+
+  <script>
+    /*
+      Intentionally broken focus management: Tab is intercepted globally and
+      cycles only between the two modal controls. The nav links are never reached.
+      A correct implementation would also handle Escape to close the modal.
+    */
+    const email = document.getElementById('modal-email');
+    const subscribe = document.getElementById('modal-subscribe');
+
+    // Set initial focus into the modal
+    email.focus();
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        // Shift+Tab: if on first element, wrap to last
+        if (document.activeElement === email) {
+          e.preventDefault();
+          subscribe.focus();
+        }
+      } else {
+        // Tab: if on last element, wrap to first
+        if (document.activeElement === subscribe) {
+          e.preventDefault();
+          email.focus();
+        }
+      }
+    });
+  </script>
+</body>
+</html>

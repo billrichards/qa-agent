@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Illogical Tab Order Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+    .section { margin: 40px 0; padding: 16px; border: 1px solid #ddd; border-radius: 4px; }
+    button { display: block; padding: 8px 16px; margin: 8px 0; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; width: 200px; }
+    .position-label { font-size: 0.8em; color: #666; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Illogical Tab Order Test Page</h1>
+    <p>These buttons use explicit <code>tabindex</code> values that create a zig-zag tab order — jumping from bottom of page back to top, repeatedly. More than 30% of tab transitions should be backwards jumps.</p>
+
+    <!--
+      Trigger: > 30% of tab transitions involve backward jumps > 100px up the page.
+      Strategy: alternate tabindex values between a TOP group and a BOTTOM group so that
+      every other tab transition is a backwards jump (bottom → top → bottom → top…).
+      Tab order: 1(bottom) → 2(top) [BACK] → 3(bottom) → 4(top) [BACK] → 5(bottom) → 6(top) [BACK]
+      = 3 backwards jumps / 5 transitions = 60% — well above the 30% threshold.
+    -->
+
+    <!-- These buttons are VISUALLY at the top but get EVEN tabindex values (tabbed 2nd, 4th, 6th) -->
+    <div class="section">
+      <span class="position-label">Visual position: TOP of page</span>
+      <button tabindex="2">Top Button A (tabindex=2)</button>
+      <button tabindex="4">Top Button B (tabindex=4)</button>
+      <button tabindex="6">Top Button C (tabindex=6)</button>
+    </div>
+
+    <!-- These buttons are VISUALLY at the bottom but get ODD tabindex values (tabbed 1st, 3rd, 5th) -->
+    <div class="section" style="margin-top: 400px;">
+      <span class="position-label">Visual position: BOTTOM of page</span>
+      <button tabindex="1">Bottom Button A (tabindex=1)</button>
+      <button tabindex="3">Bottom Button B (tabindex=3)</button>
+      <button tabindex="5">Bottom Button C (tabindex=5)</button>
+    </div>
+
+    <!-- Tab order: 1(bottom) → 2(top) [BACK] → 3(bottom) → 4(top) [BACK] → 5(bottom) → 6(top) [BACK]
+         3 of 5 transitions are backwards jumps = 60%, well above the 30% threshold -->
+
+    <p><a href="index.html">Back to index</a></p>
+  </main>
+</body>
+</html>
