@@ -1,10 +1,14 @@
 """Form testing module."""
 
+import logging
+
 from playwright.sync_api import Page
 
 from ..config import TestConfig
 from ..models import Finding, FindingCategory, Severity
 from .base import BaseTester
+
+logger = logging.getLogger(__name__)
 
 
 class FormTester(BaseTester):
@@ -67,11 +71,12 @@ class FormTester(BaseTester):
 
                     self.forms_data.append(form_data)
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating form element: %s", self.__class__.__name__, e)
                     continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _analyze_forms failed: %s", self.__class__.__name__, e)
 
     def _test_required_fields(self):
         """Test that required fields are properly indicated."""
@@ -106,7 +111,8 @@ class FormTester(BaseTester):
                     if not info['hasVisualIndicator'] and not info['hasAriaRequired']:
                         unmarked_required.append(info)
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating required field: %s", self.__class__.__name__, e)
                     continue
 
             if len(unmarked_required) > 0:
@@ -121,8 +127,8 @@ class FormTester(BaseTester):
                     metadata={"fields": unmarked_required[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_required_fields failed: %s", self.__class__.__name__, e)
 
     def _test_input_validation(self):
         """Test input validation with various invalid inputs."""
@@ -183,11 +189,12 @@ class FormTester(BaseTester):
                         # Clear for next test
                         element.clear()
 
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error testing input validation for %s: %s", self.__class__.__name__, test["field_type"], e)
                         continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_input_validation failed: %s", self.__class__.__name__, e)
 
     def _test_error_messages(self):
         """Test that error messages are accessible and clear."""
@@ -235,11 +242,12 @@ class FormTester(BaseTester):
                         if not info.get('ariaLive') and info.get('role') != 'alert':
                             pass  # Only flag if we know it's dynamic
 
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error evaluating error message element: %s", self.__class__.__name__, e)
                         continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_error_messages failed: %s", self.__class__.__name__, e)
 
     def _test_form_labels(self):
         """Test that form inputs have proper labels."""
@@ -303,7 +311,8 @@ class FormTester(BaseTester):
                                 "issue": "no_label"
                             })
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating input label: %s", self.__class__.__name__, e)
                     continue
 
             # Report placeholder-only issues
@@ -334,8 +343,8 @@ class FormTester(BaseTester):
                     metadata={"inputs": no_label[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_form_labels failed: %s", self.__class__.__name__, e)
 
     def _test_input_types(self):
         """Test that inputs use appropriate HTML5 types."""
@@ -378,7 +387,8 @@ class FormTester(BaseTester):
                     if info['suggestedType'] and info['suggestedType'] != info['currentType']:
                         wrong_types.append(info)
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating input type: %s", self.__class__.__name__, e)
                     continue
 
             if len(wrong_types) > 0:
@@ -393,8 +403,8 @@ class FormTester(BaseTester):
                     metadata={"suggestions": wrong_types[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_input_types failed: %s", self.__class__.__name__, e)
 
     def _test_autocomplete(self):
         """Test autocomplete attributes on form fields."""
@@ -426,7 +436,8 @@ class FormTester(BaseTester):
                     if not info['hasAutocomplete'] or info['autocomplete'] == '':
                         missing_autocomplete.append(info)
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating autocomplete field: %s", self.__class__.__name__, e)
                     continue
 
             if len(missing_autocomplete) > 2:
@@ -441,8 +452,8 @@ class FormTester(BaseTester):
                     metadata={"fields": missing_autocomplete[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_autocomplete failed: %s", self.__class__.__name__, e)
 
     def _test_form_submission(self):
         """Test form submission behavior without actually submitting."""
@@ -498,8 +509,9 @@ class FormTester(BaseTester):
                                     actual_behavior="No submit handler detected",
                                 ))
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error evaluating form submission: %s", self.__class__.__name__, e)
                     continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_form_submission failed: %s", self.__class__.__name__, e)

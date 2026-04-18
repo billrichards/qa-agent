@@ -1,10 +1,14 @@
 """Keyboard navigation and input testing."""
 
+import logging
+
 from playwright.sync_api import Page
 
 from ..config import TestConfig
 from ..models import Finding, FindingCategory, Severity
 from .base import BaseTester
+
+logger = logging.getLogger(__name__)
 
 
 class KeyboardTester(BaseTester):
@@ -203,11 +207,12 @@ class KeyboardTester(BaseTester):
                                     actual_behavior="Arrow key press had no effect",
                                 ))
 
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("%s: error testing arrow key on %s: %s", self.__class__.__name__, selector, e)
                         continue
 
-        except Exception:
-            pass  # Arrow key test is supplementary, don't fail on errors
+        except Exception as e:
+            logger.debug("%s: _test_arrow_key_navigation failed: %s", self.__class__.__name__, e)
 
     def _test_enter_activation(self):
         """Test that Enter key activates focused elements."""
@@ -243,11 +248,12 @@ class KeyboardTester(BaseTester):
                             actual_behavior="Element could not be focused via JavaScript",
                         ))
 
-                except Exception:
+                except Exception as e:
+                    logger.debug("%s: error testing enter activation on element: %s", self.__class__.__name__, e)
                     continue
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_enter_activation failed: %s", self.__class__.__name__, e)
 
     def _test_escape_key(self):
         """Test that Escape key closes modals/dropdowns."""
@@ -277,8 +283,8 @@ class KeyboardTester(BaseTester):
                             actual_behavior="Modal remained open after Escape key press",
                         ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_escape_key failed: %s", self.__class__.__name__, e)
 
     def _test_keyboard_traps(self):
         """Test for keyboard traps where user cannot TAB out."""
@@ -336,8 +342,8 @@ class KeyboardTester(BaseTester):
 
                 visited_indices.add(focused_index)
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_keyboard_traps failed: %s", self.__class__.__name__, e)
 
     def _test_focus_visibility(self):
         """Test that focus indicators are visible."""
@@ -387,8 +393,8 @@ class KeyboardTester(BaseTester):
                     metadata={"elements": elements_without_focus_style[:5]},
                 ))
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_focus_visibility failed: %s", self.__class__.__name__, e)
 
     def _test_shortcut_keys(self):
         """Test common keyboard shortcuts don't break the page."""
@@ -421,5 +427,5 @@ class KeyboardTester(BaseTester):
                 # Press Escape to close any dialogs that opened
                 self.page.keyboard.press("Escape")
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("%s: _test_shortcut_keys failed: %s", self.__class__.__name__, e)
