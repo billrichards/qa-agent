@@ -3,6 +3,10 @@
 Automated exploratory QA testing for web applications — powered by Playwright and, optionally, LLMs (Claude or GPT-4o).
 
 <p align="center">
+  <code>qa-agent example.com</code>
+</p>
+
+<p align="center">
   <a href="https://github.com/billrichards/qa-agent/actions/workflows/test.yml"><img src="https://github.com/billrichards/qa-agent/actions/workflows/test.yml/badge.svg" alt="Tests"></a>
   <a href="https://pypi.org/project/qa-agent/"><img src="https://img.shields.io/pypi/v/qa-agent" alt="PyPI version"></a>
   <a href="https://pypi.org/project/qa-agent/"><img src="https://img.shields.io/pypi/pyversions/qa-agent" alt="Python versions"></a>
@@ -24,18 +28,16 @@ Need targeted tests? Pass plain-English instructions and an LLM generates custom
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Programmatic Usage](#programmatic-usage)
 - [Agentic Testing](#agentic-testing)
 - [Web Interface & API](#web-interface--api)
 - [CLI Reference](#cli-reference)
-- [Programmatic Usage](#programmatic-usage)
 - [Test Categories](#test-categories)
 - [Output Formats](#output-formats)
 - [CI/CD Integration](#cicd-integration)
-- [Architecture](#architecture)
-- [Development](#development)
-- [Contributing](#contributing)
 - [Exit Codes](#exit-codes)
 - [Troubleshooting](#troubleshooting)
+- [Further Documentation](#further-documentation)
 - [License](#license)
 
 ---
@@ -101,6 +103,31 @@ qa-agent --output json,markdown --output-dir ./reports https://example.com
 # Run via module
 python -m qa_agent https://example.com
 ```
+
+---
+
+## Programmatic Usage
+
+```python
+from qa_agent import QAAgent, TestConfig, TestMode, OutputFormat
+
+config = TestConfig(
+    urls=["https://example.com"],
+    mode=TestMode.EXPLORE,
+    output_formats=[OutputFormat.CONSOLE, OutputFormat.JSON],
+    max_depth=2,
+    max_pages=10,
+    instructions="Verify the password reset flow.",  # optional
+)
+
+agent = QAAgent(config)
+session = agent.run()
+
+print(f"Pages tested:   {len(session.pages_tested)}")
+print(f"Total findings: {session.total_findings}")
+```
+
+→ [Full Python API Reference](https://github.com/billrichards/qa-agent/blob/main/docs/api-reference.md) — all classes, methods, and configuration options.
 
 ---
 
@@ -301,35 +328,6 @@ qa-agent --wcag-compliance    https://example.com
 
 ---
 
-## Programmatic Usage
-
-```python
-from qa_agent import QAAgent, TestConfig, TestMode, OutputFormat
-from qa_agent.llm_client import LLMProvider
-
-config = TestConfig(
-    urls=["https://example.com"],
-    mode=TestMode.EXPLORE,
-    output_formats=[OutputFormat.CONSOLE, OutputFormat.JSON],
-    max_depth=2,
-    max_pages=10,
-    instructions="Verify the password reset flow.",  # optional
-    llm_provider=LLMProvider.OPENAI,   # optional, default: LLMProvider.ANTHROPIC
-    ai_model="gpt-4o-mini",            # optional, default: None (uses provider default)
-)
-
-agent = QAAgent(config)
-session = agent.run()
-
-print(f"Pages tested:   {len(session.pages_tested)}")
-print(f"Total findings: {session.total_findings}")
-
-for finding in session.get_all_findings():
-    print(f"  [{finding.severity.value.upper()}] {finding.title}")
-```
-
----
-
 ## Test Categories
 
 Six built-in suites cover keyboard navigation, mouse interaction, form handling, accessibility (WCAG), runtime error detection, and an opt-in WCAG 2.1 AA compliance audit. Five run by default; enable the sixth with `--wcag-compliance`.
@@ -399,79 +397,6 @@ Exits with code `1` when critical or high severity issues are found, failing the
 
 ---
 
-## Architecture
-
-```
-qa_agent/
-├── cli.py                   # CLI entry point
-├── agent.py                 # Core orchestrator
-├── config.py                # Configuration dataclasses
-├── models.py                # Finding, PageAnalysis, TestSession, TestPlan
-├── llm_client.py            # Anthropic & OpenAI clients via stdlib urllib
-├── ai_planner.py            # LLM-powered test plan generation
-├── plan_cache.py            # Filesystem cache for test plans
-├── testers/
-│   ├── base.py              # BaseTester abstract class
-│   ├── keyboard.py          # Keyboard navigation
-│   ├── mouse.py             # Mouse interaction
-│   ├── forms.py             # Form handling
-│   ├── accessibility.py     # WCAG accessibility
-│   ├── wcag_compliance.py   # WCAG 2.1 AA compliance (opt-in)
-│   ├── errors.py            # Console & network errors
-│   └── custom.py            # AI-generated test steps
-├── reporters/
-│   ├── console.py           # Colored terminal output
-│   ├── markdown.py          # Markdown report
-│   ├── json_reporter.py     # JSON report
-│   └── pdf.py               # PDF report (requires weasyprint)
-└── web/
-    ├── server.py             # Flask app with SSE streaming
-    ├── templates/            # Jinja2 templates
-    └── static/               # CSS and JavaScript
-```
-
-→ [Extending QA Agent — adding custom testers](https://github.com/billrichards/qa-agent/blob/main/docs/architecture.md)
-
----
-
-## Development
-
-```bash
-git clone https://github.com/billrichards/qa-agent.git
-cd qa-agent
-pip install -e ".[dev,web,ai]"
-playwright install chromium
-
-# Unit tests (no browser needed)
-pytest -v -m "not integration and not network"
-
-# Integration tests (real Playwright)
-pytest -v -m integration --no-cov
-
-# Browse the test harness in a browser
-cd tests/fixtures/test-target && python3 -m http.server 8181
-
-# Lint & type check
-ruff check .
-mypy qa_agent
-```
-
-CI runs unit tests across Python 3.10–3.12 on Ubuntu, macOS, and Windows. Integration tests run on Ubuntu with Playwright. See [`.github/workflows/test.yml`](https://github.com/billrichards/qa-agent/blob/main/.github/workflows/test.yml).
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b my-feature`)
-3. Make your changes and add tests
-4. Run `pytest -v -m "not integration and not network"`
-5. Open a pull request against `main`
-
-Code style: Ruff + Black, line length 100.
-
----
-
 ## Exit Codes
 
 | Code | Meaning |
@@ -523,6 +448,19 @@ If the key is missing or the API call fails, qa-agent prints a warning and conti
 ### Python version too old
 
 Requires **3.10+**. Check with `python --version`.
+
+---
+
+## Further Documentation
+
+| Document | Description |
+|---|---|
+| [Architecture](https://github.com/billrichards/qa-agent/blob/main/docs/architecture.md) | System architecture and how to extend QA Agent |
+| [Development Guide](https://github.com/billrichards/qa-agent/blob/main/docs/development.md) | Detailed development setup, testing, and build processes |
+| [Python API Reference](https://github.com/billrichards/qa-agent/blob/main/docs/api-reference.md) | Programmatic usage for embedding QA Agent in Python code |
+| [Test Categories](https://github.com/billrichards/qa-agent/blob/main/docs/test-categories.md) | Detailed test-by-test reference |
+| [Web API](https://github.com/billrichards/qa-agent/blob/main/docs/web-api.md) | Full REST API documentation |
+| [Contributing](https://github.com/billrichards/qa-agent/blob/main/CONTRIBUTING.md) | Contribution guidelines and pull request process |
 
 ---
 

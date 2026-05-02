@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-05-02
+
+### Added
+
+- `CONTRIBUTING.md` with development setup, architecture overview, and contribution guidelines.
+- `docs/README.md` as a documentation hub linking to all detailed docs.
+- `docs/development.md` with detailed development guide covering environment setup, testing, building, and debugging.
+- `docs/api-reference.md` with complete programmatic API reference for embedding QA Agent in Python code.
+
+### Changed
+
+- README.md trimmed for PyPI: Architecture, Development, Contributing, and Programmatic Usage sections moved to dedicated docs files.
+- `pyproject.toml` now includes a `Documentation` URL pointing to `docs/README.md`.
+- All documentation links in README.md use full GitHub URLs so they render correctly on PyPI.
+
 ## [0.2.0] - 2026-04-14
 
 ### Added
@@ -81,7 +96,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional dependency extras: `pdf`, `web`, `all`.
 - CI/CD integration via exit codes (0 = pass, 1 = critical/high issues, 2 = error, 130 = interrupted).
 
-[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/billrichards/qa-agent/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/billrichards/qa-agent/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/billrichards/qa-agent/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/billrichards/qa-agent/releases/tag/v0.1.0

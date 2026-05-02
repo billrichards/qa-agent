@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qa-agent"
-version = "0.2.1"
+version = "0.2.2"
 description = "Agentic exploratory QA testing for web applications"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -37,13 +37,13 @@ web = [
     "nh3>=0.2.15",
 ]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=8.0.0",
     "pytest-playwright>=0.4.0",
-    "pytest-cov>=4.0.0",
+    "pytest-cov>=5.0.0",
     "pytest-mock>=3.10.0",
     "pytest-xdist>=3.0.0",
     "black>=23.0.0",
-    "ruff>=0.1.0",
+    "ruff>=0.4.0",
     "mypy>=1.0.0",
     "build>=1.0.0",
 ]
@@ -58,6 +58,7 @@ qa-agent-web = "qa_agent.web:serve_web_cli"
 [project.urls]
 Homepage = "https://github.com/billrichards/qa-agent"
 Repository = "https://github.com/billrichards/qa-agent"
+Documentation = "https://github.com/billrichards/qa-agent/blob/main/docs/README.md"
 Issues = "https://github.com/billrichards/qa-agent/issues"
 Changelog = "https://github.com/billrichards/qa-agent/blob/main/CHANGELOG.md"
 
