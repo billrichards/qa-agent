@@ -141,9 +141,9 @@ Examples:
     )
     parser.add_argument(
         "--output-dir",
-        default=str(Path.cwd() / "output"),
-        help="Base directory for all output (default: ./output relative to current directory). "
-             "Results are written to output/{domain}/{session_id}/qa_reports|screenshots|recordings",
+        default=str(Path.cwd() / "qa-agent-output"),
+        help="Base directory for all output (default: ./qa-agent-output relative to current directory). "
+             "Results are written to qa-agent-output/{domain}/{session_id}/qa_reports|screenshots|recordings",
     )
 
     # Browser options

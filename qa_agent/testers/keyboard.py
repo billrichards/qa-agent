@@ -327,15 +327,19 @@ class KeyboardTester(BaseTester):
 
                 if focused_index in visited_indices and len(visited_indices) < 3:
                     # Focus is cycling through fewer than 3 elements while the page
-                    # has more than 3 focusable elements — genuine trap.
+                    # has more than 3 focusable elements — genuine trap per WCAG 2.1 SC 2.1.2.
+                    # Reported as MEDIUM: even a single-element trap prevents navigation away.
                     self.findings.append(Finding(
                         title="Potential keyboard trap detected",
-                        description=f"Focus cycles through only {len(visited_indices)} elements repeatedly",
+                        description=(
+                            f"Focus cycles through only {len(visited_indices)} element(s) repeatedly. "
+                            "Keyboard-only users cannot navigate past this component (WCAG 2.1 SC 2.1.2)."
+                        ),
                         category=FindingCategory.KEYBOARD_NAVIGATION,
-                        severity=Severity.HIGH,
+                        severity=Severity.MEDIUM,
                         url=self.page.url,
                         expected_behavior="User should be able to TAB through all interactive elements",
-                        actual_behavior=f"Focus trapped cycling through {len(visited_indices)} elements",
+                        actual_behavior=f"Focus trapped cycling through {len(visited_indices)} element(s)",
                         metadata={"trapped_elements": list(visited_indices)},
                     ))
                     break

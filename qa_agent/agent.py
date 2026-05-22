@@ -54,6 +54,13 @@ class QAAgent:
         self.urls_to_visit: list[str] = []
         self.test_plan: TestPlan | None = None
         self.stop_event: threading.Event | None = None  # Set by web server to request graceful stop
+        self._reauth_count: int = 0  # Guards against infinite re-auth loops on bad credentials
+
+        # If instructions explicitly mention logout/destructive flows, honour the user's intent
+        # and disable the default destructive-link heuristic in explore mode.
+        _instruction_text = (config.instructions or "").lower()
+        _destructive_keywords = ["logout", "log out", "sign out", "signout", "log-out", "sign-out"]
+        self._allow_destructive_urls: bool = any(kw in _instruction_text for kw in _destructive_keywords)
 
         # Optional factory callable that returns a sync_playwright() context manager.
         # Used by tests to inject a mock playwright without touching the network.
@@ -264,8 +271,15 @@ class QAAgent:
             ctx = self.config.invocation_context
             if ctx == "cli":
                 _selector_hint = (
-                    "Tip: use --auth-file with a JSON file containing "
-                    "username_selector, password_selector, and submit_selector fields."
+                    'Tip: use --auth-file with a JSON file, e.g.:\n'
+                    '  {\n'
+                    '    "auth_url": "https://example.com/login",\n'
+                    '    "username": "user@example.com",\n'
+                    '    "password": "yourpassword",\n'
+                    '    "username_selector": "input#email",\n'
+                    '    "password_selector": "input#password",\n'
+                    '    "submit_selector": "button[type=\'submit\']"\n'
+                    '  }'
                 )
             elif ctx == "web":
                 _selector_hint = (
@@ -283,20 +297,20 @@ class QAAgent:
             try:
                 self.page.fill(username_selector, auth.username)
             except Exception as e:
-                msg = f"Warning: Could not fill username field: {e}"
+                msg = f"Could not fill username field: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.username_selector:
                     msg += f"\n  {_selector_hint}"
-                self.console.print_progress(msg)
+                self.console.print_error(msg)
 
             # Find and fill password
             password_selector = auth.password_selector or 'input[type="password"]'
             try:
                 self.page.fill(password_selector, auth.password)
             except Exception as e:
-                msg = f"Warning: Could not fill password field: {e}"
+                msg = f"Could not fill password field: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.password_selector:
                     msg += f"\n  {_selector_hint}"
-                self.console.print_progress(msg)
+                self.console.print_error(msg)
 
             # Submit
             submit_selector = auth.submit_selector or 'button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Sign in")'
@@ -304,10 +318,10 @@ class QAAgent:
                 self.page.click(submit_selector)
                 self.page.wait_for_load_state("networkidle", timeout=10000)
             except Exception as e:
-                msg = f"Warning: Could not submit login form: {e}"
+                msg = f"Could not submit login form: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.submit_selector:
                     msg += f"\n  {_selector_hint}"
-                self.console.print_progress(msg)
+                self.console.print_error(msg)
 
     def _run_focused_mode(self):
         """Run tests on specific URLs only."""
@@ -344,10 +358,11 @@ class QAAgent:
 
             # Discover new links
             if current_depth < self.config.max_depth:
-                new_urls = self._discover_links(url)
-                for new_url in new_urls:
+                new_links = self._discover_links(url)
+                for link in new_links:
+                    new_url = link['href']
                     if new_url not in self.visited_urls and new_url not in self.urls_to_visit:
-                        if not self._should_skip_url(new_url):
+                        if not self._should_skip_url(new_url, link.get('text', '')):
                             self.urls_to_visit.append(new_url)
                             depth_map[new_url] = current_depth + 1
 
@@ -364,8 +379,26 @@ class QAAgent:
                 self.page.wait_for_load_state("networkidle", timeout=10000)
             load_time = (time.time() - start_time) * 1000
         except Exception as e:
-            self.console.print_progress(f"Error loading page: {e}")
+            self.console.print_error(f"Error loading page: {e}")
             return
+
+        # If we were redirected to the login page, re-authenticate once and continue.
+        # Guard against infinite loops when credentials are wrong.
+        auth = self.config.auth
+        if auth and auth.auth_url and self.page.url != url:
+            auth_path = urlparse(auth.auth_url).path.rstrip('/')
+            current_path = urlparse(self.page.url).path.rstrip('/')
+            if auth_path and current_path == auth_path:
+                if self._reauth_count < 1:
+                    self._reauth_count += 1
+                    self.console.print_progress("Detected redirect to login page, re-authenticating...")
+                    self._authenticate()
+                else:
+                    self.console.print_error(
+                        "Re-authentication attempted but still redirected to login page — "
+                        "check credentials. Skipping further re-auth attempts."
+                    )
+                    return
 
         # Fail fast on page-level HTTP errors — report one finding, skip all testers
         if response is not None and response.status >= 400:
@@ -512,45 +545,57 @@ class QAAgent:
                 "images_count": 0,
             }
 
-    def _discover_links(self, current_url: str) -> list[str]:
+    _DESTRUCTIVE_URL_PATTERNS = [
+        r'/logout', r'/log-out', r'/sign-out', r'/signout',
+        r'/delete-account', r'/deactivate',
+    ]
+    _DESTRUCTIVE_LINK_TEXT = [
+        'log out', 'logout', 'sign out', 'signout', 'delete account', 'deactivate account',
+    ]
+
+    def _discover_links(self, current_url: str) -> list[dict]:
         """Discover links on the current page for exploration."""
         assert self.page is not None
         try:
-            links = self.page.evaluate("""() => {
+            raw = self.page.evaluate("""() => {
                 const links = document.querySelectorAll('a[href]');
-                return Array.from(links).map(a => a.href).filter(href =>
-                    href &&
-                    !href.startsWith('javascript:') &&
-                    !href.startsWith('mailto:') &&
-                    !href.startsWith('tel:') &&
-                    !href.startsWith('#')
+                return Array.from(links).map(a => ({
+                    href: a.href,
+                    text: (a.textContent || '').trim().toLowerCase()
+                })).filter(item =>
+                    item.href &&
+                    !item.href.startsWith('javascript:') &&
+                    !item.href.startsWith('mailto:') &&
+                    !item.href.startsWith('tel:') &&
+                    !item.href.startsWith('#')
                 );
             }""")
 
-            valid_links = []
+            seen: set[str] = set()
+            valid_links: list[dict] = []
             current_domain = urlparse(current_url).netloc
 
-            for link in links:
-                parsed = urlparse(link)
+            for item in raw:
+                parsed = urlparse(item['href'])
 
-                # Filter by domain if configured
                 if self.config.same_domain_only and parsed.netloc != current_domain:
                     continue
 
-                # Normalize URL
                 normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                 if normalized.endswith('/'):
                     normalized = normalized[:-1]
 
-                valid_links.append(normalized)
+                if normalized not in seen:
+                    seen.add(normalized)
+                    valid_links.append({'href': normalized, 'text': item['text']})
 
-            return list(set(valid_links))
+            return valid_links
 
         except Exception:
             return []
 
-    def _should_skip_url(self, url: str) -> bool:
-        """Check if URL should be skipped based on ignore patterns."""
+    def _should_skip_url(self, url: str, link_text: str = "") -> bool:
+        """Check if URL should be skipped based on ignore patterns or destructive heuristics."""
         for pattern in self.config.ignore_patterns:
             if re.search(pattern, url):
                 return True
@@ -559,6 +604,17 @@ class QAAgent:
         skip_extensions = ['.pdf', '.zip', '.jpg', '.png', '.gif', '.svg', '.css', '.js', '.ico']
         for ext in skip_extensions:
             if url.lower().endswith(ext):
+                return True
+
+        # Skip destructive/logout URLs — bypassed when AI instructions explicitly request it
+        if not self._allow_destructive_urls:
+            for pattern in self._DESTRUCTIVE_URL_PATTERNS:
+                if re.search(pattern, url, re.IGNORECASE):
+                    self.console.print_progress(f"Skipping destructive link: {url}")
+                    return True
+
+            if link_text and any(t in link_text for t in self._DESTRUCTIVE_LINK_TEXT):
+                self.console.print_progress(f"Skipping logout link (text match): {url}")
                 return True
 
         return False

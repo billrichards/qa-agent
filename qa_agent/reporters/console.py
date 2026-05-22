@@ -56,6 +56,10 @@ class ConsoleReporter(BaseReporter):
         """Print progress message."""
         print(f"  → {message}")
 
+    def print_error(self, message: str) -> None:
+        """Print an error message in red."""
+        print(f"  {self._color('✗ ERROR:', '91')} {message}")
+
     def print_warning(self, message: str) -> None:
         """Print a test reliability warning."""
         print(f"  ⚠  {self._color('WARNING:', '93')} {message}")

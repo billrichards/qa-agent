@@ -71,6 +71,31 @@
     form.reset();
     document.getElementById('explore-section').style.display = 'none';
   });
+
+  document.getElementById('export-config-btn')?.addEventListener('click', () => {
+    const cfg = collectFormData(form);
+    const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'qa-agent-config.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById('import-config-input')?.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        applyConfig(JSON.parse(e.target.result));
+      } catch (_) {
+        alert('Invalid config file.');
+      }
+    };
+    reader.readAsText(file);
+    this.value = '';
+  });
 })();
 
 

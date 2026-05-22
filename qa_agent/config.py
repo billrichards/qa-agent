@@ -60,7 +60,7 @@ class TestConfig:
     output_formats: list[OutputFormat] = field(
         default_factory=lambda: [OutputFormat.CONSOLE, OutputFormat.MARKDOWN]
     )
-    output_dir: str = "./output"
+    output_dir: str = "./qa-agent-output"
 
     # Browser settings
     headless: bool = True

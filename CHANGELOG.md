@@ -16,6 +16,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-05-22
+
+### Fixed
+
+- **CSP / stuck-queued bug**: All inline `<script>` blocks extracted from Jinja2 templates to external static files (`static/index.js`, `run.js`, `sessions.js`, `session.js`), resolving `script-src 'self'` violations that blocked SSE event handling and caused the web UI to show "Queued" indefinitely.
+- **Stop button**: Now correctly reflects actual job state on page load via a pre-flight `/api/status` check before opening the SSE stream. Button text updated to "Stopping after current page…".
+- **Exploratory mode logout links**: Explore mode now skips URLs and link text matching common logout/destructive patterns (`/logout`, `/sign-out`, "log out", etc.) by default. When AI instructions explicitly reference logout flows, the heuristic is bypassed to honour the user's intent.
+- **Re-auth loop guard**: Re-authentication on login-page redirect is now limited to one attempt per page; subsequent redirects log a red error and skip the page rather than looping indefinitely.
+
+### Added
+
+- `ConsoleReporter.print_error()`: errors now render in red (`✗ ERROR:`) in CLI output, distinct from progress messages.
+- Export/Import config buttons in the web UI — download current form config as `qa-agent-config.json` or load a previously saved file.
+- Auth file tip now includes a complete JSON example with all supported fields.
+
+### Changed
+
+- Default output directory renamed from `./output` to `./qa-agent-output` (CLI `--output-dir`, web server, and `TestConfig` default). Explicit `--output-dir` flags are unaffected.
+- Keyboard trap (focus cycling through a single element) severity lowered from HIGH to MEDIUM with an updated description citing WCAG 2.1 SC 2.1.2.
+
 ## [0.2.2] - 2026-05-02
 
 ### Added

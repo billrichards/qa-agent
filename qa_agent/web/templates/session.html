@@ -150,25 +150,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-// Toggle finding detail rows
-document.querySelectorAll('.finding-row').forEach(row => {
-  row.addEventListener('click', () => {
-    const detail = row.querySelector('.finding-detail');
-    if (detail) detail.style.display = detail.style.display === 'none' ? '' : 'none';
-  });
-});
-
-// Re-run with same config: pre-fill form
-(function() {
-  const config = {{ session.config_summary | tojson }};
-  document.getElementById('rerun-btn').addEventListener('click', e => {
-    e.preventDefault();
-    if (config.urls && config.urls.length) {
-      sessionStorage.setItem('qa_rerun_config', JSON.stringify(config));
-      window.location.href = '/';
-    }
-  });
-}());
-</script>
+<script type="application/json" id="session-config-data">{{ session.config_summary | tojson }}</script>
+<script src="/static/session.js"></script>
 {% endblock %}

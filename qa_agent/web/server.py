@@ -28,7 +28,7 @@ from ..llm_client import LLMProvider
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve().parent      # qa_agent/web/
-OUTPUT_DIR = Path.cwd() / "output"
+OUTPUT_DIR = Path.cwd() / "qa-agent-output"
 
 # ── Flask app ──────────────────────────────────────────────────────────────────
 app = Flask(__name__, template_folder=str(_HERE / "templates"))
