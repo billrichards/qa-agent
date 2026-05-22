@@ -63,7 +63,7 @@ CI enforces these checks on all PRs.
 
 ## Project Structure
 
-```
+```text
 qa_agent/
 ├── cli.py                   # CLI entry point (argparse)
 ├── agent.py                 # Core orchestrator (QAAgent class)

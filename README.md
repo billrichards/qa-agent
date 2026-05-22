@@ -23,7 +23,8 @@ Need targeted tests? Pass plain-English instructions and an LLM generates custom
 
 ---
 
-## Table of Contents
+<details>
+<summary><strong>Table of Contents</strong></summary>
 
 - [Features](#features)
 - [Installation](#installation)
