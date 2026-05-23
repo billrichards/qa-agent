@@ -21,10 +21,26 @@ def _ensure_chromium_installed() -> None:
             subprocess.run(
                 [sys.executable, "-m", "playwright", "install", "chromium"],
                 check=True,
-                capture_output=False,
+                capture_output=True,
+                text=True,
             )
-        except subprocess.CalledProcessError:
-            print("Failed to install Chromium. Run: playwright install chromium", file=sys.stderr)
+        except subprocess.CalledProcessError as e:
+            err_msg = e.stderr.lower() if e.stderr else ""
+            if "permission" in err_msg or "denied" in err_msg:
+                print(
+                    "Permission denied installing Chromium. Try:\n"
+                    "  playwright install chromium\n"
+                    "Or set PLAYWRIGHT_BROWSERS_PATH to a writable directory:\n"
+                    "  export PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers\n"
+                    "  qa-agent-web",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Failed to install Chromium:\n{e.stderr or 'Unknown error'}\n\n"
+                    "Try manually: playwright install chromium",
+                    file=sys.stderr,
+                )
             sys.exit(2)
 
 
