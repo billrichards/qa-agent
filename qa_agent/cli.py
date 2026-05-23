@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -16,6 +17,25 @@ from .config import (
     TestMode,
 )
 from .llm_client import LLMProvider
+
+
+def ensure_chromium_installed() -> None:
+    """Ensure Chromium browser is installed. Install it if missing."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            p.chromium
+    except Exception:
+        print("Installing Chromium browser (this may take a minute)...", file=sys.stderr)
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                check=True,
+                capture_output=False,
+            )
+        except subprocess.CalledProcessError:
+            print("Failed to install Chromium. Run: playwright install chromium", file=sys.stderr)
+            sys.exit(2)
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
@@ -49,6 +69,8 @@ def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig
 
 def main():
     """Main entry point for the CLI."""
+    ensure_chromium_installed()
+
     parser = argparse.ArgumentParser(
         description="QA Agent - Automated Exploratory Testing Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
