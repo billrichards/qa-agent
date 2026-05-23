@@ -2,7 +2,6 @@
 
 import argparse
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -17,41 +16,7 @@ from .config import (
     TestMode,
 )
 from .llm_client import LLMProvider
-
-
-def ensure_chromium_installed() -> None:
-    """Ensure Chromium browser is installed. Install it if missing."""
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            p.chromium
-    except Exception:
-        print("Installing Chromium browser (this may take a minute)...", file=sys.stderr)
-        try:
-            subprocess.run(
-                [sys.executable, "-m", "playwright", "install", "chromium"],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            err_msg = e.stderr.lower() if e.stderr else ""
-            if "permission" in err_msg or "denied" in err_msg:
-                print(
-                    "Permission denied installing Chromium. Try:\n"
-                    "  playwright install chromium\n"
-                    "Or set PLAYWRIGHT_BROWSERS_PATH to a writable directory:\n"
-                    "  export PLAYWRIGHT_BROWSERS_PATH=/tmp/pw-browsers\n"
-                    "  qa-agent <url>",
-                    file=sys.stderr,
-                )
-            else:
-                print(
-                    f"Failed to install Chromium:\n{e.stderr or 'Unknown error'}\n\n"
-                    "Try manually: playwright install chromium",
-                    file=sys.stderr,
-                )
-            sys.exit(2)
+from .playwright_utils import ensure_chromium_installed
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
