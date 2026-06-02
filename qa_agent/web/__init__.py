@@ -7,8 +7,6 @@ a clear, actionable error instead of a bare ``ModuleNotFoundError``.
 
 import sys
 
-from ..playwright_utils import ensure_chromium_installed
-
 
 def serve_web_cli() -> None:
     """Entry-point wrapper for the ``qa-agent-web`` command.
@@ -16,8 +14,6 @@ def serve_web_cli() -> None:
     Imports the Flask-based server lazily so that a missing ``flask`` package
     produces a helpful error message rather than a traceback.
     """
-    ensure_chromium_installed()
-
     try:
         import nh3  # noqa: F401 — verify optional dep is present before starting
 

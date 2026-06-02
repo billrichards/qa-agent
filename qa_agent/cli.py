@@ -50,8 +50,6 @@ def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig
 
 def main():
     """Main entry point for the CLI."""
-    ensure_chromium_installed()
-
     parser = argparse.ArgumentParser(
         description="QA Agent - Automated Exploratory Testing Tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
