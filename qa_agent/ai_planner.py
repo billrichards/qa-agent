@@ -9,6 +9,7 @@ Python's built-in ``urllib`` — no third-party AI SDK required.
 """
 
 import json
+import logging
 import time
 
 from .llm_client import (
@@ -255,6 +256,56 @@ _KNOWN_ASSERTION_TYPES = frozenset({
     "visible", "hidden", "text_contains", "url_contains", "element_count"
 })
 
+logger = logging.getLogger(__name__)
+
+
+def _repair_truncated_json(text: str) -> str | None:
+    """Attempt to repair truncated JSON by closing open strings/containers."""
+    if not text.strip().startswith("{"):
+        return None
+
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if not stack:
+                return None
+            opener = stack.pop()
+            if (opener == "{" and ch != "}") or (opener == "[" and ch != "]"):
+                return None
+
+    if not in_string and not stack:
+        return None
+
+    # Can't safely repair mid-escape sequence - unclear what the intended escape was
+    if escaped:
+        return None
+
+    repaired = text
+    if in_string:
+        repaired += '"'
+    for opener in reversed(stack):
+        repaired += "}" if opener == "{" else "]"
+
+    return repaired
+
+
 def validate_plan(plan: "TestPlan") -> list[str]:
     """Return rule-based reliability warnings for a generated TestPlan.
 
@@ -420,6 +471,20 @@ class AIPlannerClient:
         try:
             data = json.loads(stripped)
         except json.JSONDecodeError as exc:
+            repaired = _repair_truncated_json(stripped)
+            if repaired is not None:
+                try:
+                    data = json.loads(repaired)
+                except json.JSONDecodeError:
+                    pass  # Repair failed, fall through to original error
+                else:
+                    if isinstance(data, dict):
+                        logger.warning(
+                            "Recovered from truncated LLM response (%d chars repaired). "
+                            "Original length: %d, repaired length: %d",
+                            len(repaired) - len(stripped), len(stripped), len(repaired)
+                        )
+                        return data
             preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
             suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
             raise ValueError(

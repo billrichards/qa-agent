@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -88,6 +89,94 @@ class TestAIPlannerParsing:
         planner = self._planner("this is not json at all }{")
         with pytest.raises(ValueError, match="invalid JSON"):
             planner.plan("test", "https://example.com")
+
+    def test_truncated_json_warning_string_is_repaired(self):
+        data = json.loads(VALID_PLAN_JSON)
+        data["warnings"] = [
+            "CSS checks cannot be verified via Playwright computed-style assertions; use visual regression."
+        ]
+        truncated = json.dumps(data)[:-3]  # chop trailing quote/bracket/brace
+        planner = self._planner(truncated)
+        plan = planner.plan("test", "https://example.com")
+        assert plan.warnings
+        assert "computed-style assertions" in plan.warnings[0]
+
+    def test_truncated_after_backslash_raises_error(self):
+        """Truncation mid-escape should fail safely - can't infer intended escape."""
+        data = json.loads(VALID_PLAN_JSON)
+        data["notes"] = "Line 1\nLine 2"  # Contains actual newline character
+        full_json = json.dumps(data)
+        # In JSON, newline becomes \n escape sequence. Find it and truncate after backslash
+        idx = full_json.index("\\n")  # Find the \n in the JSON string
+        truncated = full_json[:idx + 1]  # Keep backslash, remove the 'n'
+        
+        planner = self._planner(truncated)
+        # Should raise because repair returns None for mid-escape truncation
+        with pytest.raises(ValueError, match="invalid JSON"):
+            planner.plan("test", "https://example.com")
+
+    def test_truncated_nested_structures_repaired(self):
+        """Multiple unclosed containers should all be closed."""
+        # Create JSON with nested structures and truncate mid-way
+        data = json.loads(VALID_PLAN_JSON)
+        data["custom_steps"][0]["actions"].append({"type": "hover", "selector": "#menu"})
+        full_json = json.dumps(data)
+        # Truncate in the middle of the nested structure
+        # Find a point deep in the nesting and truncate there
+        truncate_at = full_json.index('"hover"') + len('"hover"')
+        truncated = full_json[:truncate_at]
+        
+        planner = self._planner(truncated)
+        # Should successfully repair by closing all open containers
+        plan = planner.plan("test", "https://example.com")
+        assert isinstance(plan, TestPlan)
+        # At minimum should have the summary from before truncation
+        assert plan.summary == "Test the login flow"
+
+    def test_already_valid_json_returns_none_from_repair_fn(self):
+        """_repair_truncated_json should return None for already-valid JSON."""
+        from qa_agent.ai_planner import _repair_truncated_json
+        assert _repair_truncated_json('{"key": "value"}') is None
+        assert _repair_truncated_json(VALID_PLAN_JSON) is None
+
+    def test_repair_closes_unclosed_string(self):
+        """Single unclosed string should be closed."""
+        partial = '{"summary": "test in progress'
+        from qa_agent.ai_planner import _repair_truncated_json
+        repaired = _repair_truncated_json(partial)
+        assert repaired is not None
+        # Should add closing quote and brace
+        assert repaired == partial + '"}'
+        # Verify it's valid JSON
+        parsed = json.loads(repaired)
+        assert parsed["summary"] == "test in progress"
+
+    def test_repair_closes_multiple_containers(self):
+        """Multiple unclosed objects/arrays should all be closed."""
+        partial = '{"custom_steps": [{"actions": [{"type": "click"'
+        from qa_agent.ai_planner import _repair_truncated_json
+        repaired = _repair_truncated_json(partial)
+        assert repaired is not None
+        # Should close: string, object (action), array (actions), object (step), array (steps), object (root)
+        assert repaired.endswith('"}]}]}')
+        # Verify it's valid JSON
+        parsed = json.loads(repaired)
+        assert "custom_steps" in parsed
+
+    def test_repair_rejects_mismatched_brackets(self):
+        """Malformed JSON with bracket mismatches should return None."""
+        from qa_agent.ai_planner import _repair_truncated_json
+        # Opening { but closing ]
+        assert _repair_truncated_json('{"key": [}') is None
+        # Closing without opening
+        assert _repair_truncated_json('{"key": "value"}}') is None
+
+    def test_repair_rejects_non_object_json(self):
+        """Repair only works for truncated objects, not arrays or primitives."""
+        from qa_agent.ai_planner import _repair_truncated_json
+        assert _repair_truncated_json('["array"') is None
+        assert _repair_truncated_json('"string') is None
+        assert _repair_truncated_json('123') is None
 
     def test_no_text_content_raises_llm_error(self):
         from qa_agent.llm_client import LLMError
