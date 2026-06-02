@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -135,6 +135,25 @@ def make_mock_playwright_factory(page: MagicMock | None = None):
 # ---------------------------------------------------------------------------
 # pytest fixtures
 # ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _no_chromium_install(request):
+    """Prevent ensure_chromium_installed from touching real browsers in unit tests.
+
+    Patches the function at every import site (cli, web) so tests that exercise
+    main() or serve_web_cli() don't attempt to download or launch Chromium.
+    test_playwright_utils.py tests the function directly and is unaffected because
+    it imports from qa_agent.playwright_utils, not from these call-site namespaces.
+    """
+    if "test_playwright_utils" in request.fspath.basename:
+        yield
+        return
+    # Patch both the source and the cli call site so importlib.reload() in web
+    # tests still picks up the mock rather than the real function.
+    with patch("qa_agent.playwright_utils.ensure_chromium_installed"), \
+         patch("qa_agent.cli.ensure_chromium_installed"):
+        yield
+
 
 @pytest.fixture
 def mock_page():

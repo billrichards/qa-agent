@@ -393,6 +393,9 @@ Examples:
         invocation_context="cli",
     )
 
+    # Verify Chromium is available before launching the browser
+    ensure_chromium_installed()
+
     # Run the agent
     agent = QAAgent(config)
 

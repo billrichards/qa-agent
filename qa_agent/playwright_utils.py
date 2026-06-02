@@ -3,20 +3,20 @@
 import subprocess
 import sys
 
+from playwright.sync_api import sync_playwright
+
 
 def ensure_chromium_installed() -> None:
     """Ensure Chromium browser is installed. Install it if missing.
-    
+
     This function verifies that Chromium browser binaries are actually
     installed by attempting to launch the browser. If the browser is
     not found, it automatically runs 'playwright install chromium'.
-    
+
     Raises:
         SystemExit: With code 2 if installation fails.
     """
     try:
-        from playwright.sync_api import sync_playwright
-        
         # Actually verify chromium is installed by trying to launch it
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
@@ -29,7 +29,7 @@ def ensure_chromium_installed() -> None:
         if "executable" not in err_str and "not found" not in err_str:
             # This is some other error, re-raise it
             raise
-        
+
         # Browser not found, attempt to install
         print("Installing Chromium browser (this may take a minute)...", file=sys.stderr)
         try:
