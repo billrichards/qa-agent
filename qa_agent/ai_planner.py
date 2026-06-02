@@ -255,6 +255,52 @@ _KNOWN_ASSERTION_TYPES = frozenset({
     "visible", "hidden", "text_contains", "url_contains", "element_count"
 })
 
+
+def _repair_truncated_json(text: str) -> str | None:
+    """Attempt to repair truncated JSON by closing open strings/containers."""
+    if not text.strip().startswith("{"):
+        return None
+
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if not stack:
+                return None
+            opener = stack.pop()
+            if (opener == "{" and ch != "}") or (opener == "[" and ch != "]"):
+                return None
+
+    if not in_string and not stack:
+        return None
+
+    repaired = text
+    if in_string:
+        if escaped:
+            repaired += "\\"
+        repaired += '"'
+    for opener in reversed(stack):
+        repaired += "}" if opener == "{" else "]"
+
+    return repaired
+
+
 def validate_plan(plan: "TestPlan") -> list[str]:
     """Return rule-based reliability warnings for a generated TestPlan.
 
@@ -420,6 +466,15 @@ class AIPlannerClient:
         try:
             data = json.loads(stripped)
         except json.JSONDecodeError as exc:
+            repaired = _repair_truncated_json(stripped)
+            if repaired is not None:
+                try:
+                    data = json.loads(repaired)
+                except json.JSONDecodeError:
+                    data = None
+                else:
+                    if isinstance(data, dict):
+                        return data
             preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
             suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
             raise ValueError(

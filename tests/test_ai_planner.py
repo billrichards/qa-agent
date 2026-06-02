@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -88,6 +89,17 @@ class TestAIPlannerParsing:
         planner = self._planner("this is not json at all }{")
         with pytest.raises(ValueError, match="invalid JSON"):
             planner.plan("test", "https://example.com")
+
+    def test_truncated_json_warning_string_is_repaired(self):
+        data = json.loads(VALID_PLAN_JSON)
+        data["warnings"] = [
+            "CSS checks cannot be verified via Playwright computed-style assertions; use visual regression."
+        ]
+        truncated = json.dumps(data)[:-3]  # chop trailing quote/bracket/brace
+        planner = self._planner(truncated)
+        plan = planner.plan("test", "https://example.com")
+        assert plan.warnings
+        assert "computed-style assertions" in plan.warnings[0]
 
     def test_no_text_content_raises_llm_error(self):
         from qa_agent.llm_client import LLMError
