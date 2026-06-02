@@ -16,6 +16,7 @@ from .config import (
     TestMode,
 )
 from .llm_client import LLMProvider
+from .playwright_utils import ensure_chromium_installed
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
@@ -389,6 +390,9 @@ Examples:
         use_plan_cache=not args.no_cache,
         invocation_context="cli",
     )
+
+    # Verify Chromium is available before launching the browser
+    ensure_chromium_installed()
 
     # Run the agent
     agent = QAAgent(config)
