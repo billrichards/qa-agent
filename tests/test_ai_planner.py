@@ -104,10 +104,10 @@ class TestAIPlannerParsing:
     def test_truncated_after_backslash_raises_error(self):
         """Truncation mid-escape should fail safely - can't infer intended escape."""
         data = json.loads(VALID_PLAN_JSON)
-        data["notes"] = "Line 1\\nLine 2"  # Contains newline escape
+        data["notes"] = "Line 1\nLine 2"  # Contains actual newline character
         full_json = json.dumps(data)
-        # Truncate after a backslash in the middle of an escape sequence
-        idx = full_json.index("\\n")
+        # In JSON, newline becomes \n escape sequence. Find it and truncate after backslash
+        idx = full_json.index("\\n")  # Find the \n in the JSON string
         truncated = full_json[:idx + 1]  # Keep backslash, remove the 'n'
         
         planner = self._planner(truncated)
