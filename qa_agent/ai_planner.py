@@ -9,6 +9,7 @@ Python's built-in ``urllib`` — no third-party AI SDK required.
 """
 
 import json
+import logging
 import time
 
 from .llm_client import (
@@ -255,6 +256,8 @@ _KNOWN_ASSERTION_TYPES = frozenset({
     "visible", "hidden", "text_contains", "url_contains", "element_count"
 })
 
+logger = logging.getLogger(__name__)
+
 
 def _repair_truncated_json(text: str) -> str | None:
     """Attempt to repair truncated JSON by closing open strings/containers."""
@@ -290,10 +293,12 @@ def _repair_truncated_json(text: str) -> str | None:
     if not in_string and not stack:
         return None
 
+    # Can't safely repair mid-escape sequence - unclear what the intended escape was
+    if escaped:
+        return None
+
     repaired = text
     if in_string:
-        if escaped:
-            repaired += "\\"
         repaired += '"'
     for opener in reversed(stack):
         repaired += "}" if opener == "{" else "]"
@@ -471,9 +476,14 @@ class AIPlannerClient:
                 try:
                     data = json.loads(repaired)
                 except json.JSONDecodeError:
-                    data = None
+                    pass  # Repair failed, fall through to original error
                 else:
                     if isinstance(data, dict):
+                        logger.warning(
+                            "Recovered from truncated LLM response (%d chars repaired). "
+                            "Original length: %d, repaired length: %d",
+                            len(repaired) - len(stripped), len(stripped), len(repaired)
+                        )
                         return data
             preview = text[:_MAX_RAW_RESPONSE_IN_ERROR]
             suffix = "…" if len(text) > _MAX_RAW_RESPONSE_IN_ERROR else ""
