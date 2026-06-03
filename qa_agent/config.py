@@ -103,3 +103,20 @@ class TestConfig:
 
     # Invocation context — used to tailor diagnostic hints
     invocation_context: Literal["cli", "web"] | None = None
+
+    # Number of concurrent page-workers per run. 1 = sequential (default).
+    # Each worker drives its own browser/context, so total browsers scale with
+    # this value; it is clamped to a sane ceiling in __post_init__.
+    workers: int = 1
+
+    # Hard ceiling on concurrent page-workers to bound browser RAM/CPU.
+    WORKERS_MAX = 16
+
+    def __post_init__(self) -> None:
+        # Clamp worker count to [1, WORKERS_MAX]. Defensive against bad input
+        # from CLI flags or web request bodies.
+        try:
+            workers = int(self.workers)
+        except (TypeError, ValueError):
+            workers = 1
+        self.workers = max(1, min(self.WORKERS_MAX, workers))

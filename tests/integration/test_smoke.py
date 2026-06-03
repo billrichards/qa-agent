@@ -182,3 +182,51 @@ class TestSmoke:
         agent = QAAgent(config)
         session = agent.run()  # must not raise
         assert session is not None
+
+
+@pytest.mark.integration
+class TestSmokeParallel:
+    """Exercise the real sync-Playwright-in-threads multi-worker path."""
+
+    def test_focused_two_workers_tests_all_pages(self, fixture_server, tmp_path):
+        """workers=2 over 3 fixture pages must test all 3 with real browsers."""
+        from qa_agent.agent import QAAgent
+        from qa_agent.config import OutputFormat, TestConfig
+
+        config = TestConfig(
+            urls=[
+                f"{fixture_server}/index.html",
+                f"{fixture_server}/page2.html",
+                f"{fixture_server}/login.html",
+            ],
+            output_formats=[OutputFormat.JSON],
+            output_dir=str(tmp_path),
+            headless=True,
+            workers=2,
+        )
+        agent = QAAgent(config)
+        session = agent.run()
+
+        tested = {pa.url for pa in session.pages_tested}
+        assert len(tested) == 3, f"expected all 3 pages tested, got {tested}"
+
+    def test_parallel_matches_sequential_findings(self, fixture_server, tmp_path):
+        """The same URLs should yield the same finding count run in parallel or serially."""
+        from qa_agent.agent import QAAgent
+        from qa_agent.config import OutputFormat, TestConfig
+
+        def _run(workers: int, out):
+            config = TestConfig(
+                urls=[f"{fixture_server}/index.html", f"{fixture_server}/page2.html"],
+                output_formats=[OutputFormat.JSON],
+                output_dir=str(out),
+                headless=True,
+                workers=workers,
+            )
+            return QAAgent(config).run()
+
+        seq = _run(1, tmp_path / "seq")
+        par = _run(2, tmp_path / "par")
+
+        assert len(par.pages_tested) == len(seq.pages_tested)
+        assert par.total_findings == seq.total_findings

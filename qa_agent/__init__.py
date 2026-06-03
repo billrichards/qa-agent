@@ -12,3 +12,34 @@ try:
 except PackageNotFoundError:
     # Package not installed (e.g. running from source without install)
     __version__ = "0.2.3"
+
+from .agent import QAAgent  # noqa: E402
+from .batch import BatchJob, BatchRunner  # noqa: E402
+from .config import (  # noqa: E402
+    AuthConfig,
+    OutputFormat,
+    RecordingConfig,
+    ScreenshotConfig,
+    TestConfig,
+    TestMode,
+)
+from .llm_client import LLMProvider  # noqa: E402
+from .models import Finding, PageAnalysis, Severity, TestSession  # noqa: E402
+
+__all__ = [
+    "QAAgent",
+    "BatchRunner",
+    "BatchJob",
+    "TestConfig",
+    "AuthConfig",
+    "ScreenshotConfig",
+    "RecordingConfig",
+    "TestMode",
+    "OutputFormat",
+    "LLMProvider",
+    "TestSession",
+    "PageAnalysis",
+    "Finding",
+    "Severity",
+    "__version__",
+]

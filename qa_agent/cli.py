@@ -83,8 +83,8 @@ Examples:
     # Positional arguments
     parser.add_argument(
         "urls",
-        nargs="+",
-        help="URL(s) to test",
+        nargs="*",
+        help="URL(s) to test (omit only when using --batch-file)",
     )
 
     # Mode options
@@ -114,6 +114,28 @@ Examples:
         default=50,
         dest="max_interactions_per_page",
         help="Maximum number of interactions per page (default: 50)",
+    )
+
+    # Concurrency
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of concurrent page-workers per run (default: 1, max: 16). "
+             "Each worker drives its own browser, so memory scales with this value.",
+    )
+    parser.add_argument(
+        "--batch-file",
+        help="Path to a JSON file describing multiple runs to execute concurrently. "
+             "Each entry is an object with at least 'urls' and optional overrides "
+             "(mode, max_depth, max_pages, instructions, workers). Other settings are "
+             "inherited from the command-line flags.",
+    )
+    parser.add_argument(
+        "--pool-size",
+        type=int,
+        default=4,
+        help="Max concurrent runs when using --batch-file (default: 4, max: 8).",
     )
     parser.add_argument(
         "--same-domain",
@@ -284,6 +306,10 @@ Examples:
     if args.no_cache and not (args.instructions or args.instructions_file):
         parser.error("--no-cache can only be used with --instructions or --instructions-file")
 
+    # Validate: need URLs unless running a batch file
+    if not args.urls and not args.batch_file:
+        parser.error("at least one URL is required (or use --batch-file)")
+
     # Parse output formats
     output_formats = []
     for fmt in args.output.split(","):
@@ -387,8 +413,14 @@ Examples:
         llm_provider=LLMProvider(args.llm_provider),
         ai_model=args.ai_model or None,
         use_plan_cache=not args.no_cache,
+        workers=args.workers,
         invocation_context="cli",
     )
+
+    # Batch mode: run multiple sessions concurrently from a spec file.
+    if args.batch_file:
+        _run_batch(args, config)
+        return
 
     # Run the agent
     agent = QAAgent(config)
@@ -414,6 +446,78 @@ Examples:
     except Exception as e:
         print(f"\nError running tests: {e}", file=sys.stderr)
         sys.exit(2)
+
+
+def _run_batch(args, template: TestConfig) -> None:
+    """Run multiple sessions concurrently from a JSON --batch-file.
+
+    Each spec is an object with at least ``urls`` plus optional per-run overrides
+    (``mode``, ``max_depth``, ``max_pages``, ``instructions``, ``workers``); all
+    other settings are inherited from ``template`` (the command-line flags).
+    Exits non-zero if any session has critical/high findings or tested no pages.
+    """
+    import copy
+
+    from .batch import BatchRunner
+
+    try:
+        specs = json.loads(Path(args.batch_file).read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"Error reading batch file: {e}", file=sys.stderr)
+        sys.exit(2)
+
+    if not isinstance(specs, list) or not specs:
+        print("Batch file must be a non-empty JSON array of run specs", file=sys.stderr)
+        sys.exit(2)
+
+    configs: list[TestConfig] = []
+    for i, spec in enumerate(specs):
+        if not isinstance(spec, dict) or not spec.get("urls"):
+            print(f"Batch spec #{i} must be an object with a non-empty 'urls'", file=sys.stderr)
+            sys.exit(2)
+        cfg = copy.deepcopy(template)
+        cfg.urls = list(spec["urls"])
+        if "mode" in spec:
+            cfg.mode = TestMode.EXPLORE if spec["mode"] == "explore" else TestMode.FOCUSED
+        if "max_depth" in spec:
+            cfg.max_depth = int(spec["max_depth"])
+        if "max_pages" in spec:
+            cfg.max_pages = int(spec["max_pages"])
+        if "instructions" in spec:
+            cfg.instructions = spec["instructions"] or None
+        if "workers" in spec:
+            cfg.workers = int(spec["workers"])
+        cfg.__post_init__()  # re-clamp workers after override
+        configs.append(cfg)
+
+    print(f"Running {len(configs)} sessions (pool size {args.pool_size})…")
+    runner = BatchRunner(pool_size=args.pool_size)
+    try:
+        results = runner.run_all(configs)
+    finally:
+        runner.shutdown(wait=True)
+
+    exit_code = 0
+    for cfg, result in zip(configs, results, strict=False):
+        label = cfg.urls[0] if cfg.urls else "?"
+        if isinstance(result, Exception):
+            print(f"  ✗ {label}: failed — {result}")
+            exit_code = max(exit_code, 2)
+            continue
+        critical_high = (
+            result.findings_by_severity.get("critical", 0)
+            + result.findings_by_severity.get("high", 0)
+        )
+        print(
+            f"  • {label}: {len(result.pages_tested)} pages, "
+            f"{result.total_findings} findings ({result.status})"
+        )
+        if not result.pages_tested:
+            exit_code = max(exit_code, 2)
+        elif critical_high > 0:
+            exit_code = max(exit_code, 1)
+
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

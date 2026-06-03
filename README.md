@@ -128,6 +128,25 @@ print(f"Pages tested:   {len(session.pages_tested)}")
 print(f"Total findings: {session.total_findings}")
 ```
 
+Set `workers` to test pages in parallel, and use `BatchRunner` to run several
+independent sessions concurrently with a bounded pool:
+
+```python
+from qa_agent import BatchRunner, TestConfig
+
+configs = [
+    TestConfig(urls=["https://example.com"], workers=4),
+    TestConfig(urls=["https://other.test"]),
+]
+
+with BatchRunner(pool_size=4) as runner:
+    for result in runner.run_all(configs):
+        if isinstance(result, Exception):
+            print(f"session failed: {result}")
+        else:
+            print(f"{result.session_id}: {result.total_findings} findings")
+```
+
 → [Full Python API Reference](https://github.com/billrichards/qa-agent/blob/main/docs/api-reference.md) — all classes, methods, and configuration options.
 
 ---
@@ -241,6 +260,41 @@ qa-agent --help
 qa-agent --mode focused https://example.com   # default — test only given URLs
 qa-agent --mode explore https://example.com    # crawl and test discovered pages
 ```
+
+### Concurrency
+
+Test multiple pages in parallel with cooperating workers. Each worker drives its
+own browser, so memory and CPU scale with the worker count (capped at 16).
+
+```bash
+qa-agent --workers 4 --mode explore https://example.com   # 4 pages at a time
+```
+
+Run several independent sessions concurrently from a JSON spec file. Each entry
+needs `urls` plus optional per-run overrides (`mode`, `max_depth`, `max_pages`,
+`instructions`, `workers`); all other settings come from the command-line flags.
+
+```bash
+qa-agent --batch-file runs.json --pool-size 4
+```
+
+```json
+[
+  {"urls": ["https://example.com"], "mode": "explore", "workers": 4},
+  {"urls": ["https://other.test/login"], "instructions": "Check the checkout flow"}
+]
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--workers N` | `1` | Concurrent page-workers per run (max 16) |
+| `--batch-file FILE` | — | JSON file of multiple runs to execute concurrently |
+| `--pool-size N` | `4` | Max concurrent runs for `--batch-file` (max 8) |
+
+> Total live browsers ≈ `pool-size × workers`, so size both with that
+> multiplicative cost in mind. The web API accepts the same `workers` value in
+> the `POST /api/run` body, and the pool size is set server-side via the
+> `QA_AGENT_JOB_POOL_SIZE` environment variable.
 
 ### Exploration (explore mode)
 

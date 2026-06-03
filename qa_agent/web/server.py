@@ -3,6 +3,7 @@
 import html as html_lib
 import io
 import json
+import os
 import queue
 import re
 import sys
@@ -15,7 +16,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, Response, abort, jsonify, render_template, request, send_file
 
-from ..agent import QAAgent
+from ..batch import BatchRunner
 from ..config import (
     AuthConfig,
     OutputFormat,
@@ -87,21 +88,28 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class _QueueWriter:
-    """Writes stdout lines into a job's event queue as SSE-ready dicts."""
+    """Writes stdout lines into a job's event queue as SSE-ready dicts.
+
+    Thread-safe: a job's page-workers run in separate threads but share one
+    writer, so ``write`` is guarded by a lock to avoid corrupting the line
+    buffer or interleaving partial lines.
+    """
 
     def __init__(self, q: queue.Queue, events: list) -> None:
         self._q = q
         self._events = events
         self._buf = ""
+        self._lock = threading.Lock()
 
     def write(self, text: str) -> int:
-        self._buf += text
-        while "\n" in self._buf:
-            line, self._buf = self._buf.split("\n", 1)
-            clean = _ANSI_RE.sub("", line)
-            if clean.strip():
-                self._emit("log", {"message": clean})
-                self._detect_structured(clean)
+        with self._lock:
+            self._buf += text
+            while "\n" in self._buf:
+                line, self._buf = self._buf.split("\n", 1)
+                clean = _ANSI_RE.sub("", line)
+                if clean.strip():
+                    self._emit("log", {"message": clean})
+                    self._detect_structured(clean)
         return len(text)
 
     def flush(self) -> None:
@@ -133,6 +141,12 @@ class _QueueWriter:
 _jobs: dict[str, dict[str, Any]] = {}
 _jobs_lock = threading.Lock()
 
+# Bounded pool that runs whole sessions (layer-2 concurrency). Replaces the old
+# unbounded thread-per-request model so the server applies backpressure. Size is
+# env-overridable; remember total browsers ≈ JOB_POOL_SIZE × config.workers.
+JOB_POOL_SIZE = int(os.environ.get("QA_AGENT_JOB_POOL_SIZE", "4"))
+_runner = BatchRunner(pool_size=JOB_POOL_SIZE)
+
 
 def _make_job(job_id: str) -> dict:
     return {
@@ -151,56 +165,58 @@ def _make_job(job_id: str) -> dict:
     }
 
 
-def _run_job(job_id: str, config: TestConfig) -> None:
-    """Execute QAAgent in a background thread, streaming output to the job queue."""
+def _submit_job(job_id: str, config: TestConfig) -> None:
+    """Submit a session to the bounded pool, streaming output to the job queue.
+
+    The job's per-thread stdout stream is set via the agent's
+    ``worker_thread_init`` hook so output from BOTH the pool thread running the
+    session and any page-worker sub-threads it spawns routes to this job's queue
+    (thread-local stdout would otherwise miss the sub-threads).
+    """
     job = _jobs[job_id]
     q = job["queue"]
     events = job["events"]
     writer = _QueueWriter(q, events)
-    _local.stream = writer
+    domain = urlparse(config.urls[0]).netloc.split(":")[0] if config.urls else "unknown"
+    job["domain"] = domain
 
-    try:
-        job["status"] = "running"
-        agent = QAAgent(config)
-        agent.stop_event = job["stop_event"]
+    def _init_stream() -> None:
+        _local.stream = writer
 
-        # Capture session_id and domain before run() (agent sets them in __init__)
-        job["session_id"] = agent.session_id
-        domain = urlparse(config.urls[0]).netloc.split(":")[0] if config.urls else "unknown"
-        job["domain"] = domain
+    bjob = _runner.submit(
+        config,
+        worker_thread_init=_init_stream,
+        stop_event=job["stop_event"],
+    )
+    job["session_id"] = bjob.session_id
+    job["status"] = "running"
 
-        session = agent.run()
-
-        job["total_findings"] = session.total_findings
-        job["pages_tested"] = len(session.pages_tested)
-
-        if job["stop_event"].is_set():
-            job["status"] = "stopped"
-            status = "stopped"
-        else:
-            job["status"] = "completed"
-            status = "completed"
-
-        complete_data = {
-            "session_id": session.session_id,
-            "domain": domain,
-            "total_findings": session.total_findings,
-            "status": status,
-        }
-        msg = {"type": "complete", "data": complete_data}
+    def _on_done(future) -> None:
+        try:
+            session = future.result()
+            job["total_findings"] = session.total_findings
+            job["pages_tested"] = len(session.pages_tested)
+            status = "stopped" if job["stop_event"].is_set() else "completed"
+            job["status"] = status
+            msg = {
+                "type": "complete",
+                "data": {
+                    "session_id": session.session_id,
+                    "domain": domain,
+                    "total_findings": session.total_findings,
+                    "status": status,
+                },
+            }
+        except Exception as exc:  # noqa: BLE001 - report failure to the client
+            job["status"] = "failed"
+            job["error"] = str(exc)
+            msg = {"type": "error", "data": {"message": str(exc)}}
         events.append(msg)
         q.put(msg)
-
-    except Exception as exc:
-        job["status"] = "failed"
-        job["error"] = str(exc)
-        msg = {"type": "error", "data": {"message": str(exc)}}
-        events.append(msg)
-        q.put(msg)
-
-    finally:
         q.put(None)  # sentinel — stream generator stops here
         _local.stream = None
+
+    bjob.future.add_done_callback(_on_done)
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -254,8 +270,7 @@ def api_run():
     with _jobs_lock:
         _jobs[job_id] = job
 
-    t = threading.Thread(target=_run_job, args=(job_id, config), daemon=True)
-    t.start()
+    _submit_job(job_id, config)
 
     return jsonify({
         "job_id": job_id,
@@ -717,6 +732,7 @@ def _build_config(body: dict) -> TestConfig:
         llm_provider=_parse_llm_provider(body.get("llm_provider", "anthropic")),
         ai_model=body.get("ai_model") or None,
         use_plan_cache=bool(body.get("use_plan_cache", True)),
+        workers=max(1, min(16, int(body.get("workers", 1)))),
         auth=auth,
         screenshots=ScreenshotConfig(
             enabled=ss_enabled,

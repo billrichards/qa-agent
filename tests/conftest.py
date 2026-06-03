@@ -121,6 +121,7 @@ def make_mock_playwright_factory(page: MagicMock | None = None):
     pw = MagicMock()
 
     context.new_page.return_value = page
+    context.storage_state.return_value = {"cookies": [], "origins": []}
     browser.new_context.return_value = context
     chromium.launch.return_value = browser
     pw.chromium = chromium
@@ -130,6 +131,40 @@ def make_mock_playwright_factory(page: MagicMock | None = None):
         yield pw
 
     return factory, page, context, browser
+
+
+def make_multi_mock_playwright_factory():
+    """Return a factory whose contexts/pages are DISTINCT per call.
+
+    Use for multi-worker (``config.workers > 1``) tests so each worker gets its
+    own mock page rather than a shared singleton. Returns ``(factory, pages)``
+    where ``pages`` is a live list that accumulates every page handed out.
+    """
+    pages: list[MagicMock] = []
+
+    def _new_page(*_a, **_k):
+        page = _make_mock_page()
+        pages.append(page)
+        return page
+
+    def _new_context(*_a, **_k):
+        context = MagicMock()
+        context.new_page.side_effect = _new_page
+        context.storage_state.return_value = {"cookies": [], "origins": []}
+        return context
+
+    browser = MagicMock()
+    browser.new_context.side_effect = _new_context
+    chromium = MagicMock()
+    chromium.launch.return_value = browser
+    pw = MagicMock()
+    pw.chromium = chromium
+
+    @contextmanager
+    def factory():
+        yield pw
+
+    return factory, pages
 
 
 # ---------------------------------------------------------------------------

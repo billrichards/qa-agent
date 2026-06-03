@@ -6,7 +6,7 @@ import json
 import queue
 import sys
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -141,9 +141,7 @@ class TestBuildConfig:
 
 class TestApiRun:
     def test_post_happy_path_returns_202(self, client):
-        with patch("qa_agent.web.server._run_job"), \
-             patch("threading.Thread") as mock_thread:
-            mock_thread.return_value = MagicMock()
+        with patch("qa_agent.web.server._submit_job"):
             resp = client.post("/api/run", json={"urls": ["https://example.com"]})
         assert resp.status_code == 202
         data = resp.get_json()
