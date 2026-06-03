@@ -66,6 +66,9 @@ venv.bak/
 *.swo
 .claude
 .claude/
+.cline
+.cline/
+.notes/
 
 # QA Agent outputs
 output/
