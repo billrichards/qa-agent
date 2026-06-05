@@ -7,9 +7,10 @@ import threading
 import time
 import uuid
 from datetime import datetime
+from typing import Any, cast
 from urllib.parse import urlparse
 
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from .concurrency import Frontier, PageIndexer
@@ -241,7 +242,7 @@ class QAAgent:
         """Return the playwright context-manager factory (real or injected mock)."""
         return self._playwright_factory if self._playwright_factory is not None else sync_playwright
 
-    def _launch_browser(self, playwright) -> Browser:
+    def _launch_browser(self, playwright: Playwright) -> Browser:
         """Launch a Chromium browser with the configured options."""
         return playwright.chromium.launch(headless=self.config.headless)
 
@@ -299,9 +300,11 @@ class QAAgent:
         context = context if context is not None else self.context
         assert context is not None
 
-        # Handle cookies (no page needed)
+        # Handle cookies (no page needed). Cookies are user-supplied dicts that
+        # match Playwright's SetCookieParam shape at runtime; cast for the typer.
         if auth.cookies:
-            context.add_cookies([auth.cookies] if isinstance(auth.cookies, dict) else auth.cookies)
+            cookies = [auth.cookies] if isinstance(auth.cookies, dict) else auth.cookies
+            context.add_cookies(cast("Any", cookies))
             return
 
         # Handle form-based auth
@@ -530,7 +533,7 @@ class QAAgent:
                 path = video.path()
                 if path:
                     with self._session_lock:
-                        self._recording_paths.append(path)
+                        self._recording_paths.append(str(path))
         except Exception:
             pass
 
