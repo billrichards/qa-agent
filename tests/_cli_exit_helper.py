@@ -41,17 +41,20 @@ from qa_agent.cli import main as _cli_main  # noqa: E402 — intentional late im
 if scenario in _FINDINGS:
     session = MagicMock()
     session.findings_by_severity = _FINDINGS[scenario]
-    with patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
+    with patch("qa_agent.cli.ensure_chromium_installed"), \
+         patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
          patch("qa_agent.cli.QAAgent.run", return_value=session):
         _cli_main()
 
 elif scenario == "runtime_error":
-    with patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
+    with patch("qa_agent.cli.ensure_chromium_installed"), \
+         patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
          patch("qa_agent.cli.QAAgent.run", side_effect=RuntimeError("boom")):
         _cli_main()
 
 elif scenario == "keyboard_interrupt":
-    with patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
+    with patch("qa_agent.cli.ensure_chromium_installed"), \
+         patch("qa_agent.cli.QAAgent.__init__", return_value=None), \
          patch("qa_agent.cli.QAAgent.run", side_effect=KeyboardInterrupt):
         _cli_main()
 

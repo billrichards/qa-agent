@@ -16,6 +16,7 @@ from .config import (
     TestMode,
 )
 from .llm_client import LLMProvider
+from .playwright_utils import ensure_chromium_installed
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
@@ -416,6 +417,9 @@ Examples:
         workers=args.workers,
         invocation_context="cli",
     )
+
+    # Verify Chromium is available before launching the browser
+    ensure_chromium_installed()
 
     # Batch mode: run multiple sessions concurrently from a spec file.
     if args.batch_file:

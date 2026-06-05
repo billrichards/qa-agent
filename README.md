@@ -64,10 +64,9 @@ Need targeted tests? Pass plain-English instructions and an LLM generates custom
 
 ```bash
 pip install qa-agent            # standard testing (Playwright only)
-playwright install chromium     # required — downloads browser binaries
 ```
 
-Optional extras:
+Chromium is installed automatically on first run. Optional extras:
 
 ```bash
 pip install "qa-agent[pdf]"    # PDF reports (adds WeasyPrint)
@@ -82,7 +81,7 @@ export ANTHROPIC_API_KEY=sk-ant-...   # Anthropic (default)
 export OPENAI_API_KEY=sk-...          # OpenAI
 ```
 
-> `playwright install chromium` must run once after every fresh install. See [Troubleshooting](#troubleshooting) if anything goes wrong.
+> Chromium is installed automatically on the first run. If you need to reinstall it manually, run `playwright install chromium`.
 
 ---
 
@@ -436,7 +435,6 @@ Six built-in suites cover keyboard navigation, mouse interaction, form handling,
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}   # or OPENAI_API_KEY
   run: |
     pip install qa-agent
-    playwright install chromium
     qa-agent --output json --output-dir ./qa-results https://staging.example.com
 
 - name: Upload Results
@@ -467,11 +465,13 @@ Exits with code `1` when critical or high severity issues are found, failing the
 
 ### Playwright browser not found
 
+Chromium is installed automatically on first run. If reinstalling is needed:
+
 ```bash
 playwright install chromium
 ```
 
-Must run once after every fresh install. Easy to forget in CI.
+If automatic installation fails, run the above command manually.
 
 ### Web UI not working
 
