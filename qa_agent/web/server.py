@@ -145,7 +145,9 @@ _jobs_lock = threading.Lock()
 # unbounded thread-per-request model so the server applies backpressure. Size is
 # env-overridable; remember total browsers ≈ JOB_POOL_SIZE × config.workers.
 JOB_POOL_SIZE = int(os.environ.get("QA_AGENT_JOB_POOL_SIZE", "4"))
+_pool_size = JOB_POOL_SIZE
 _runner = BatchRunner(pool_size=JOB_POOL_SIZE)
+_POOL_SIZE_MAX = 8
 
 
 def _make_job(job_id: str) -> dict:
@@ -342,6 +344,35 @@ def api_stop(job_id: str):
 
     job["stop_event"].set()
     return jsonify({"job_id": job_id, "status": "stopping"})
+
+
+@app.route("/api/server-config", methods=["GET"])
+def api_server_config_get():
+    return jsonify({
+        "pool_size": _pool_size,
+        "pool_size_max": _POOL_SIZE_MAX,
+        "workers_max": 16,
+    })
+
+
+@app.route("/api/server-config", methods=["PATCH"])
+def api_server_config_patch():
+    global _runner, _pool_size
+    body = request.get_json(force=True, silent=True) or {}
+    if "pool_size" not in body:
+        return jsonify({"error": "pool_size is required"}), 400
+    try:
+        new_size = max(1, min(_POOL_SIZE_MAX, int(body["pool_size"])))
+    except (TypeError, ValueError):
+        return jsonify({"error": "pool_size must be an integer"}), 400
+
+    if new_size != _pool_size:
+        old_runner = _runner
+        _runner = BatchRunner(pool_size=new_size)
+        _pool_size = new_size
+        old_runner.shutdown(wait=False)
+
+    return jsonify({"pool_size": _pool_size})
 
 
 @app.route("/api/jobs")

@@ -114,6 +114,7 @@ function collectFormData(form) {
     output_formats: outputFormats.length ? outputFormats : ['console', 'markdown', 'json'],
     output_dir: fd.get('output_dir') || null,
     headless: !!fd.get('headless'),
+    workers: parseInt(fd.get('workers') || '1', 10),
     viewport_width: parseInt(fd.get('viewport_width') || '1280', 10),
     viewport_height: parseInt(fd.get('viewport_height') || '720', 10),
     timeout: parseInt(fd.get('timeout') || '30000', 10),
@@ -170,6 +171,7 @@ function applyConfig(cfg) {
     }
   }
   setCheck(form, 'headless', cfg.headless !== false);
+  setNum(form, 'workers', cfg.workers);
   setNum(form, 'viewport_width', cfg.viewport_width);
   setNum(form, 'viewport_height', cfg.viewport_height);
   setNum(form, 'timeout', cfg.timeout);

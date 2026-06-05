@@ -554,3 +554,86 @@ class TestServeWebCli:
         finally:
             if saved is not None:
                 sys.modules["qa_agent.web.server"] = saved
+
+
+# ---------------------------------------------------------------------------
+# /api/server-config
+# ---------------------------------------------------------------------------
+
+class TestApiServerConfig:
+    def test_get_returns_pool_size(self, client):
+        resp = client.get("/api/server-config")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "pool_size" in data
+        assert isinstance(data["pool_size"], int)
+        assert data["pool_size"] >= 1
+
+    def test_get_returns_pool_size_max(self, client):
+        resp = client.get("/api/server-config")
+        data = resp.get_json()
+        assert "pool_size_max" in data
+        assert data["pool_size_max"] >= 1
+
+    def test_get_returns_workers_max(self, client):
+        resp = client.get("/api/server-config")
+        data = resp.get_json()
+        assert "workers_max" in data
+        assert data["workers_max"] == 16
+
+    def test_patch_updates_pool_size(self, client):
+        from qa_agent.web import server as srv_mod
+        original_size = srv_mod._pool_size
+        try:
+            new_size = max(1, original_size - 1) if original_size > 1 else 2
+            resp = client.patch("/api/server-config", json={"pool_size": new_size})
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert data["pool_size"] == new_size
+            assert srv_mod._pool_size == new_size
+        finally:
+            client.patch("/api/server-config", json={"pool_size": original_size})
+
+    def test_patch_clamps_to_max(self, client):
+        from qa_agent.web import server as srv_mod
+        original_size = srv_mod._pool_size
+        try:
+            resp = client.patch("/api/server-config", json={"pool_size": 9999})
+            assert resp.status_code == 200
+            assert resp.get_json()["pool_size"] <= srv_mod._POOL_SIZE_MAX
+        finally:
+            client.patch("/api/server-config", json={"pool_size": original_size})
+
+    def test_patch_clamps_to_min(self, client):
+        from qa_agent.web import server as srv_mod
+        original_size = srv_mod._pool_size
+        try:
+            resp = client.patch("/api/server-config", json={"pool_size": 0})
+            assert resp.status_code == 200
+            assert resp.get_json()["pool_size"] >= 1
+        finally:
+            client.patch("/api/server-config", json={"pool_size": original_size})
+
+    def test_patch_missing_pool_size_returns_400(self, client):
+        resp = client.patch("/api/server-config", json={})
+        assert resp.status_code == 400
+
+    def test_patch_invalid_type_returns_400(self, client):
+        resp = client.patch("/api/server-config", json={"pool_size": "not-a-number"})
+        assert resp.status_code == 400
+
+    def test_build_config_reads_workers(self):
+        config = _build_config({"urls": ["https://example.com"], "workers": 4})
+        assert config.workers == 4
+
+    def test_build_config_clamps_workers_max(self):
+        config = _build_config({"urls": ["https://example.com"], "workers": 999})
+        assert config.workers == 16
+
+    def test_build_config_clamps_workers_min(self):
+        config = _build_config({"urls": ["https://example.com"], "workers": 0})
+        assert config.workers == 1
+
+    def test_build_config_workers_defaults_to_1(self):
+        config = _build_config({"urls": ["https://example.com"]})
+        assert config.workers == 1

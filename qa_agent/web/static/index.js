@@ -78,6 +78,43 @@ document.querySelectorAll('input[name="mode"]').forEach(radio => {
   updateLLMOptions();
 })();
 
+// Pool size — fetch current value and wire up the Apply button
+(function () {
+  const input = document.getElementById('pool-size-input');
+  const btn   = document.getElementById('update-pool-btn');
+  const msg   = document.getElementById('pool-size-msg');
+  if (!input || !btn || !msg) return;
+
+  fetch('/api/server-config')
+    .then(r => r.json())
+    .then(cfg => { input.value = cfg.pool_size; input.max = cfg.pool_size_max || 8; })
+    .catch(() => {});
+
+  btn.addEventListener('click', async () => {
+    const newSize = parseInt(input.value, 10);
+    btn.disabled = true;
+    msg.textContent = 'Updating…';
+    try {
+      const res  = await fetch('/api/server-config', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pool_size: newSize }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        input.value    = data.pool_size;
+        msg.textContent = `Pool size set to ${data.pool_size}.`;
+      } else {
+        msg.textContent = `Error: ${data.error || 'Update failed'}`;
+      }
+    } catch (err) {
+      msg.textContent = `Error: ${err.message}`;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+
 // Load instructions from a local text/markdown file into the textarea
 document.getElementById('instructions_file')?.addEventListener('change', function () {
   const file = this.files[0];
