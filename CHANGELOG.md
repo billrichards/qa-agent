@@ -16,12 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-13
+
 ### Added
 
 - **Multi-worker concurrency** — two layers, available identically across CLI, web, and the Python API:
   - *Page-level*: `TestConfig.workers` (CLI `--workers`, web `workers` in the `POST /api/run` body) tests multiple pages of a single run in parallel, each worker driving its own browser/context. Defaults to `1` (sequential, unchanged behaviour); capped at 16. Authentication is performed once and replicated to every worker via Playwright `storage_state`.
   - *Session-level*: `BatchRunner` (`from qa_agent import BatchRunner`) runs multiple independent sessions through a bounded thread pool. The CLI exposes it via `--batch-file`/`--pool-size`; the web server now uses it instead of an unbounded thread-per-job model (`QA_AGENT_JOB_POOL_SIZE`, default 4).
 - **Expanded public API** — `from qa_agent import QAAgent, TestConfig, BatchRunner, …` now re-exports the full public surface for library use.
+- **Per-host rate limiting**: `HostRateLimiter` paces `page.goto()` navigations to at most `--rate-limit` requests/second per hostname (default `3.0`, `0` disables). Shared across all page-workers in a run and, optionally, across concurrent `BatchRunner` jobs targeting the same host, to avoid overwhelming fragile dev/staging servers. Web server honours `QA_AGENT_RATE_LIMIT`.
+
+### Fixed
+
+- **Web UI duplicate log lines**: progress (`🔍 Testing: <url>`) and finding lines were rendered twice in the live log stream (once as a generic log line, once as a styled progress/finding line). Each line now renders exactly once.
+- **Silent `worker_thread_init` failures**: errors from the per-worker stdout-routing hook are now surfaced via the console / logger instead of being swallowed.
 
 ## [0.2.3] - 2026-05-22
 
@@ -123,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional dependency extras: `pdf`, `web`, `all`.
 - CI/CD integration via exit codes (0 = pass, 1 = critical/high issues, 2 = error, 130 = interrupted).
 
-[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/billrichards/qa-agent/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/billrichards/qa-agent/compare/v0.2.3...v0.3.0
 [0.2.2]: https://github.com/billrichards/qa-agent/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/billrichards/qa-agent/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/billrichards/qa-agent/compare/v0.1.0...v0.1.1
