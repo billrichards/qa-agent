@@ -386,12 +386,24 @@ class TestQueueWriter:
         progress = next(e for e in events if e["type"] == "progress")
         assert "https://example.com" in progress["data"]["url"]
 
+    def test_testing_url_does_not_also_emit_log_event(self):
+        """Avoid duplicate lines in the UI: progress lines aren't also logged."""
+        writer, q, events = self._writer()
+        writer.write("Testing: https://example.com\n")
+        assert not any(e["type"] == "log" for e in events)
+
     def test_critical_finding_emits_finding_event(self):
         writer, q, events = self._writer()
         writer.write("[CRITICAL] Something is very broken\n")
         assert any(e["type"] == "finding" for e in events)
         finding = next(e for e in events if e["type"] == "finding")
         assert finding["data"]["severity"] == "critical"
+
+    def test_finding_line_does_not_also_emit_log_event(self):
+        """Avoid duplicate lines in the UI: finding lines aren't also logged."""
+        writer, q, events = self._writer()
+        writer.write("[CRITICAL] Something is very broken\n")
+        assert not any(e["type"] == "log" for e in events)
 
     def test_high_finding_emits_finding_event(self):
         writer, q, events = self._writer()

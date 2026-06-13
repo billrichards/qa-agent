@@ -107,9 +107,8 @@ class _QueueWriter:
             while "\n" in self._buf:
                 line, self._buf = self._buf.split("\n", 1)
                 clean = _ANSI_RE.sub("", line)
-                if clean.strip():
+                if clean.strip() and not self._detect_structured(clean):
                     self._emit("log", {"message": clean})
-                    self._detect_structured(clean)
         return len(text)
 
     def flush(self) -> None:
@@ -120,12 +119,18 @@ class _QueueWriter:
         self._events.append(msg)
         self._q.put(msg)
 
-    def _detect_structured(self, line: str) -> None:
+    def _detect_structured(self, line: str) -> bool:
+        """Emit a structured event for recognized lines.
+
+        Returns ``True`` if a "progress"/"finding" event was emitted in place
+        of the generic "log" event, so the caller doesn't double-render the
+        same line via both handlers in run.js.
+        """
         # Page start: "Testing: <url>"
         m = re.search(r"Testing:\s+(https?://\S+)", line)
         if m:
             self._emit("progress", {"url": m.group(1), "message": line.strip()})
-            return
+            return True
 
         # Finding: "[SEVERITY] <title>"
         m = re.search(r"\[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]\s+(.+)", line, re.IGNORECASE)
@@ -134,6 +139,9 @@ class _QueueWriter:
                 "severity": m.group(1).lower(),
                 "title": m.group(2).strip(),
             })
+            return True
+
+        return False
 
 
 # ── Job management ─────────────────────────────────────────────────────────────
