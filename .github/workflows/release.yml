@@ -23,6 +23,9 @@ jobs:
       - name: Build sdist and wheel
         run: python -m build
 
+      - name: Install built wheel
+        run: pip install dist/*.whl
+
       - name: Verify version matches tag
         run: |
           TAG="${GITHUB_REF_NAME#v}"
