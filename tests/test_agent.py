@@ -12,6 +12,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from qa_agent.agent import QAAgent, _extract_domain
 from qa_agent.config import AuthConfig, OutputFormat, TestConfig, TestMode
 from qa_agent.models import Finding, FindingCategory, Severity
+from qa_agent.rate_limiter import HostRateLimiter
 from tests.conftest import make_mock_playwright_factory, make_multi_mock_playwright_factory
 
 # ---------------------------------------------------------------------------
@@ -716,3 +717,90 @@ class TestQAAgentParallel:
                 p.stop()
 
         assert len(session.pages_tested) < 10
+
+
+# ---------------------------------------------------------------------------
+# Per-host navigation rate limiting
+# ---------------------------------------------------------------------------
+
+class TestRateLimiting:
+    def _patch_testers(self):
+        from unittest.mock import patch as _patch
+        targets = [
+            "qa_agent.agent.KeyboardTester.run",
+            "qa_agent.agent.MouseTester.run",
+            "qa_agent.agent.FormTester.run",
+            "qa_agent.agent.AccessibilityTester.run",
+            "qa_agent.agent.ErrorDetector.run",
+            "qa_agent.agent.ErrorDetector.attach_listeners",
+            "qa_agent.agent.ErrorDetector.get_summary",
+        ]
+        return [_patch(t, return_value=[]) for t in targets]
+
+    def test_default_config_has_enabled_rate_limiter(self):
+        agent, _page = _make_agent()
+        assert agent._rate_limiter.enabled is True
+
+    def test_zero_rate_limit_disables_limiter(self):
+        config = _make_config(rate_limit=0)
+        agent, _page = _make_agent(config)
+        assert agent._rate_limiter.enabled is False
+
+    def test_explicit_rate_limiter_is_used_as_is(self):
+        config = _make_config()
+        shared = HostRateLimiter(5.0)
+        factory, page, _, _ = make_mock_playwright_factory()
+        page.evaluate.return_value = {
+            "interactive_elements": 0,
+            "forms_count": 0,
+            "links_count": 0,
+            "images_count": 0,
+        }
+        agent1 = QAAgent(config, playwright_factory=factory, rate_limiter=shared)
+        agent2 = QAAgent(config, playwright_factory=factory, rate_limiter=shared)
+        assert agent1._rate_limiter is shared
+        assert agent2._rate_limiter is shared
+
+    def test_navigation_acquires_rate_limiter_per_page(self):
+        # High rate keeps the per-host min-interval negligible so this test
+        # doesn't add real sleep time while still exercising acquire().
+        config = _make_config(urls=["https://example.com/a", "https://example.com/b"], rate_limit=1000)
+        agent, page = _make_agent(config)
+
+        patchers = self._patch_testers()
+        for p in patchers:
+            p.start()
+        try:
+            with patch.object(
+                agent._rate_limiter, "acquire", wraps=agent._rate_limiter.acquire
+            ) as spy:
+                session = agent.run()
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert spy.call_count == len(session.pages_tested)
+        spy.assert_any_call("example.com")
+
+    def test_multi_worker_pages_share_one_limiter(self):
+        config = _make_config(
+            urls=["https://example.com/a", "https://example.com/b", "https://example.com/c"],
+            workers=3,
+            rate_limit=1000,
+        )
+        factory, _pages = make_multi_mock_playwright_factory()
+        agent = QAAgent(config, playwright_factory=factory)
+
+        patchers = self._patch_testers()
+        for p in patchers:
+            p.start()
+        try:
+            with patch.object(
+                agent._rate_limiter, "acquire", wraps=agent._rate_limiter.acquire
+            ) as spy:
+                session = agent.run()
+        finally:
+            for p in patchers:
+                p.stop()
+
+        assert spy.call_count == len(session.pages_tested) == 3

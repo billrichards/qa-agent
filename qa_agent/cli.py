@@ -139,6 +139,14 @@ Examples:
         help="Max concurrent runs when using --batch-file (default: 4, max: 8).",
     )
     parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=3.0,
+        help="Max page navigations per second to any single host (default: 3.0). "
+             "Shared across all workers and batch jobs targeting that host, to "
+             "avoid overwhelming dev/staging servers. Set to 0 to disable.",
+    )
+    parser.add_argument(
         "--same-domain",
         action="store_true",
         default=True,
@@ -415,6 +423,7 @@ Examples:
         ai_model=args.ai_model or None,
         use_plan_cache=not args.no_cache,
         workers=args.workers,
+        rate_limit=args.rate_limit,
         invocation_context="cli",
     )
 
@@ -495,7 +504,7 @@ def _run_batch(args, template: TestConfig) -> None:
         configs.append(cfg)
 
     print(f"Running {len(configs)} sessions (pool size {args.pool_size})…")
-    runner = BatchRunner(pool_size=args.pool_size)
+    runner = BatchRunner(pool_size=args.pool_size, rate_limit=args.rate_limit)
     try:
         results = runner.run_all(configs)
     finally:

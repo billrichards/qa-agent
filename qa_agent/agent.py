@@ -16,6 +16,7 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from .concurrency import Frontier, PageIndexer
 from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, FindingCategory, PageAnalysis, Severity, TestPlan, TestSession
+from .rate_limiter import HostRateLimiter
 from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
 from .reporters.base import BaseReporter
 from .testers import (
@@ -43,10 +44,21 @@ def _extract_domain(url: str) -> str:
     return safe or "unknown"
 
 
+def _hostname(url: str) -> str:
+    """Return the bare hostname (no port) from a URL, for rate-limiter keys."""
+    return urlparse(url).netloc.split(":")[0]
+
+
 class QAAgent:
     """Main QA Agent that orchestrates exploratory testing."""
 
-    def __init__(self, config: TestConfig, playwright_factory=None, worker_thread_init=None):
+    def __init__(
+        self,
+        config: TestConfig,
+        playwright_factory=None,
+        worker_thread_init=None,
+        rate_limiter: HostRateLimiter | None = None,
+    ):
         # Deep-copy so per-session output-dir derivation below never mutates the
         # caller's config — essential when the same TestConfig template is handed
         # to several concurrent agents (e.g. by BatchRunner).
@@ -81,6 +93,15 @@ class QAAgent:
         self._session_lock = threading.Lock()  # guards session aggregation
         self._page_indexer = PageIndexer()      # worker-safe screenshot indices
         self._recording_paths: list[str] = []   # one video per worker context
+
+        # Shared per-host navigation rate limiter. One instance per QAAgent run
+        # so all page-workers throttle against the same per-host budget.
+        # BatchRunner may pass a shared instance so concurrent sessions hitting
+        # the same host also share the budget; otherwise each agent builds its
+        # own from config.rate_limit.
+        self._rate_limiter = (
+            rate_limiter if rate_limiter is not None else HostRateLimiter(config.rate_limit)
+        )
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -312,6 +333,7 @@ class QAAgent:
         assert page is not None
         if auth.auth_url and auth.username and auth.password:
             self.console.print_progress(f"Authenticating at {auth.auth_url}")
+            self._rate_limiter.acquire(_hostname(auth.auth_url))
             page.goto(auth.auth_url)
 
             ctx = self.config.invocation_context
@@ -561,6 +583,7 @@ class QAAgent:
 
         try:
             start_time = time.time()
+            self._rate_limiter.acquire(_hostname(url))
             response = page.goto(url, wait_until="domcontentloaded")
             if response is None or response.status < 400:
                 page.wait_for_load_state("networkidle", timeout=10000)

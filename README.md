@@ -289,11 +289,20 @@ qa-agent --batch-file runs.json --pool-size 4
 | `--workers N` | `1` | Concurrent page-workers per run (max 16) |
 | `--batch-file FILE` | — | JSON file of multiple runs to execute concurrently |
 | `--pool-size N` | `4` | Max concurrent runs for `--batch-file` (max 8) |
+| `--rate-limit N` | `3.0` | Max page navigations/sec to any single host (0 = unlimited) |
 
 > Total live browsers ≈ `pool-size × workers`, so size both with that
 > multiplicative cost in mind. The web API accepts the same `workers` value in
 > the `POST /api/run` body, and the pool size is set server-side via the
 > `QA_AGENT_JOB_POOL_SIZE` environment variable.
+
+By default, navigations to any single host are throttled to 3 requests/second
+across all workers and batch jobs, to avoid overwhelming dev/staging servers
+with "too many connections" when running with many concurrent browsers. Raise
+or disable this with `--rate-limit` (e.g. `--rate-limit 10` or `--rate-limit 0`
+for unlimited). The limit applies only to page navigations (`page.goto()`), not
+in-page interactions like clicks or form fills. The web server uses the same
+3 req/s default, overridable via the `QA_AGENT_RATE_LIMIT` environment variable.
 
 ### Exploration (explore mode)
 

@@ -84,3 +84,36 @@ class TestBatchRunner:
         with BatchRunner(pool_size=2) as runner:
             runner.run_all([cfg])
         assert cfg.output_dir == original_output_dir
+
+
+class TestBatchRunnerRateLimiter:
+    def _fake_run(self):
+        return TestSession(session_id="s", start_time=__import__("datetime").datetime.now())
+
+    def test_no_rate_limit_means_each_agent_builds_its_own(self, monkeypatch):
+        monkeypatch.setattr("qa_agent.batch.QAAgent.run", self._fake_run, raising=True)
+        with BatchRunner(pool_size=2) as runner:
+            job1 = runner.submit(_cfg("https://example.com/a"))
+            job2 = runner.submit(_cfg("https://example.com/b"))
+            job1.result(timeout=5)
+            job2.result(timeout=5)
+        assert job1.agent._rate_limiter is not job2.agent._rate_limiter
+        assert job1.agent._rate_limiter.enabled is True  # default config.rate_limit
+
+    def test_shared_rate_limit_is_passed_to_every_agent(self, monkeypatch):
+        monkeypatch.setattr("qa_agent.batch.QAAgent.run", self._fake_run, raising=True)
+        with BatchRunner(pool_size=2, rate_limit=5.0) as runner:
+            job1 = runner.submit(_cfg("https://example.com/a"))
+            job2 = runner.submit(_cfg("https://example.com/b"))
+            job1.result(timeout=5)
+            job2.result(timeout=5)
+        assert job1.agent._rate_limiter is runner._rate_limiter
+        assert job2.agent._rate_limiter is runner._rate_limiter
+        assert runner._rate_limiter.enabled is True
+
+    def test_shared_rate_limit_zero_disables_throttling(self, monkeypatch):
+        monkeypatch.setattr("qa_agent.batch.QAAgent.run", self._fake_run, raising=True)
+        with BatchRunner(pool_size=2, rate_limit=0) as runner:
+            job = runner.submit(_cfg())
+            job.result(timeout=5)
+        assert job.agent._rate_limiter.enabled is False

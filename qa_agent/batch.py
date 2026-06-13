@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from .agent import QAAgent
 from .config import TestConfig
 from .models import TestSession
+from .rate_limiter import HostRateLimiter
 
 DEFAULT_POOL_SIZE = 4
 POOL_SIZE_MAX = 8
@@ -64,10 +65,22 @@ class BatchJob:
 class BatchRunner:
     """Run multiple :class:`TestConfig` sessions with bounded concurrency."""
 
-    def __init__(self, pool_size: int = DEFAULT_POOL_SIZE, thread_name_prefix: str = "qa-job"):
+    def __init__(
+        self,
+        pool_size: int = DEFAULT_POOL_SIZE,
+        thread_name_prefix: str = "qa-job",
+        rate_limit: float | None = None,
+    ):
         self.pool_size = max(1, min(POOL_SIZE_MAX, int(pool_size)))
         self._executor = ThreadPoolExecutor(
             max_workers=self.pool_size, thread_name_prefix=thread_name_prefix
+        )
+        # Shared per-host rate limiter so concurrent batch jobs targeting the
+        # same host (e.g. multiple specs against the same dev server) share
+        # one navigation budget rather than each getting an independent
+        # allowance. None → each QAAgent builds its own from config.rate_limit.
+        self._rate_limiter: HostRateLimiter | None = (
+            HostRateLimiter(rate_limit) if rate_limit is not None else None
         )
 
     def submit(
@@ -80,7 +93,11 @@ class BatchRunner:
     ) -> BatchJob:
         """Submit one session to the pool and return its :class:`BatchJob`."""
         stop_event = stop_event if stop_event is not None else threading.Event()
-        agent = QAAgent(config, worker_thread_init=worker_thread_init)
+        agent = QAAgent(
+            config,
+            worker_thread_init=worker_thread_init,
+            rate_limiter=self._rate_limiter,
+        )
         agent.stop_event = stop_event
 
         domain = ""

@@ -146,7 +146,11 @@ _jobs_lock = threading.Lock()
 # env-overridable; remember total browsers ≈ JOB_POOL_SIZE × config.workers.
 JOB_POOL_SIZE = int(os.environ.get("QA_AGENT_JOB_POOL_SIZE", "4"))
 _pool_size = JOB_POOL_SIZE
-_runner = BatchRunner(pool_size=JOB_POOL_SIZE)
+
+# Shared per-host navigation rate limit (req/s) across all jobs in the pool,
+# mirroring the CLI's --rate-limit default. Set QA_AGENT_RATE_LIMIT=0 to disable.
+DEFAULT_RATE_LIMIT = float(os.environ.get("QA_AGENT_RATE_LIMIT", "3.0"))
+_runner = BatchRunner(pool_size=JOB_POOL_SIZE, rate_limit=DEFAULT_RATE_LIMIT)
 _POOL_SIZE_MAX = 8
 
 
@@ -368,7 +372,7 @@ def api_server_config_patch():
 
     if new_size != _pool_size:
         old_runner = _runner
-        _runner = BatchRunner(pool_size=new_size)
+        _runner = BatchRunner(pool_size=new_size, rate_limit=DEFAULT_RATE_LIMIT)
         _pool_size = new_size
         old_runner.shutdown(wait=False)
 
@@ -764,6 +768,7 @@ def _build_config(body: dict) -> TestConfig:
         ai_model=body.get("ai_model") or None,
         use_plan_cache=bool(body.get("use_plan_cache", True)),
         workers=max(1, min(16, int(body.get("workers", 1)))),
+        rate_limit=float(body.get("rate_limit", 3.0)),
         auth=auth,
         screenshots=ScreenshotConfig(
             enabled=ss_enabled,
