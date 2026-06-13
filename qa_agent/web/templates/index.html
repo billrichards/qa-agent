@@ -84,6 +84,11 @@
           <label for="timeout">Timeout (ms)</label>
           <input type="number" id="timeout" name="timeout" value="30000" min="1000" max="300000">
         </div>
+        <div class="field">
+          <label for="workers">Page Workers</label>
+          <input type="number" id="workers" name="workers" value="1" min="1" max="16">
+          <span class="hint">Concurrent pages per run (1–16)</span>
+        </div>
       </div>
       <div class="field">
         <label class="check-label"><input type="checkbox" name="headless" checked> Headless mode</label>
@@ -241,6 +246,28 @@
 
   <div id="form-error" class="alert alert-error" style="display:none"></div>
 </form>
+<!-- Server settings (pool size) — separate from per-job form -->
+<div class="card" id="server-settings-card" style="margin-top:1.5rem">
+  <details>
+    <summary class="section-title">Server Settings</summary>
+    <div class="section-body">
+      <p class="hint" style="margin-bottom:0.75rem">
+        These settings apply to the server process and affect all concurrent runs.
+      </p>
+      <div class="field-row" style="align-items:flex-end">
+        <div class="field">
+          <label for="pool-size-input">Job Pool Size</label>
+          <input type="number" id="pool-size-input" min="1" max="8" value="4">
+          <span class="hint">Max simultaneous runs (1–8). Total browsers ≈ pool size × page workers.</span>
+        </div>
+        <div class="field" style="flex:0 0 auto">
+          <button type="button" id="update-pool-btn" class="btn btn-secondary">Apply</button>
+        </div>
+      </div>
+      <div id="pool-size-msg" class="hint" style="margin-top:0.4rem"></div>
+    </div>
+  </details>
+</div>
 {% endblock %}
 
 {% block scripts %}

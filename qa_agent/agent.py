@@ -1,18 +1,22 @@
 """Core QA Agent implementation."""
 
+import copy
 import os
 import re
 import threading
 import time
 import uuid
 from datetime import datetime
+from typing import Any, cast
 from urllib.parse import urlparse
 
-from playwright.sync_api import Browser, BrowserContext, Page, sync_playwright
+from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from .concurrency import Frontier, PageIndexer
 from .config import OutputFormat, TestConfig, TestMode
 from .models import Finding, FindingCategory, PageAnalysis, Severity, TestPlan, TestSession
+from .rate_limiter import HostRateLimiter
 from .reporters import ConsoleReporter, JSONReporter, MarkdownReporter, PDFReporter
 from .reporters.base import BaseReporter
 from .testers import (
@@ -40,11 +44,26 @@ def _extract_domain(url: str) -> str:
     return safe or "unknown"
 
 
+def _hostname(url: str) -> str:
+    """Return the bare hostname (no port) from a URL, for rate-limiter keys."""
+    return urlparse(url).netloc.split(":")[0]
+
+
 class QAAgent:
     """Main QA Agent that orchestrates exploratory testing."""
 
-    def __init__(self, config: TestConfig, playwright_factory=None):
-        self.config = config
+    def __init__(
+        self,
+        config: TestConfig,
+        playwright_factory=None,
+        worker_thread_init=None,
+        rate_limiter: HostRateLimiter | None = None,
+    ):
+        # Deep-copy so per-session output-dir derivation below never mutates the
+        # caller's config — essential when the same TestConfig template is handed
+        # to several concurrent agents (e.g. by BatchRunner).
+        self.config = copy.deepcopy(config)
+        config = self.config
         self.session: TestSession | None = None
         self.browser: Browser | None = None
         self.context: BrowserContext | None = None
@@ -65,6 +84,24 @@ class QAAgent:
         # Optional factory callable that returns a sync_playwright() context manager.
         # Used by tests to inject a mock playwright without touching the network.
         self._playwright_factory = playwright_factory
+
+        # Optional callable run at the very start of each worker thread. The web
+        # layer uses this to route the worker's stdout to the right job queue.
+        self._worker_thread_init = worker_thread_init
+
+        # Concurrency state (used only when config.workers > 1).
+        self._session_lock = threading.Lock()  # guards session aggregation
+        self._page_indexer = PageIndexer()      # worker-safe screenshot indices
+        self._recording_paths: list[str] = []   # one video per worker context
+
+        # Shared per-host navigation rate limiter. One instance per QAAgent run
+        # so all page-workers throttle against the same per-host budget.
+        # BatchRunner may pass a shared instance so concurrent sessions hitting
+        # the same host also share the budget; otherwise each agent builds its
+        # own from config.rate_limit.
+        self._rate_limiter = (
+            rate_limiter if rate_limiter is not None else HostRateLimiter(config.rate_limit)
+        )
 
         # Generate the session ID here so all output paths can be organized
         # under a session-specific subdirectory before reporters are created.
@@ -111,23 +148,25 @@ class QAAgent:
         if self.config.instructions:
             self._generate_test_plan()
 
-        _pw_factory = self._playwright_factory if self._playwright_factory is not None else sync_playwright
-        with _pw_factory() as playwright:
-            self._setup_browser(playwright)
+        if self.config.workers > 1:
+            self._run_concurrent()
+        else:
+            with self._factory()() as playwright:
+                self._setup_browser(playwright)
 
-            try:
-                # Authenticate if needed
-                if self.config.auth:
-                    self._authenticate()
+                try:
+                    # Authenticate if needed
+                    if self.config.auth:
+                        self._authenticate()
 
-                # Run tests based on mode
-                if self.config.mode == TestMode.FOCUSED:
-                    self._run_focused_mode()
-                else:
-                    self._run_explore_mode()
+                    # Run tests based on mode
+                    if self.config.mode == TestMode.FOCUSED:
+                        self._run_focused_mode()
+                    else:
+                        self._run_explore_mode()
 
-            finally:
-                self._cleanup()
+                finally:
+                    self._cleanup()
 
         self.session.end_time = datetime.now()
 
@@ -220,15 +259,22 @@ class QAAgent:
         if self.test_plan.notes:
             self.console.print_progress(f"Notes: {self.test_plan.notes}")
 
-    def _setup_browser(self, playwright):
-        """Set up browser and context."""
-        browser_options = {
-            "headless": self.config.headless,
-        }
+    def _factory(self):
+        """Return the playwright context-manager factory (real or injected mock)."""
+        return self._playwright_factory if self._playwright_factory is not None else sync_playwright
 
-        self.browser = playwright.chromium.launch(**browser_options)
+    def _launch_browser(self, playwright: Playwright) -> Browser:
+        """Launch a Chromium browser with the configured options."""
+        return playwright.chromium.launch(headless=self.config.headless)
 
-        context_options = {
+    def _new_context_page(self, browser: Browser, storage_state=None) -> tuple[BrowserContext, Page]:
+        """Create a browser context + page with the configured options.
+
+        ``storage_state`` (a dict exported from a previously authenticated
+        context) seeds cookies/localStorage so per-worker contexts inherit the
+        logged-in session without each repeating the login flow.
+        """
+        context_options: dict = {
             "viewport": {
                 "width": self.config.viewport_width,
                 "height": self.config.viewport_height,
@@ -245,28 +291,50 @@ class QAAgent:
         if self.config.auth and self.config.auth.headers:
             context_options["extra_http_headers"] = self.config.auth.headers
 
-        self.context = self.browser.new_context(**context_options)
-        self.context.set_default_timeout(self.config.timeout)
+        if storage_state is not None:
+            context_options["storage_state"] = storage_state
 
-        self.page = self.context.new_page()
+        context = browser.new_context(**context_options)
+        context.set_default_timeout(self.config.timeout)
+        page = context.new_page()
+        return context, page
+
+    def _setup_browser(self, playwright):
+        """Set up the shared browser/context/page for the sequential code path."""
+        self.browser = self._launch_browser(playwright)
+        self.context, self.page = self._new_context_page(self.browser)
 
         # Set up error detector
         self.error_detector = ErrorDetector(self.page, self.config)
         self.error_detector.attach_listeners()
 
-    def _authenticate(self):
-        """Perform authentication if configured."""
-        auth = self.config.auth
+    def _authenticate(self, page: Page | None = None, context: BrowserContext | None = None):
+        """Perform authentication if configured.
 
-        # Handle cookies
+        Operates on the given ``page``/``context`` when supplied (used by
+        concurrent workers re-authenticating on their own browser), otherwise
+        falls back to the agent's shared ``self.page``/``self.context``.
+        """
+        auth = self.config.auth
+        if auth is None:
+            return
+        context = context if context is not None else self.context
+        assert context is not None
+
+        # Handle cookies (no page needed). Cookies are user-supplied dicts that
+        # match Playwright's SetCookieParam shape at runtime; cast for the typer.
         if auth.cookies:
-            self.context.add_cookies([auth.cookies] if isinstance(auth.cookies, dict) else auth.cookies)
+            cookies = [auth.cookies] if isinstance(auth.cookies, dict) else auth.cookies
+            context.add_cookies(cast("Any", cookies))
             return
 
         # Handle form-based auth
+        page = page if page is not None else self.page
+        assert page is not None
         if auth.auth_url and auth.username and auth.password:
             self.console.print_progress(f"Authenticating at {auth.auth_url}")
-            self.page.goto(auth.auth_url)
+            self._rate_limiter.acquire(_hostname(auth.auth_url))
+            page.goto(auth.auth_url)
 
             ctx = self.config.invocation_context
             if ctx == "cli":
@@ -295,7 +363,7 @@ class QAAgent:
             # Find and fill username
             username_selector = auth.username_selector or 'input[type="email"], input[type="text"][name*="user"], input[name*="email"], input#username, input#email'
             try:
-                self.page.fill(username_selector, auth.username)
+                page.fill(username_selector, auth.username)
             except Exception as e:
                 msg = f"Could not fill username field: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.username_selector:
@@ -305,7 +373,7 @@ class QAAgent:
             # Find and fill password
             password_selector = auth.password_selector or 'input[type="password"]'
             try:
-                self.page.fill(password_selector, auth.password)
+                page.fill(password_selector, auth.password)
             except Exception as e:
                 msg = f"Could not fill password field: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.password_selector:
@@ -315,8 +383,8 @@ class QAAgent:
             # Submit
             submit_selector = auth.submit_selector or 'button[type="submit"], input[type="submit"], button:has-text("Login"), button:has-text("Sign in")'
             try:
-                self.page.click(submit_selector)
-                self.page.wait_for_load_state("networkidle", timeout=10000)
+                page.click(submit_selector)
+                page.wait_for_load_state("networkidle", timeout=10000)
             except Exception as e:
                 msg = f"Could not submit login form: {e}"
                 if isinstance(e, PlaywrightTimeoutError) and not auth.submit_selector:
@@ -335,7 +403,7 @@ class QAAgent:
             self.visited_urls.add(url)
 
     def _run_explore_mode(self):
-        """Explore and test pages, following links."""
+        """Explore and test pages, following links (sequential path)."""
         # Initialize with seed URLs
         self.urls_to_visit = list(self.config.urls)
         depth_map = {url: 0 for url in self.urls_to_visit}
@@ -358,7 +426,7 @@ class QAAgent:
 
             # Discover new links
             if current_depth < self.config.max_depth:
-                new_links = self._discover_links(url)
+                new_links = self._discover_links(self.page, url)
                 for link in new_links:
                     new_url = link['href']
                     if new_url not in self.visited_urls and new_url not in self.urls_to_visit:
@@ -366,17 +434,159 @@ class QAAgent:
                             self.urls_to_visit.append(new_url)
                             depth_map[new_url] = current_depth + 1
 
+    # -- concurrent (multi-worker) path --------------------------------------
+
+    def _run_concurrent(self):
+        """Test pages with ``config.workers`` cooperating worker threads.
+
+        Each worker owns its own browser/context/page and pulls URLs from a
+        shared thread-safe :class:`Frontier`. Authentication, when configured,
+        is performed once on a bootstrap context and exported as a
+        ``storage_state`` dict that seeds every worker context.
+        """
+        storage_state = self._bootstrap_auth()
+
+        if self.config.mode == TestMode.FOCUSED:
+            frontier = Frontier(
+                max_pages=max(1, len(self.config.urls)),
+                max_depth=0,  # focused mode never discovers links
+                stop_event=self.stop_event,
+            )
+            num_workers = min(self.config.workers, max(1, len(self.config.urls)))
+        else:
+            frontier = Frontier(
+                max_pages=self.config.max_pages,
+                max_depth=self.config.max_depth,
+                stop_event=self.stop_event,
+            )
+            num_workers = self.config.workers
+
+        frontier.seed(self.config.urls, depth=0)
+
+        threads = [
+            threading.Thread(
+                target=self._worker_loop,
+                args=(frontier, storage_state),
+                name=f"qa-worker-{i}",
+                daemon=True,
+            )
+            for i in range(num_workers)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Surface collected recordings (one video per worker context).
+        if self._recording_paths:
+            self.session.recording_path = self._recording_paths[0]
+            if len(self._recording_paths) > 1:
+                self.session.config_summary["recording_paths"] = list(self._recording_paths)
+
+    def _bootstrap_auth(self):
+        """Authenticate once and return an exported ``storage_state`` (or None)."""
+        if not self.config.auth:
+            return None
+        storage_state = None
+        with self._factory()() as playwright:
+            browser = self._launch_browser(playwright)
+            context, page = self._new_context_page(browser)
+            # Temporarily expose on self so _authenticate's fallbacks work.
+            self.context, self.page = context, page
+            try:
+                self._authenticate(page=page, context=context)
+                storage_state = context.storage_state()
+            except Exception as exc:
+                self.console.print_error(f"Bootstrap authentication failed: {exc}")
+            finally:
+                context.close()
+                browser.close()
+        return storage_state
+
+    def _worker_loop(self, frontier: Frontier, storage_state):
+        """Worker thread: own a browser, drain the frontier until exhausted."""
+        if self._worker_thread_init is not None:
+            try:
+                self._worker_thread_init()
+            except Exception as exc:
+                self.console.print_error(f"worker_thread_init failed: {exc}")
+
+        with self._factory()() as playwright:
+            browser = self._launch_browser(playwright)
+            context, page = self._new_context_page(browser, storage_state=storage_state)
+            error_detector = ErrorDetector(page, self.config)
+            if self.config.test_console_errors or self.config.test_network_errors:
+                error_detector.attach_listeners()
+
+            try:
+                while True:
+                    claimed = frontier.claim()
+                    if claimed is None:
+                        break
+                    url, depth = claimed
+                    try:
+                        self._test_page_on(page, error_detector, url, self._page_indexer.next())
+                        if self.config.mode == TestMode.EXPLORE and depth < self.config.max_depth:
+                            links = self._discover_links(page, url)
+                            new_urls = [
+                                link['href'] for link in links
+                                if not self._should_skip_url(link['href'], link.get('text', ''))
+                            ]
+                            frontier.add_links(new_urls, depth)
+                    except Exception as exc:
+                        self.console.print_error(f"Worker error on {url}: {exc}")
+                    finally:
+                        frontier.complete_one()
+            finally:
+                self._capture_recording(page)
+                try:
+                    context.close()
+                    browser.close()
+                except Exception:
+                    pass
+
+    def _capture_recording(self, page: Page) -> None:
+        """Record a worker context's video path, if recording is enabled."""
+        if not self.config.recording.enabled:
+            return
+        try:
+            video = page.video
+            if video:
+                path = video.path()
+                if path:
+                    with self._session_lock:
+                        self._recording_paths.append(str(path))
+        except Exception:
+            pass
+
+    def _add_page_analysis(self, page_analysis: PageAnalysis) -> None:
+        """Thread-safe aggregation of a page result into the session."""
+        assert self.session is not None
+        with self._session_lock:
+            self.session.add_page_analysis(page_analysis)
+
     def _test_page(self, url: str):
-        """Test a single page."""
+        """Test a single page on the agent's shared browser (sequential path)."""
         assert self.page is not None
+        assert self.error_detector is not None
+        self._test_page_on(self.page, self.error_detector, url, self._page_indexer.next())
+
+    def _test_page_on(self, page: Page, error_detector: "ErrorDetector", url: str, page_index: int):
+        """Test a single page on the given page/error_detector.
+
+        ``page_index`` is a globally unique, worker-safe counter used to name
+        screenshots so concurrent workers never collide.
+        """
+        assert page is not None
         assert self.session is not None
         self.console.print_page_start(url)
 
         try:
             start_time = time.time()
-            response = self.page.goto(url, wait_until="domcontentloaded")
+            self._rate_limiter.acquire(_hostname(url))
+            response = page.goto(url, wait_until="domcontentloaded")
             if response is None or response.status < 400:
-                self.page.wait_for_load_state("networkidle", timeout=10000)
+                page.wait_for_load_state("networkidle", timeout=10000)
             load_time = (time.time() - start_time) * 1000
         except Exception as e:
             self.console.print_error(f"Error loading page: {e}")
@@ -385,14 +595,14 @@ class QAAgent:
         # If we were redirected to the login page, re-authenticate once and continue.
         # Guard against infinite loops when credentials are wrong.
         auth = self.config.auth
-        if auth and auth.auth_url and self.page.url != url:
+        if auth and auth.auth_url and page.url != url:
             auth_path = urlparse(auth.auth_url).path.rstrip('/')
-            current_path = urlparse(self.page.url).path.rstrip('/')
+            current_path = urlparse(page.url).path.rstrip('/')
             if auth_path and current_path == auth_path:
                 if self._reauth_count < 1:
                     self._reauth_count += 1
                     self.console.print_progress("Detected redirect to login page, re-authenticating...")
-                    self._authenticate()
+                    self._authenticate(page=page, context=page.context)
                 else:
                     self.console.print_error(
                         "Re-authentication attempted but still redirected to login page — "
@@ -423,19 +633,19 @@ class QAAgent:
                 images_count=0,
                 findings=[finding],
             )
-            self.session.add_page_analysis(page_analysis)
-            if self.error_detector is not None:
-                self.error_detector.console_messages = []
-                self.error_detector.network_errors = []
-                self.error_detector.js_errors = []
+            self._add_page_analysis(page_analysis)
+            if error_detector is not None:
+                error_detector.console_messages = []
+                error_detector.network_errors = []
+                error_detector.js_errors = []
             return
 
         # Gather page info
-        page_info = self._analyze_page_structure()
+        page_info = self._analyze_page_structure(page)
 
         page_analysis = PageAnalysis(
             url=url,
-            title=self.page.title(),
+            title=page.title(),
             load_time_ms=load_time,
             interactive_elements=page_info["interactive_elements"],
             forms_count=page_info["forms_count"],
@@ -449,7 +659,7 @@ class QAAgent:
 
         if self.config.test_keyboard:
             self.console.print_test_category("keyboard navigation")
-            tester = KeyboardTester(self.page, self.config)
+            tester = KeyboardTester(page, self.config)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
@@ -457,7 +667,7 @@ class QAAgent:
 
         if self.config.test_mouse:
             self.console.print_test_category("mouse interaction")
-            tester = MouseTester(self.page, self.config)
+            tester = MouseTester(page, self.config)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
@@ -465,7 +675,7 @@ class QAAgent:
 
         if self.config.test_forms:
             self.console.print_test_category("form handling")
-            tester = FormTester(self.page, self.config)
+            tester = FormTester(page, self.config)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
@@ -473,7 +683,7 @@ class QAAgent:
 
         if self.config.test_accessibility:
             self.console.print_test_category("accessibility")
-            tester = AccessibilityTester(self.page, self.config)
+            tester = AccessibilityTester(page, self.config)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
@@ -481,30 +691,30 @@ class QAAgent:
 
         if self.config.test_wcag_compliance:
             self.console.print_test_category("WCAG 2.1 AA compliance")
-            tester = WCAGComplianceTester(self.page, self.config)
+            tester = WCAGComplianceTester(page, self.config)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
 
         if self.config.test_console_errors or self.config.test_network_errors:
-            assert self.error_detector is not None
+            assert error_detector is not None
             self.console.print_test_category("error detection")
-            findings = self.error_detector.run()
+            findings = error_detector.run()
             all_findings.extend(findings)
             for f in findings:
                 self.console.print_finding(f)
 
-            self.error_detector.get_summary()
+            error_detector.get_summary()
             page_analysis.console_errors = [
-                m["text"] for m in self.error_detector.console_messages
+                m["text"] for m in error_detector.console_messages
                 if m["type"] == "error"
             ]
-            page_analysis.network_errors = self.error_detector.network_errors
+            page_analysis.network_errors = error_detector.network_errors
 
         if self.test_plan and self.test_plan.custom_steps:
             self.console.print_test_category("custom AI steps")
-            tester = CustomTester(self.page, self.config, self.test_plan)
+            tester = CustomTester(page, self.config, self.test_plan)
             findings = tester.run()
             all_findings.extend(findings)
             for f in findings:
@@ -512,26 +722,26 @@ class QAAgent:
 
         # Take screenshot if there were errors
         if all_findings and self.config.screenshots.on_error:
-            screenshot_path = self._take_screenshot(f"page_{len(self.visited_urls)}")
+            screenshot_path = self._take_screenshot(page, f"page_{page_index}")
             if screenshot_path:
                 for finding in all_findings:
                     if not finding.screenshot_path:
                         finding.screenshot_path = screenshot_path
 
         page_analysis.findings = all_findings
-        self.session.add_page_analysis(page_analysis)
+        self._add_page_analysis(page_analysis)
 
         # Reset error detector for next page
-        if self.error_detector is not None:
-            self.error_detector.console_messages = []
-            self.error_detector.network_errors = []
-            self.error_detector.js_errors = []
+        if error_detector is not None:
+            error_detector.console_messages = []
+            error_detector.network_errors = []
+            error_detector.js_errors = []
 
-    def _analyze_page_structure(self) -> dict:
+    def _analyze_page_structure(self, page: Page) -> dict:
         """Analyze the structure of the current page."""
-        assert self.page is not None
+        assert page is not None
         try:
-            return dict(self.page.evaluate("""() => ({
+            return dict(page.evaluate("""() => ({
                 interactive_elements: document.querySelectorAll('a, button, input, select, textarea, [onclick], [role="button"]').length,
                 forms_count: document.querySelectorAll('form').length,
                 links_count: document.querySelectorAll('a[href]').length,
@@ -553,11 +763,11 @@ class QAAgent:
         'log out', 'logout', 'sign out', 'signout', 'delete account', 'deactivate account',
     ]
 
-    def _discover_links(self, current_url: str) -> list[dict]:
+    def _discover_links(self, page: Page, current_url: str) -> list[dict]:
         """Discover links on the current page for exploration."""
-        assert self.page is not None
+        assert page is not None
         try:
-            raw = self.page.evaluate("""() => {
+            raw = page.evaluate("""() => {
                 const links = document.querySelectorAll('a[href]');
                 return Array.from(links).map(a => ({
                     href: a.href,
@@ -619,19 +829,20 @@ class QAAgent:
 
         return False
 
-    def _take_screenshot(self, name: str) -> str | None:
+    def _take_screenshot(self, page: Page, name: str) -> str | None:
         """Take a screenshot and return the path."""
         if not self.config.screenshots.enabled:
             return None
 
-        assert self.page is not None
+        assert page is not None
         os.makedirs(self.config.screenshots.output_dir, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Microsecond precision so concurrent workers never produce the same filename.
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = f"{name}_{timestamp}.png"
         filepath = os.path.join(self.config.screenshots.output_dir, filename)
 
         try:
-            self.page.screenshot(
+            page.screenshot(
                 path=filepath,
                 full_page=self.config.screenshots.full_page
             )

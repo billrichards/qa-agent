@@ -139,6 +139,57 @@ class TestMainParsing:
 
         assert captured_config["config"].mode == TestMode.EXPLORE
 
+    def test_default_rate_limit(self, monkeypatch):
+        captured_config = {}
+
+        def fake_init(self, config, **kwargs):
+            captured_config["config"] = config
+
+        with patch("qa_agent.cli.QAAgent.__init__", fake_init), \
+             patch("qa_agent.cli.QAAgent.run", return_value=_fake_session()):
+            monkeypatch.setattr(sys, "argv", ["qa-agent", "https://example.com"])
+            import qa_agent.cli as cli_mod
+            try:
+                cli_mod.main()
+            except SystemExit:
+                pass
+
+        assert captured_config["config"].rate_limit == 3.0
+
+    def test_rate_limit_flag(self, monkeypatch):
+        captured_config = {}
+
+        def fake_init(self, config, **kwargs):
+            captured_config["config"] = config
+
+        with patch("qa_agent.cli.QAAgent.__init__", fake_init), \
+             patch("qa_agent.cli.QAAgent.run", return_value=_fake_session()):
+            monkeypatch.setattr(sys, "argv", ["qa-agent", "--rate-limit", "10", "https://example.com"])
+            import qa_agent.cli as cli_mod
+            try:
+                cli_mod.main()
+            except SystemExit:
+                pass
+
+        assert captured_config["config"].rate_limit == 10.0
+
+    def test_rate_limit_zero_disables(self, monkeypatch):
+        captured_config = {}
+
+        def fake_init(self, config, **kwargs):
+            captured_config["config"] = config
+
+        with patch("qa_agent.cli.QAAgent.__init__", fake_init), \
+             patch("qa_agent.cli.QAAgent.run", return_value=_fake_session()):
+            monkeypatch.setattr(sys, "argv", ["qa-agent", "--rate-limit", "0", "https://example.com"])
+            import qa_agent.cli as cli_mod
+            try:
+                cli_mod.main()
+            except SystemExit:
+                pass
+
+        assert captured_config["config"].rate_limit == 0.0
+
     def test_json_always_appended(self, monkeypatch):
         """JSON format must be in output_formats even when not explicitly requested."""
         from qa_agent.config import OutputFormat

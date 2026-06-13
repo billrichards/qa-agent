@@ -121,6 +121,27 @@ class TestRecordingConfig:
         assert rc.video_size == {"width": 1280, "height": 720}
 
 
+class TestRateLimit:
+    def test_default_rate_limit(self):
+        assert TestConfig().rate_limit == 3.0
+
+    def test_zero_stays_disabled(self):
+        assert TestConfig(rate_limit=0).rate_limit == 0.0
+
+    def test_negative_normalizes_to_zero(self):
+        assert TestConfig(rate_limit=-5).rate_limit == 0.0
+
+    def test_value_within_range_preserved(self):
+        assert TestConfig(rate_limit=10.0).rate_limit == 10.0
+
+    def test_value_above_max_is_clamped(self):
+        cfg = TestConfig(rate_limit=999)
+        assert cfg.rate_limit == cfg.RATE_LIMIT_MAX
+
+    def test_non_numeric_falls_back_to_default(self):
+        assert TestConfig(rate_limit="not-a-number").rate_limit == 3.0
+
+
 class TestTestMode:
     def test_values(self):
         assert TestMode.FOCUSED.value == "focused"

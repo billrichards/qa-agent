@@ -103,3 +103,39 @@ class TestConfig:
 
     # Invocation context — used to tailor diagnostic hints
     invocation_context: Literal["cli", "web"] | None = None
+
+    # Number of concurrent page-workers per run. 1 = sequential (default).
+    # Each worker drives its own browser/context, so total browsers scale with
+    # this value; it is clamped to a sane ceiling in __post_init__.
+    workers: int = 1
+
+    # Hard ceiling on concurrent page-workers to bound browser RAM/CPU.
+    WORKERS_MAX = 16
+
+    # Max page navigations per second to any single host (page.goto() only).
+    # Shared across all workers/batch jobs targeting that host, to avoid
+    # overwhelming fragile dev/staging servers with "too many connections"
+    # when --workers / --batch-file fan out many concurrent browsers.
+    # 0 disables throttling entirely.
+    rate_limit: float = 3.0
+
+    # Ceiling on rate_limit to prevent runaway configs from disabling
+    # effective throttling via an absurdly high rate.
+    RATE_LIMIT_MAX = 50.0
+
+    def __post_init__(self) -> None:
+        # Clamp worker count to [1, WORKERS_MAX]. Defensive against bad input
+        # from CLI flags or web request bodies.
+        try:
+            workers = int(self.workers)
+        except (TypeError, ValueError):
+            workers = 1
+        self.workers = max(1, min(self.WORKERS_MAX, workers))
+
+        # Clamp rate_limit to [0, RATE_LIMIT_MAX]. 0 (or negative) means
+        # "unlimited" and is preserved as exactly 0.0 rather than floored up.
+        try:
+            rate_limit = float(self.rate_limit)
+        except (TypeError, ValueError):
+            rate_limit = 3.0
+        self.rate_limit = 0.0 if rate_limit <= 0 else min(self.RATE_LIMIT_MAX, rate_limit)

@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-worker concurrency** — two layers, available identically across CLI, web, and the Python API:
+  - *Page-level*: `TestConfig.workers` (CLI `--workers`, web `workers` in the `POST /api/run` body) tests multiple pages of a single run in parallel, each worker driving its own browser/context. Defaults to `1` (sequential, unchanged behaviour); capped at 16. Authentication is performed once and replicated to every worker via Playwright `storage_state`.
+  - *Session-level*: `BatchRunner` (`from qa_agent import BatchRunner`) runs multiple independent sessions through a bounded thread pool. The CLI exposes it via `--batch-file`/`--pool-size`; the web server now uses it instead of an unbounded thread-per-job model (`QA_AGENT_JOB_POOL_SIZE`, default 4).
+- **Expanded public API** — `from qa_agent import QAAgent, TestConfig, BatchRunner, …` now re-exports the full public surface for library use.
+
 ## [0.2.3] - 2026-05-22
 
 ### Fixed

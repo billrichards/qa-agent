@@ -109,7 +109,7 @@ class TestAIPlannerParsing:
         # In JSON, newline becomes \n escape sequence. Find it and truncate after backslash
         idx = full_json.index("\\n")  # Find the \n in the JSON string
         truncated = full_json[:idx + 1]  # Keep backslash, remove the 'n'
-        
+
         planner = self._planner(truncated)
         # Should raise because repair returns None for mid-escape truncation
         with pytest.raises(ValueError, match="invalid JSON"):
@@ -125,7 +125,7 @@ class TestAIPlannerParsing:
         # Find a point deep in the nesting and truncate there
         truncate_at = full_json.index('"hover"') + len('"hover"')
         truncated = full_json[:truncate_at]
-        
+
         planner = self._planner(truncated)
         # Should successfully repair by closing all open containers
         plan = planner.plan("test", "https://example.com")
