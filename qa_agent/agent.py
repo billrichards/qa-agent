@@ -508,8 +508,8 @@ class QAAgent:
         if self._worker_thread_init is not None:
             try:
                 self._worker_thread_init()
-            except Exception:
-                pass
+            except Exception as exc:
+                self.console.print_error(f"worker_thread_init failed: {exc}")
 
         with self._factory()() as playwright:
             browser = self._launch_browser(playwright)

@@ -15,6 +15,7 @@ multiplicative cost in mind.
 
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -24,6 +25,8 @@ from .agent import QAAgent
 from .config import TestConfig
 from .models import TestSession
 from .rate_limiter import HostRateLimiter
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_POOL_SIZE = 4
 POOL_SIZE_MAX = 8
@@ -123,7 +126,7 @@ class BatchRunner:
                 try:
                     worker_thread_init()
                 except Exception:
-                    pass
+                    logger.warning("worker_thread_init failed for job %s", job.job_id, exc_info=True)
             return agent.run()
 
         job.future = self._executor.submit(_task)

@@ -145,6 +145,11 @@ _jobs_lock = threading.Lock()
 # unbounded thread-per-request model so the server applies backpressure. Size is
 # env-overridable; remember total browsers ≈ JOB_POOL_SIZE × config.workers.
 JOB_POOL_SIZE = int(os.environ.get("QA_AGENT_JOB_POOL_SIZE", "4"))
+
+# These globals assume a single interpreter (Flask dev server or gunicorn
+# --workers=1). Multi-process WSGI deployments are not supported; each process
+# would get its own pool and rate limiter, defeating the pool-size limit and
+# per-host rate budget.
 _pool_size = JOB_POOL_SIZE
 
 # Shared per-host navigation rate limit (req/s) across all jobs in the pool,
