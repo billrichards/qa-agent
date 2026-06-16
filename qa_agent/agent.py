@@ -170,6 +170,10 @@ class QAAgent:
 
         self.session.end_time = datetime.now()
 
+        # Post-run LLM synthesis (opt-in)
+        if self.config.synthesize_results:
+            self._synthesize_results()
+
         # Generate reports
         self._generate_reports()
 
@@ -258,6 +262,24 @@ class QAAgent:
 
         if self.test_plan.notes:
             self.console.print_progress(f"Notes: {self.test_plan.notes}")
+
+    def _synthesize_results(self):
+        """Call the LLM post-run to produce a narrative synthesis of findings."""
+        from .synthesizer import synthesize
+
+        self.console.print_progress("Synthesizing results with AI...")
+        result = synthesize(
+            session=self.session,
+            provider=self.config.llm_provider,
+            model=self.config.ai_model,
+        )
+        if result:
+            self.session.synthesis = result
+            self.console.print_progress("AI synthesis complete.")
+        else:
+            self.console.print_progress(
+                "Warning: AI synthesis failed — continuing without it."
+            )
 
     def _factory(self):
         """Return the playwright context-manager factory (real or injected mock)."""

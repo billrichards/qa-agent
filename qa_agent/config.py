@@ -101,6 +101,9 @@ class TestConfig:
     ai_model: str | None = None  # None → use the provider's default model
     use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls
 
+    # Post-run LLM synthesis: narrative analysis of findings after the run completes
+    synthesize_results: bool = False
+
     # Invocation context — used to tailor diagnostic hints
     invocation_context: Literal["cli", "web"] | None = None
 
