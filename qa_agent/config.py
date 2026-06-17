@@ -30,7 +30,7 @@ class AuthConfig:
     username_selector: str | None = None  # Selector for username field
     password_selector: str | None = None  # Selector for password field
     submit_selector: str | None = None  # Selector for submit button
-    cookies: dict | None = None  # Pre-set cookies for authentication
+    cookies: dict | list[dict] | None = None  # Pre-set cookies for authentication
     headers: dict | None = None  # Custom headers (e.g., Bearer token)
 
 
@@ -100,6 +100,9 @@ class TestConfig:
     llm_provider: LLMProvider = LLMProvider.ANTHROPIC
     ai_model: str | None = None  # None → use the provider's default model
     use_plan_cache: bool = True  # Cache generated test plans to avoid redundant API calls
+
+    # Post-run LLM summary: narrative analysis of findings after the run completes
+    generate_summary: bool = False
 
     # Invocation context — used to tailor diagnostic hints
     invocation_context: Literal["cli", "web"] | None = None

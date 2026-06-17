@@ -179,6 +179,40 @@ def _normalize_url(url: str) -> str:
 
 
 @dataclass
+class RootCauseCluster:
+    """A cluster of related findings sharing a common root cause."""
+    label: str
+    finding_titles: list[str]
+    root_cause: str
+    suggested_fix: str
+
+
+@dataclass
+class SummaryResult:
+    """LLM-generated narrative analysis produced after a test run."""
+    executive_summary: str
+    priority_recommendations: list[str] = field(default_factory=list)
+    root_cause_clusters: list[RootCauseCluster] = field(default_factory=list)
+    false_positive_candidates: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "executive_summary": self.executive_summary,
+            "priority_recommendations": self.priority_recommendations,
+            "root_cause_clusters": [
+                {
+                    "label": c.label,
+                    "finding_titles": c.finding_titles,
+                    "root_cause": c.root_cause,
+                    "suggested_fix": c.suggested_fix,
+                }
+                for c in self.root_cause_clusters
+            ],
+            "false_positive_candidates": self.false_positive_candidates,
+        }
+
+
+@dataclass
 class TestSession:
     """Complete test session results."""
     session_id: str
@@ -190,6 +224,7 @@ class TestSession:
     findings_by_severity: dict[str, int] = field(default_factory=dict)
     findings_by_category: dict[str, int] = field(default_factory=dict)
     recording_path: str | None = None
+    summary: "SummaryResult | None" = None
 
     def add_page_analysis(self, page: PageAnalysis):
         """Add page analysis and update totals."""
@@ -272,4 +307,5 @@ class TestSession:
             "recording_path": self.recording_path,
             "status": self.status,
             "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
+            "summary": self.summary.to_dict() if self.summary else None,
         }

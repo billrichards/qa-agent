@@ -27,7 +27,9 @@ class TestBatchRunner:
         with BatchRunner(pool_size=4) as runner:
             cfgs = [_cfg(f"https://example.com/{i}") for i in range(5)]
             results = runner.run_all(cfgs)
-        assert [r.session_id for r in results] == [f"https://example.com/{i}" for i in range(5)]
+        assert [r.session_id for r in results if isinstance(r, TestSession)] == [
+            f"https://example.com/{i}" for i in range(5)
+        ]
 
     def test_per_job_exception_isolated(self, monkeypatch):
         def fake_run(self):

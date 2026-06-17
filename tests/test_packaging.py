@@ -235,7 +235,7 @@ class TestWebUIAssets:
 
     def test_flask_app_references_correct_template_dir(self):
         """Flask app in server.py must resolve templates relative to the web package."""
-        server_src = (REPO_ROOT / "qa_agent" / "web" / "server.py").read_text()
+        server_src = (REPO_ROOT / "qa_agent" / "web" / "server.py").read_text(encoding="utf-8")
         # Flask(name) uses the module's directory — templates must live there
         assert "Flask(__name__" in server_src, (
             "Flask app is not created with __name__; template resolution may be wrong"

@@ -1,6 +1,7 @@
 """Error detection module for console and network errors."""
 
 from datetime import datetime
+from typing import Any
 
 from playwright.sync_api import ConsoleMessage, Page, Request, Response
 
@@ -81,7 +82,7 @@ class ErrorDetector(BaseTester):
 
         if len(errors) > 0:
             # Group similar errors
-            error_groups = {}
+            error_groups: dict[str, list[dict[str, Any]]] = {}
             for error in errors:
                 key = error["text"][:100]
                 if key not in error_groups:
@@ -145,7 +146,7 @@ class ErrorDetector(BaseTester):
             return
 
         # Group by status code
-        status_groups = {}
+        status_groups: dict[Any, list[dict[str, Any]]] = {}
         for error in self.network_errors:
             status = error.get("status", "failed")
             if status not in status_groups:

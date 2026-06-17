@@ -191,7 +191,8 @@ class MouseTester(BaseTester):
                         after_state = self.page.content()[:500]
 
                         if initial_state == after_state:
-                            text = element.text_content()[:30] if element.text_content() else ""
+                            content = element.text_content()
+                            text = content[:30] if content else ""
                             self.findings.append(Finding(
                                 title="Double-click handler has no effect",
                                 description="Element has ondblclick but double-clicking produces no visible change",

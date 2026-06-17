@@ -23,7 +23,7 @@ def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig
     """Parse authentication configuration from string or file."""
     if auth_file:
         try:
-            with open(auth_file) as f:
+            with open(auth_file, encoding="utf-8") as f:
                 auth_data = json.load(f)
             return AuthConfig(**auth_data)
         except Exception as e:
@@ -309,6 +309,15 @@ Examples:
         action="store_true",
         help="Bypass the test plan cache and always call the AI. Only valid with --instructions or --instructions-file.",
     )
+    parser.add_argument(
+        "--summarize",
+        action="store_true",
+        help=(
+            "After the run, call the LLM once to produce a narrative summary: "
+            "executive summary, prioritised recommendations, root-cause clusters, "
+            "and likely false positives. Appended to Markdown and JSON reports."
+        ),
+    )
     args = parser.parse_args()
 
     # Validate: --no-cache requires instructions
@@ -354,7 +363,7 @@ Examples:
     # Handle cookies file
     if args.cookies:
         try:
-            with open(args.cookies) as f:
+            with open(args.cookies, encoding="utf-8") as f:
                 cookies = json.load(f)
             if auth_config:
                 auth_config.cookies = cookies
@@ -422,6 +431,7 @@ Examples:
         llm_provider=LLMProvider(args.llm_provider),
         ai_model=args.ai_model or None,
         use_plan_cache=not args.no_cache,
+        generate_summary=args.summarize,
         workers=args.workers,
         rate_limit=args.rate_limit,
         invocation_context="cli",

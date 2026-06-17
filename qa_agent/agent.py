@@ -170,6 +170,10 @@ class QAAgent:
 
         self.session.end_time = datetime.now()
 
+        # Post-run LLM summary (opt-in)
+        if self.config.generate_summary:
+            self._generate_summary()
+
         # Generate reports
         self._generate_reports()
 
@@ -185,6 +189,9 @@ class QAAgent:
         from .ai_planner import AIPlannerClient, effective_model
         from .llm_client import LLMError
         from .plan_cache import PlanCache
+
+        assert self.session is not None
+        assert self.config.instructions is not None
 
         cache = PlanCache() if self.config.use_plan_cache else None
         cache_key = PlanCache.make_key(self.config.instructions, self.config.urls) if cache else None
@@ -232,6 +239,7 @@ class QAAgent:
 
     def _apply_test_plan(self):
         """Print the test plan summary and enqueue any suggested URLs."""
+        assert self.test_plan is not None
         self.console.print_progress(f"Test plan: {self.test_plan.summary}")
         if self.test_plan.focus_areas:
             self.console.print_progress(
@@ -258,6 +266,25 @@ class QAAgent:
 
         if self.test_plan.notes:
             self.console.print_progress(f"Notes: {self.test_plan.notes}")
+
+    def _generate_summary(self):
+        """Call the LLM post-run to produce a narrative summary of findings."""
+        from .summarizer import generate_summary
+
+        assert self.session is not None
+        self.console.print_progress("Generating results summary with AI...")
+        result = generate_summary(
+            session=self.session,
+            provider=self.config.llm_provider,
+            model=self.config.ai_model,
+        )
+        if result:
+            self.session.summary = result
+            self.console.print_progress("AI summary complete.")
+        else:
+            self.console.print_progress(
+                "Warning: AI summary generation failed — continuing without it."
+            )
 
     def _factory(self):
         """Return the playwright context-manager factory (real or injected mock)."""
@@ -426,6 +453,7 @@ class QAAgent:
 
             # Discover new links
             if current_depth < self.config.max_depth:
+                assert self.page is not None
                 new_links = self._discover_links(self.page, url)
                 for link in new_links:
                     new_url = link['href']
@@ -444,6 +472,7 @@ class QAAgent:
         is performed once on a bootstrap context and exported as a
         ``storage_state`` dict that seeds every worker context.
         """
+        assert self.session is not None
         storage_state = self._bootstrap_auth()
 
         if self.config.mode == TestMode.FOCUSED:
@@ -852,13 +881,14 @@ class QAAgent:
 
     def _cleanup(self):
         """Clean up browser resources."""
-        if self.config.recording.enabled and self.context:
+        if self.config.recording.enabled and self.context and self.page:
             # Get video path
             try:
                 video = self.page.video
                 if video:
                     video_path = video.path()
-                    self.session.recording_path = video_path
+                    assert self.session is not None
+                    self.session.recording_path = str(video_path)
             except Exception:
                 pass
 
@@ -869,6 +899,7 @@ class QAAgent:
 
     def _generate_reports(self):
         """Generate all configured reports."""
+        assert self.session is not None
         for reporter in self.reporters:
             if isinstance(reporter, ConsoleReporter):
                 reporter.generate(self.session)
