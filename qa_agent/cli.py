@@ -23,7 +23,7 @@ def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig
     """Parse authentication configuration from string or file."""
     if auth_file:
         try:
-            with open(auth_file) as f:
+            with open(auth_file, encoding="utf-8") as f:
                 auth_data = json.load(f)
             return AuthConfig(**auth_data)
         except Exception as e:
@@ -363,7 +363,7 @@ Examples:
     # Handle cookies file
     if args.cookies:
         try:
-            with open(args.cookies) as f:
+            with open(args.cookies, encoding="utf-8") as f:
                 cookies = json.load(f)
             if auth_config:
                 auth_config.cookies = cookies
