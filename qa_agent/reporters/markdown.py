@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from .base import BaseReporter
 
 if TYPE_CHECKING:
-    from ..models import Finding, SynthesisResult, TestSession
+    from ..models import Finding, SummaryResult, TestSession
 
 
 class MarkdownReporter(BaseReporter):
@@ -80,9 +80,9 @@ class MarkdownReporter(BaseReporter):
                     lines.append(f"| {emoji} {cat_name} | {count} |")
             lines.append("")
 
-        # AI synthesis section
-        if session.synthesis:
-            lines.extend(self._format_synthesis(session.synthesis))
+        # AI summary section
+        if session.summary:
+            lines.extend(self._format_summary(session.summary))
 
         # Test reliability warnings
         plan_warnings = session.config_summary.get("plan_warnings", [])
@@ -175,8 +175,8 @@ class MarkdownReporter(BaseReporter):
 
         return "\n".join(lines)
 
-    def _format_synthesis(self, synthesis: "SynthesisResult") -> list[str]:
-        """Format the AI synthesis block."""
+    def _format_summary(self, summary: "SummaryResult") -> list[str]:
+        """Format the AI summary block."""
         lines: list[str] = []
 
         lines.append("## AI Analysis")
@@ -186,20 +186,20 @@ class MarkdownReporter(BaseReporter):
 
         lines.append("### Executive Summary")
         lines.append("")
-        lines.append(synthesis.executive_summary)
+        lines.append(summary.executive_summary)
         lines.append("")
 
-        if synthesis.priority_recommendations:
+        if summary.priority_recommendations:
             lines.append("### Priority Recommendations")
             lines.append("")
-            for rec in synthesis.priority_recommendations:
+            for rec in summary.priority_recommendations:
                 lines.append(f"1. {rec}")
             lines.append("")
 
-        if synthesis.root_cause_clusters:
+        if summary.root_cause_clusters:
             lines.append("### Root Cause Clusters")
             lines.append("")
-            for cluster in synthesis.root_cause_clusters:
+            for cluster in summary.root_cause_clusters:
                 lines.append(f"#### {cluster.label}")
                 lines.append("")
                 lines.append(f"**Root cause:** {cluster.root_cause}")
@@ -211,14 +211,14 @@ class MarkdownReporter(BaseReporter):
                     lines.append(f"- {title}")
                 lines.append("")
 
-        if synthesis.false_positive_candidates:
+        if summary.false_positive_candidates:
             lines.append("### Possible False Positives")
             lines.append("")
             lines.append(
                 "> These findings may be test artifacts rather than real bugs — review before filing."
             )
             lines.append("")
-            for candidate in synthesis.false_positive_candidates:
+            for candidate in summary.false_positive_candidates:
                 lines.append(f"- {candidate}")
             lines.append("")
 

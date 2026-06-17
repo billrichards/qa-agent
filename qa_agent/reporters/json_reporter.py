@@ -72,7 +72,7 @@ class JSONReporter(BaseReporter):
                 for page in session.pages_tested
             ],
             "findings": [finding.to_dict() for finding in session.get_deduplicated_findings()],
-            "synthesis": session.synthesis.to_dict() if session.synthesis else None,
+            "ai_summary": session.summary.to_dict() if session.summary else None,
         }
 
     def get_json_string(self, session: "TestSession") -> str:

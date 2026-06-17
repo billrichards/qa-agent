@@ -1,7 +1,7 @@
-"""Post-run result synthesis via LLM.
+"""Post-run result summary via LLM.
 
 After all testers complete, this module calls the LLM once with the full
-findings list and produces a ``SynthesisResult`` — a narrative analysis that
+findings list and produces a ``SummaryResult`` — a narrative analysis that
 clusters related issues, identifies root causes, prioritises fixes, and flags
 likely false positives.
 
@@ -13,7 +13,7 @@ import json
 import logging
 
 from .llm_client import LLMError, LLMProvider, create_llm_client
-from .models import RootCauseCluster, SynthesisResult, TestSession
+from .models import RootCauseCluster, SummaryResult, TestSession
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ You will receive a JSON object describing a completed QA test session, including
 - Findings grouped by severity and category
 - The full list of deduplicated findings with descriptions
 
-Your job is to produce a concise, developer-facing synthesis of the results.
+Your job is to produce a concise, developer-facing summary of the results.
 
 Return ONLY valid JSON matching this exact schema — no markdown, no commentary:
 
@@ -95,8 +95,8 @@ def _serialize_session(session: TestSession) -> str:
     return json.dumps(payload, default=str)
 
 
-def _parse_synthesis(text: str) -> SynthesisResult:
-    """Parse LLM JSON response into a SynthesisResult."""
+def _parse_summary(text: str) -> SummaryResult:
+    """Parse LLM JSON response into a SummaryResult."""
     # Strip markdown fences if the model wrapped it despite instructions
     stripped = text.strip()
     if stripped.startswith("```"):
@@ -115,7 +115,7 @@ def _parse_synthesis(text: str) -> SynthesisResult:
         for c in data.get("root_cause_clusters", [])
     ]
 
-    return SynthesisResult(
+    return SummaryResult(
         executive_summary=data.get("executive_summary", ""),
         priority_recommendations=data.get("priority_recommendations", []),
         root_cause_clusters=clusters,
@@ -123,16 +123,16 @@ def _parse_synthesis(text: str) -> SynthesisResult:
     )
 
 
-def synthesize(
+def generate_summary(
     session: TestSession,
     provider: LLMProvider = LLMProvider.ANTHROPIC,
     model: str | None = None,
     api_key: str | None = None,
     timeout: int = 60,
-) -> SynthesisResult | None:
-    """Call the LLM to synthesize the completed session results.
+) -> SummaryResult | None:
+    """Call the LLM to generate a summary of the completed session results.
 
-    Returns ``None`` on any failure so callers can treat synthesis as optional.
+    Returns ``None`` on any failure so callers can treat summary generation as optional.
     """
     if not session.pages_tested:
         return None
@@ -146,7 +146,7 @@ def synthesize(
         user_message = (
             "Here is the completed QA test session data:\n\n"
             + _serialize_session(session)
-            + "\n\nProvide your synthesis as JSON."
+            + "\n\nProvide your summary as JSON."
         )
         response = client.complete(
             system=_SYSTEM_PROMPT,
@@ -154,12 +154,12 @@ def synthesize(
             max_tokens=2048,
             timeout=timeout,
         )
-        return _parse_synthesis(response.text)
+        return _parse_summary(response.text)
     except LLMError as e:
-        logger.warning("Result synthesis LLM call failed (%s): %s", e.status_code, e)
+        logger.warning("Result summary LLM call failed (%s): %s", e.status_code, e)
     except (json.JSONDecodeError, KeyError, TypeError) as e:
-        logger.warning("Failed to parse synthesis response: %s", e)
+        logger.warning("Failed to parse summary response: %s", e)
     except Exception as e:
-        logger.warning("Unexpected error during result synthesis: %s", e)
+        logger.warning("Unexpected error during result summary generation: %s", e)
 
     return None

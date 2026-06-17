@@ -310,10 +310,10 @@ Examples:
         help="Bypass the test plan cache and always call the AI. Only valid with --instructions or --instructions-file.",
     )
     parser.add_argument(
-        "--synthesize",
+        "--summarize",
         action="store_true",
         help=(
-            "After the run, call the LLM once to produce a narrative synthesis: "
+            "After the run, call the LLM once to produce a narrative summary: "
             "executive summary, prioritised recommendations, root-cause clusters, "
             "and likely false positives. Appended to Markdown and JSON reports."
         ),
@@ -431,7 +431,7 @@ Examples:
         llm_provider=LLMProvider(args.llm_provider),
         ai_model=args.ai_model or None,
         use_plan_cache=not args.no_cache,
-        synthesize_results=args.synthesize,
+        generate_summary=args.summarize,
         workers=args.workers,
         rate_limit=args.rate_limit,
         invocation_context="cli",

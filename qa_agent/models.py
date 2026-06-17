@@ -188,7 +188,7 @@ class RootCauseCluster:
 
 
 @dataclass
-class SynthesisResult:
+class SummaryResult:
     """LLM-generated narrative analysis produced after a test run."""
     executive_summary: str
     priority_recommendations: list[str] = field(default_factory=list)
@@ -224,7 +224,7 @@ class TestSession:
     findings_by_severity: dict[str, int] = field(default_factory=dict)
     findings_by_category: dict[str, int] = field(default_factory=dict)
     recording_path: str | None = None
-    synthesis: "SynthesisResult | None" = None
+    summary: "SummaryResult | None" = None
 
     def add_page_analysis(self, page: PageAnalysis):
         """Add page analysis and update totals."""
@@ -307,5 +307,5 @@ class TestSession:
             "recording_path": self.recording_path,
             "status": self.status,
             "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
-            "synthesis": self.synthesis.to_dict() if self.synthesis else None,
+            "summary": self.summary.to_dict() if self.summary else None,
         }

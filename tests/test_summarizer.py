@@ -1,4 +1,4 @@
-"""Tests for qa_agent/synthesizer.py and synthesis integration."""
+"""Tests for qa_agent/summarizer.py and summary integration."""
 
 from __future__ import annotations
 
@@ -10,17 +10,17 @@ import pytest
 
 from qa_agent.models import (
     RootCauseCluster,
-    SynthesisResult,
+    SummaryResult,
     TestSession,
 )
-from qa_agent.synthesizer import _parse_synthesis, _serialize_session, synthesize
+from qa_agent.summarizer import _parse_summary, _serialize_session, generate_summary
 from tests.conftest import make_finding, make_session, make_session_with_findings
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_synthesis(**kwargs) -> SynthesisResult:
+def _make_summary(**kwargs) -> SummaryResult:
     defaults = dict(
         executive_summary="Two critical accessibility issues require immediate attention.",
         priority_recommendations=["Fix ARIA labels", "Add focus indicators"],
@@ -35,7 +35,7 @@ def _make_synthesis(**kwargs) -> SynthesisResult:
         false_positive_candidates=["Console error on third-party script"],
     )
     defaults.update(kwargs)
-    return SynthesisResult(**defaults)
+    return SummaryResult(**defaults)
 
 
 _VALID_LLM_RESPONSE = json.dumps({
@@ -112,13 +112,13 @@ class TestSerializeSession:
 
 
 # ---------------------------------------------------------------------------
-# _parse_synthesis
+# _parse_summary
 # ---------------------------------------------------------------------------
 
-class TestParseSynthesis:
+class TestParseSummary:
     def test_parses_valid_response(self):
-        result = _parse_synthesis(_VALID_LLM_RESPONSE)
-        assert isinstance(result, SynthesisResult)
+        result = _parse_summary(_VALID_LLM_RESPONSE)
+        assert isinstance(result, SummaryResult)
         assert result.executive_summary == "Three issues found, one critical."
         assert result.priority_recommendations == ["Fix focus trap", "Add ARIA labels"]
         assert len(result.root_cause_clusters) == 1
@@ -129,12 +129,12 @@ class TestParseSynthesis:
 
     def test_strips_markdown_fences(self):
         wrapped = f"```json\n{_VALID_LLM_RESPONSE}\n```"
-        result = _parse_synthesis(wrapped)
+        result = _parse_summary(wrapped)
         assert result.executive_summary == "Three issues found, one critical."
 
     def test_strips_markdown_fences_no_language(self):
         wrapped = f"```\n{_VALID_LLM_RESPONSE}\n```"
-        result = _parse_synthesis(wrapped)
+        result = _parse_summary(wrapped)
         assert result.executive_summary == "Three issues found, one critical."
 
     def test_empty_arrays_allowed(self):
@@ -144,27 +144,27 @@ class TestParseSynthesis:
             "root_cause_clusters": [],
             "false_positive_candidates": [],
         })
-        result = _parse_synthesis(payload)
+        result = _parse_summary(payload)
         assert result.priority_recommendations == []
         assert result.root_cause_clusters == []
 
     def test_missing_optional_fields_default_to_empty(self):
         payload = json.dumps({"executive_summary": "Brief."})
-        result = _parse_synthesis(payload)
+        result = _parse_summary(payload)
         assert result.priority_recommendations == []
         assert result.root_cause_clusters == []
         assert result.false_positive_candidates == []
 
     def test_invalid_json_raises(self):
         with pytest.raises(json.JSONDecodeError):
-            _parse_synthesis("not json at all")
+            _parse_summary("not json at all")
 
 
 # ---------------------------------------------------------------------------
-# synthesize() — with mocked LLM client
+# generate_summary() — with mocked LLM client
 # ---------------------------------------------------------------------------
 
-class TestSynthesizeFunction:
+class TestGenerateSummaryFunction:
     def _mock_client(self, response_text: str):
         from qa_agent.llm_client import LLMProvider, LLMResponse
         client = MagicMock()
@@ -175,12 +175,12 @@ class TestSynthesizeFunction:
         )
         return client
 
-    def test_returns_synthesis_result_on_success(self):
+    def test_returns_summary_result_on_success(self):
         session = make_session_with_findings()
         client = self._mock_client(_VALID_LLM_RESPONSE)
-        with patch("qa_agent.synthesizer.create_llm_client", return_value=client):
-            result = synthesize(session)
-        assert isinstance(result, SynthesisResult)
+        with patch("qa_agent.summarizer.create_llm_client", return_value=client):
+            result = generate_summary(session)
+        assert isinstance(result, SummaryResult)
         assert result.executive_summary == "Three issues found, one critical."
 
     def test_returns_none_on_empty_session(self):
@@ -189,35 +189,35 @@ class TestSynthesizeFunction:
             start_time=datetime(2024, 1, 1),
             config_summary={},
         )
-        result = synthesize(session)
+        result = generate_summary(session)
         assert result is None
 
     def test_returns_none_on_no_findings(self):
         session = make_session()  # session with page but no findings
-        result = synthesize(session)
+        result = generate_summary(session)
         assert result is None
 
     def test_returns_none_on_llm_error(self):
         from qa_agent.llm_client import LLMError
         session = make_session_with_findings()
-        with patch("qa_agent.synthesizer.create_llm_client") as mock_factory:
+        with patch("qa_agent.summarizer.create_llm_client") as mock_factory:
             mock_factory.return_value.complete.side_effect = LLMError("API error", status_code=500)
-            result = synthesize(session)
+            result = generate_summary(session)
         assert result is None
 
     def test_returns_none_on_json_parse_error(self):
         session = make_session_with_findings()
         client = self._mock_client("not valid json {{{")
-        with patch("qa_agent.synthesizer.create_llm_client", return_value=client):
-            result = synthesize(session)
+        with patch("qa_agent.summarizer.create_llm_client", return_value=client):
+            result = generate_summary(session)
         assert result is None
 
     def test_passes_provider_and_model_to_client_factory(self):
         from qa_agent.llm_client import LLMProvider
         session = make_session_with_findings()
         client = self._mock_client(_VALID_LLM_RESPONSE)
-        with patch("qa_agent.synthesizer.create_llm_client", return_value=client) as mock_factory:
-            synthesize(session, provider=LLMProvider.OPENAI, model="gpt-4o")
+        with patch("qa_agent.summarizer.create_llm_client", return_value=client) as mock_factory:
+            generate_summary(session, provider=LLMProvider.OPENAI, model="gpt-4o")
         mock_factory.assert_called_once_with(
             provider=LLMProvider.OPENAI,
             model="gpt-4o",
@@ -228,8 +228,8 @@ class TestSynthesizeFunction:
         from qa_agent.llm_client import LLMProvider
         session = make_session_with_findings()
         client = self._mock_client(_VALID_LLM_RESPONSE)
-        with patch("qa_agent.synthesizer.create_llm_client", return_value=client) as mock_factory:
-            synthesize(session, api_key="sk-test")
+        with patch("qa_agent.summarizer.create_llm_client", return_value=client) as mock_factory:
+            generate_summary(session, api_key="sk-test")
         mock_factory.assert_called_once_with(
             provider=LLMProvider.ANTHROPIC,
             model=None,
@@ -238,100 +238,100 @@ class TestSynthesizeFunction:
 
 
 # ---------------------------------------------------------------------------
-# SynthesisResult model
+# SummaryResult model
 # ---------------------------------------------------------------------------
 
-class TestSynthesisResultModel:
+class TestSummaryResultModel:
     def test_to_dict_structure(self):
-        synthesis = _make_synthesis()
-        d = synthesis.to_dict()
+        summary = _make_summary()
+        d = summary.to_dict()
         assert "executive_summary" in d
         assert "priority_recommendations" in d
         assert "root_cause_clusters" in d
         assert "false_positive_candidates" in d
 
     def test_to_dict_cluster_fields(self):
-        synthesis = _make_synthesis()
-        cluster = synthesis.to_dict()["root_cause_clusters"][0]
+        summary = _make_summary()
+        cluster = summary.to_dict()["root_cause_clusters"][0]
         assert cluster["label"] == "Missing ARIA labels"
         assert "finding_titles" in cluster
         assert "root_cause" in cluster
         assert "suggested_fix" in cluster
 
-    def test_session_synthesis_field_defaults_to_none(self):
+    def test_session_summary_field_defaults_to_none(self):
         session = make_session()
-        assert session.synthesis is None
+        assert session.summary is None
 
-    def test_session_to_dict_includes_synthesis_none(self):
+    def test_session_to_dict_includes_summary_none(self):
         session = make_session()
         d = session.to_dict()
-        assert d["synthesis"] is None
+        assert d["summary"] is None
 
-    def test_session_to_dict_includes_synthesis_when_set(self):
+    def test_session_to_dict_includes_summary_when_set(self):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         d = session.to_dict()
-        assert d["synthesis"] is not None
-        assert d["synthesis"]["executive_summary"].startswith("Two critical")
+        assert d["summary"] is not None
+        assert d["summary"]["executive_summary"].startswith("Two critical")
 
 
 # ---------------------------------------------------------------------------
 # Reporter integration — Markdown
 # ---------------------------------------------------------------------------
 
-class TestMarkdownSynthesisSection:
+class TestMarkdownSummarySection:
     def _report_content(self, session: TestSession, tmp_path) -> str:
         from qa_agent.reporters.markdown import MarkdownReporter
         reporter = MarkdownReporter(str(tmp_path))
         filepath = reporter.generate(session)
         return open(filepath).read()
 
-    def test_synthesis_section_absent_when_none(self, tmp_path):
+    def test_summary_section_absent_when_none(self, tmp_path):
         session = make_session_with_findings()
         content = self._report_content(session, tmp_path)
         assert "## AI Analysis" not in content
 
-    def test_synthesis_section_present_when_set(self, tmp_path):
+    def test_summary_section_present_when_set(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         content = self._report_content(session, tmp_path)
         assert "## AI Analysis" in content
 
     def test_executive_summary_in_report(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         content = self._report_content(session, tmp_path)
         assert "Two critical accessibility issues" in content
 
     def test_priority_recommendations_in_report(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         content = self._report_content(session, tmp_path)
         assert "Fix ARIA labels" in content
 
     def test_root_cause_cluster_in_report(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         content = self._report_content(session, tmp_path)
         assert "Missing ARIA labels" in content
         assert "Icon-only buttons" in content
 
     def test_false_positive_candidates_in_report(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         content = self._report_content(session, tmp_path)
         assert "Possible False Positives" in content
         assert "Console error on third-party script" in content
 
     def test_no_false_positive_section_when_empty(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis(false_positive_candidates=[])
+        session.summary = _make_summary(false_positive_candidates=[])
         content = self._report_content(session, tmp_path)
         assert "Possible False Positives" not in content
 
     def test_no_cluster_section_when_empty(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis(root_cause_clusters=[])
+        session.summary = _make_summary(root_cause_clusters=[])
         content = self._report_content(session, tmp_path)
         assert "Root Cause Clusters" not in content
 
@@ -340,29 +340,29 @@ class TestMarkdownSynthesisSection:
 # Reporter integration — JSON
 # ---------------------------------------------------------------------------
 
-class TestJSONSynthesisSection:
+class TestJSONSummarySection:
     def _report_data(self, session: TestSession, tmp_path) -> dict:
         from qa_agent.reporters.json_reporter import JSONReporter
         reporter = JSONReporter(str(tmp_path))
         filepath = reporter.generate(session)
         return json.loads(open(filepath).read())
 
-    def test_synthesis_null_when_none(self, tmp_path):
+    def test_summary_null_when_none(self, tmp_path):
         session = make_session_with_findings()
         data = self._report_data(session, tmp_path)
-        assert data["synthesis"] is None
+        assert data["ai_summary"] is None
 
-    def test_synthesis_populated_when_set(self, tmp_path):
+    def test_summary_populated_when_set(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         data = self._report_data(session, tmp_path)
-        assert data["synthesis"] is not None
-        assert data["synthesis"]["executive_summary"] == "Two critical accessibility issues require immediate attention."
+        assert data["ai_summary"] is not None
+        assert data["ai_summary"]["executive_summary"] == "Two critical accessibility issues require immediate attention."
 
-    def test_synthesis_clusters_serialised(self, tmp_path):
+    def test_summary_clusters_serialised(self, tmp_path):
         session = make_session_with_findings()
-        session.synthesis = _make_synthesis()
+        session.summary = _make_summary()
         data = self._report_data(session, tmp_path)
-        clusters = data["synthesis"]["root_cause_clusters"]
+        clusters = data["ai_summary"]["root_cause_clusters"]
         assert len(clusters) == 1
         assert clusters[0]["label"] == "Missing ARIA labels"

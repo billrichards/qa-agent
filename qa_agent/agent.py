@@ -170,9 +170,9 @@ class QAAgent:
 
         self.session.end_time = datetime.now()
 
-        # Post-run LLM synthesis (opt-in)
-        if self.config.synthesize_results:
-            self._synthesize_results()
+        # Post-run LLM summary (opt-in)
+        if self.config.generate_summary:
+            self._generate_summary()
 
         # Generate reports
         self._generate_reports()
@@ -263,22 +263,22 @@ class QAAgent:
         if self.test_plan.notes:
             self.console.print_progress(f"Notes: {self.test_plan.notes}")
 
-    def _synthesize_results(self):
-        """Call the LLM post-run to produce a narrative synthesis of findings."""
-        from .synthesizer import synthesize
+    def _generate_summary(self):
+        """Call the LLM post-run to produce a narrative summary of findings."""
+        from .summarizer import generate_summary
 
-        self.console.print_progress("Synthesizing results with AI...")
-        result = synthesize(
+        self.console.print_progress("Generating results summary with AI...")
+        result = generate_summary(
             session=self.session,
             provider=self.config.llm_provider,
             model=self.config.ai_model,
         )
         if result:
-            self.session.synthesis = result
-            self.console.print_progress("AI synthesis complete.")
+            self.session.summary = result
+            self.console.print_progress("AI summary complete.")
         else:
             self.console.print_progress(
-                "Warning: AI synthesis failed — continuing without it."
+                "Warning: AI summary generation failed — continuing without it."
             )
 
     def _factory(self):
