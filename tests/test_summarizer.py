@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,10 +22,10 @@ from tests.conftest import make_finding, make_session, make_session_with_finding
 # ---------------------------------------------------------------------------
 
 def _make_summary(**kwargs) -> SummaryResult:
-    defaults = dict(
-        executive_summary="Two critical accessibility issues require immediate attention.",
-        priority_recommendations=["Fix ARIA labels", "Add focus indicators"],
-        root_cause_clusters=[
+    defaults: dict = {
+        "executive_summary": "Two critical accessibility issues require immediate attention.",
+        "priority_recommendations": ["Fix ARIA labels", "Add focus indicators"],
+        "root_cause_clusters": [
             RootCauseCluster(
                 label="Missing ARIA labels",
                 finding_titles=["No alt text on logo"],
@@ -32,10 +33,10 @@ def _make_summary(**kwargs) -> SummaryResult:
                 suggested_fix="Add aria-label to all icon buttons",
             )
         ],
-        false_positive_candidates=["Console error on third-party script"],
-    )
+        "false_positive_candidates": ["Console error on third-party script"],
+    }
     defaults.update(kwargs)
-    return SummaryResult(**defaults)
+    return SummaryResult(**defaults)  # type: ignore[arg-type]
 
 
 _VALID_LLM_RESPONSE = json.dumps({
@@ -341,11 +342,11 @@ class TestMarkdownSummarySection:
 # ---------------------------------------------------------------------------
 
 class TestJSONSummarySection:
-    def _report_data(self, session: TestSession, tmp_path) -> dict:
+    def _report_data(self, session: TestSession, tmp_path) -> dict[str, Any]:
         from qa_agent.reporters.json_reporter import JSONReporter
         reporter = JSONReporter(str(tmp_path))
         filepath = reporter.generate(session)
-        return json.loads(open(filepath).read())
+        return cast(dict[str, Any], json.loads(open(filepath).read()))
 
     def test_summary_null_when_none(self, tmp_path):
         session = make_session_with_findings()
