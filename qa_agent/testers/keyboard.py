@@ -1,6 +1,7 @@
 """Keyboard navigation and input testing."""
 
 import logging
+from typing import Any
 
 from playwright.sync_api import Page
 
@@ -40,7 +41,7 @@ class KeyboardTester(BaseTester):
             self.page.evaluate("document.body.focus()")
             self.page.keyboard.press("Tab")
 
-            visited_elements = []
+            visited_elements: list[dict[str, Any]] = []
             max_tabs = 100  # Prevent infinite loops
             tabs_pressed = 0
 
@@ -236,7 +237,8 @@ class KeyboardTester(BaseTester):
 
                     if not is_focused:
                         tag = element.evaluate("el => el.tagName.toLowerCase()")
-                        text = element.text_content()[:30] if element.text_content() else ""
+                        content = element.text_content()
+                        text = content[:30] if content else ""
                         self.findings.append(Finding(
                             title="Interactive element not focusable",
                             description=f"{tag} element cannot receive focus",

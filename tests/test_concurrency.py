@@ -37,7 +37,7 @@ class TestFrontierBasics:
     def test_depth_limit_blocks_deeper_links(self):
         f = Frontier(max_pages=10, max_depth=1)
         f.seed(["root"])
-        url, depth = f.claim()
+        url, depth = f.claim()  # type: ignore[misc]
         assert depth == 0
         f.add_links(["child"], parent_depth=0)   # depth 1 — allowed
         f.add_links(["grandchild"], parent_depth=1)  # depth 2 — rejected

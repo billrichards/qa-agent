@@ -80,6 +80,7 @@ class TestBuildConfig:
             "urls": ["https://example.com"],
             "auth": {"cookies": "not json {{{"},
         })
+        assert config.auth is not None
         assert config.auth.cookies is None
 
     def test_screenshot_on_interaction_requires_enabled(self):
@@ -370,8 +371,8 @@ class TestSessionView:
 
 class TestQueueWriter:
     def _writer(self):
-        q = queue.Queue()
-        events = []
+        q: queue.Queue = queue.Queue()
+        events: list[dict] = []
         return _QueueWriter(q, events), q, events
 
     def test_log_line_emits_log_event(self):

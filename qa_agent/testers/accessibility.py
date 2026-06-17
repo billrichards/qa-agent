@@ -1,6 +1,7 @@
 """Accessibility testing module."""
 
 import logging
+from typing import Any
 
 from playwright.sync_api import Page
 
@@ -39,7 +40,7 @@ class AccessibilityTester(BaseTester):
             images = self.page.locator('img:visible')
             count = images.count()
 
-            issues = {
+            issues: dict[str, Any] = {
                 "missing_alt": [],
                 "empty_decorative": 0,
                 "suspicious_alt": [],

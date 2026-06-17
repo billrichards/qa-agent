@@ -139,7 +139,7 @@ class TestRateLimit:
         assert cfg.rate_limit == cfg.RATE_LIMIT_MAX
 
     def test_non_numeric_falls_back_to_default(self):
-        assert TestConfig(rate_limit="not-a-number").rate_limit == 3.0
+        assert TestConfig(rate_limit="not-a-number").rate_limit == 3.0  # type: ignore[arg-type]
 
 
 class TestTestMode:

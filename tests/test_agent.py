@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Literal
+from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -273,7 +273,7 @@ class TestQAAgentRun:
             call_count[0] += 1
             return [finding] if call_count[0] == 1 else []
 
-        patchers = [
+        patchers: list[Any] = [
             patch("qa_agent.agent.KeyboardTester.run", return_value=[]),
             patch("qa_agent.agent.MouseTester.run", return_value=[]),
             patch("qa_agent.agent.FormTester.run", return_value=[]),
@@ -335,7 +335,7 @@ class TestQAAgentRun:
         def raising_run(self):
             raise RuntimeError("tester exploded")
 
-        patchers = [
+        patchers: list[Any] = [
             patch("qa_agent.agent.KeyboardTester.run", raising_run),
             patch("qa_agent.agent.MouseTester.run", return_value=[]),
             patch("qa_agent.agent.FormTester.run", return_value=[]),
@@ -574,7 +574,7 @@ class TestQAAgentParallel:
 
     def _patch_testers(self, accessibility_run=None):
         from unittest.mock import patch as _patch
-        targets = {
+        targets: dict[str, Any] = {
             "qa_agent.agent.KeyboardTester.run": [],
             "qa_agent.agent.MouseTester.run": [],
             "qa_agent.agent.FormTester.run": [],
@@ -583,7 +583,7 @@ class TestQAAgentParallel:
             "qa_agent.agent.ErrorDetector.attach_listeners": None,
             "qa_agent.agent.ErrorDetector.get_summary": {},
         }
-        patchers = []
+        patchers: list[Any] = []
         for target, retval in targets.items():
             if target == "qa_agent.agent.AccessibilityTester.run" and accessibility_run:
                 patchers.append(_patch(target, accessibility_run))

@@ -30,7 +30,7 @@ class AuthConfig:
     username_selector: str | None = None  # Selector for username field
     password_selector: str | None = None  # Selector for password field
     submit_selector: str | None = None  # Selector for submit button
-    cookies: dict | None = None  # Pre-set cookies for authentication
+    cookies: dict | list[dict] | None = None  # Pre-set cookies for authentication
     headers: dict | None = None  # Custom headers (e.g., Bearer token)
 
 
