@@ -285,7 +285,7 @@ class TestMarkdownSummarySection:
         from qa_agent.reporters.markdown import MarkdownReporter
         reporter = MarkdownReporter(str(tmp_path))
         filepath = reporter.generate(session)
-        return open(filepath).read()
+        return open(filepath, encoding="utf-8").read()
 
     def test_summary_section_absent_when_none(self, tmp_path):
         session = make_session_with_findings()
@@ -346,7 +346,7 @@ class TestJSONSummarySection:
         from qa_agent.reporters.json_reporter import JSONReporter
         reporter = JSONReporter(str(tmp_path))
         filepath = reporter.generate(session)
-        return cast(dict[str, Any], json.loads(open(filepath).read()))
+        return cast(dict[str, Any], json.loads(open(filepath, encoding="utf-8").read()))
 
     def test_summary_null_when_none(self, tmp_path):
         session = make_session_with_findings()
