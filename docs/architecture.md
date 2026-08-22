@@ -12,6 +12,7 @@ qa_agent/
 ├── agent.py                 # Core orchestrator
 ├── config.py                # Configuration dataclasses
 ├── models.py                # Finding, PageAnalysis, TestSession, TestPlan
+├── viewports.py             # Viewport device profiles, presets, and parsing
 ├── llm_client.py            # Anthropic & OpenAI clients via stdlib urllib
 ├── ai_planner.py            # LLM-powered test plan generation
 ├── plan_cache.py            # Filesystem cache for test plans
@@ -41,7 +42,7 @@ qa_agent/
 
 1. **Entry** — [`cli.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/cli.py) parses arguments and builds a [`TestConfig`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/config.py).
 2. **Planning** — If `--instructions` is provided, [`ai_planner.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/ai_planner.py) calls the LLM via [`llm_client.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/llm_client.py) to generate a `TestPlan`. Plans are cached to disk by [`plan_cache.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/plan_cache.py) (24-hour TTL).
-3. **Orchestration** — [`agent.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/agent.py) launches Playwright, iterates over target URLs (or crawls in explore mode), and calls each enabled tester on every page.
+3. **Orchestration** — [`agent.py`](https://github.com/billrichards/qa-agent/blob/main/qa_agent/agent.py) launches Playwright and, for each configured viewport in turn, iterates over target URLs (or crawls in explore mode) and calls each enabled tester on every page. Each viewport sweep gets its own browser context and fresh crawl state, and stamps its name onto every page result and finding it produces.
 4. **Testing** — Each tester (see [Test Categories](https://github.com/billrichards/qa-agent/blob/main/docs/test-categories.md)) receives the Playwright `Page` and returns a `list[Finding]`.
 5. **Reporting** — Reporters in [`reporters/`](https://github.com/billrichards/qa-agent/tree/main/qa_agent/reporters/) consume the `TestSession` and write output in the requested formats.
 

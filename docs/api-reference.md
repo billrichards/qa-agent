@@ -69,8 +69,7 @@ config = TestConfig(
     full_page_screenshots=False,
     recording=False,
     headless=True,
-    viewport_width=1280,
-    viewport_height=720,
+    viewports=["desktop", "mobile"],   # or omit for a single 1280x720 window
     timeout=30000,
     allow_external=False,
     ignore_patterns=[],
@@ -107,8 +106,9 @@ config = TestConfig(
 | `full_page_screenshots` | `bool` | `False` | Full-page captures |
 | `recording` | `bool` | `False` | Record session video |
 | `headless` | `bool` | `True` | Run browser headless |
-| `viewport_width` | `int` | `1280` | Browser viewport width |
-| `viewport_height` | `int` | `720` | Browser viewport height |
+| `viewports` | `list[Viewport \| str \| dict]` | `[]` | Viewports to sweep; each page is tested once per entry. Accepts preset names (`"mobile"`), sizes (`"1440x900"`), dicts, or `Viewport` objects. Empty means a single `viewport_width` x `viewport_height` window. Capped at `TestConfig.VIEWPORTS_MAX` (10). |
+| `viewport_width` | `int` | `1280` | Legacy single-viewport width. Seeds the sole viewport when `viewports` is empty; afterwards mirrors `viewports[0]`. |
+| `viewport_height` | `int` | `720` | Legacy single-viewport height, as above. |
 | `timeout` | `int` | `30000` | Action timeout (ms) |
 | `allow_external` | `bool` | `False` | Follow external domain links |
 | `ignore_patterns` | `list[str]` | `[]` | URL regex patterns to skip |

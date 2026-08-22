@@ -58,10 +58,11 @@ Request flow: `cli.py` parses args into a `TestConfig` (`config.py`) →
 if `--instructions`/`--instructions-file` is set, `ai_planner.py` calls
 `llm_client.py` (Anthropic/OpenAI via stdlib `urllib`, no SDK deps) to
 produce a `TestPlan`, cached on disk by `plan_cache.py` (24h TTL) →
-`agent.py` (`QAAgent`) launches Playwright, iterates/crawls target URLs, and
-runs each enabled tester from `testers/` against every page, collecting
-`Finding` objects → reporters in `reporters/` consume the resulting
-`TestSession` and write console/markdown/json/pdf output.
+`agent.py` (`QAAgent`) launches Playwright, sweeps each configured viewport in
+turn, iterating/crawling target URLs and running each enabled tester from
+`testers/` against every page, collecting `Finding` objects → reporters in
+`reporters/` consume the resulting `TestSession` and write
+console/markdown/json/pdf output.
 
 - **Concurrency**: `concurrency.py` implements page-level worker pools
   (`--workers`, max 16) within a single run, and `batch.py` (`BatchRunner`)
@@ -74,6 +75,16 @@ runs each enabled tester from `testers/` against every page, collecting
   workers; `BatchRunner` can hold a single shared instance passed to every
   `QAAgent` it constructs so concurrent batch jobs hitting the same host
   share one budget.
+- **Viewports**: `viewports.py` holds the `Viewport` device profile (size plus
+  device scale factor, touch, mobile flag, user agent) and the preset registry.
+  `TestConfig.viewports` accepts preset names, `WxH` strings, dicts, or
+  `Viewport` objects and normalises them in `__post_init__`; empty means a
+  single viewport from the legacy `viewport_width`/`viewport_height` pair,
+  which afterwards mirror `viewports[0]`. The agent runs one full sweep per
+  viewport (max `VIEWPORTS_MAX`, 10), so total cost multiplies by the count.
+  Viewport is part of the dedup key in `models.py`, keeping a mobile-only
+  finding distinct from its desktop namesake. The registry is a plain data
+  table, not a `playwright.devices` lookup, so it imports without a browser.
 - **Testers** (`testers/`) all extend `BaseTester` (`testers/base.py`),
   receive a Playwright `Page` + `TestConfig`, and return `list[Finding]`.
   `custom.py` runs AI-generated steps from the cached `TestPlan`.

@@ -279,6 +279,44 @@ curl http://127.0.0.1:5000/api/session/example.com/f9e8d7c6
 
 ---
 
+## Viewports
+
+### GET /api/viewports
+
+Return the viewport preset registry. The run form renders its checkboxes from
+this, so the options always match what the backend accepts.
+
+```bash
+curl http://127.0.0.1:5000/api/viewports
+```
+
+**Response** `200`
+
+```json
+{
+  "presets": [
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "device_scale_factor": 3,
+      "is_mobile": true,
+      "has_touch": true,
+      "user_agent": "Mozilla/5.0 (iPhone; ...)",
+      "description": "iPhone-class phone (14/15)"
+    }
+  ],
+  "default": {"width": 1280, "height": 720},
+  "max": 10
+}
+```
+
+Pass any preset `name` in the `viewports` array of `POST /api/run` to sweep
+that device. Each page is tested once per viewport, and findings record which
+viewport they came from.
+
+---
+
 ## Files
 
 ### GET /files/:path
@@ -319,8 +357,9 @@ The [`POST /api/run`](#post-apirun) endpoint accepts a JSON object. Only `urls` 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `headless` | boolean | `true` | Run browser in headless mode |
-| `viewport_width` | integer | `1280` | Browser viewport width in pixels |
-| `viewport_height` | integer | `720` | Browser viewport height in pixels |
+| `viewports` | array \| string | `[]` | Viewports to sweep; each page is tested once per entry. Items may be preset names (`"mobile"`), sizes (`"1440x900"`), or objects. A comma-separated string is also accepted. Capped at 10. |
+| `viewport_width` | integer | `1280` | Legacy single-viewport width, used only when `viewports` is absent or unusable |
+| `viewport_height` | integer | `720` | Legacy single-viewport height, as above |
 | `timeout` | integer | `30000` | Page load timeout in milliseconds |
 
 ### Exploration (explore mode)

@@ -271,7 +271,8 @@ qa-agent --workers 4 --mode explore https://example.com   # 4 pages at a time
 
 Run several independent sessions concurrently from a JSON spec file. Each entry
 needs `urls` plus optional per-run overrides (`mode`, `max_depth`, `max_pages`,
-`instructions`, `workers`); all other settings come from the command-line flags.
+`instructions`, `workers`, `viewports`); all other settings come from the
+command-line flags.
 
 ```bash
 qa-agent --batch-file runs.json --pool-size 4
@@ -280,7 +281,8 @@ qa-agent --batch-file runs.json --pool-size 4
 ```json
 [
   {"urls": ["https://example.com"], "mode": "explore", "workers": 4},
-  {"urls": ["https://other.test/login"], "instructions": "Check the checkout flow"}
+  {"urls": ["https://other.test/login"], "instructions": "Check the checkout flow"},
+  {"urls": ["https://shop.test"], "viewports": ["desktop", "mobile"]}
 ]
 ```
 
@@ -364,8 +366,42 @@ qa-agent --record            https://example.com  # session video
 ```bash
 qa-agent --no-headless                  # visible browser window
 qa-agent --viewport 1920x1080           # default: 1280x720
+qa-agent --list-viewports               # show viewport presets
 qa-agent --timeout 60000                # ms, default: 30000
 ```
+
+### Viewports
+
+Every page can be tested at several viewports in one run. Each viewport is a
+full device profile — size plus device pixel ratio, touch support, mobile
+flag, and user agent — so sites that switch layout on UA sniffing or pointer
+type render their real mobile experience.
+
+```bash
+qa-agent --list-viewports                        # show the presets
+qa-agent --viewport mobile                       # one preset
+qa-agent --viewport desktop,tablet,mobile        # sweep three
+qa-agent --viewport mobile,1440x900              # mix presets and raw sizes
+qa-agent --viewport kiosk=1080x1920              # name a custom size
+```
+
+| Preset | Size | Notes |
+|---|---|---|
+| `desktop` | 1920x1080 | Full HD desktop monitor |
+| `laptop` | 1440x900 | Retina laptop (MacBook-class) |
+| `tablet` | 768x1024 | iPad-class tablet, portrait |
+| `tablet-landscape` | 1024x768 | iPad-class tablet, landscape |
+| `mobile` | 390x844 | iPhone-class phone (14/15) |
+| `mobile-small` | 375x667 | Small phone (iPhone SE-class) |
+| `android` | 412x915 | Pixel-class Android phone |
+
+Every page is swept once per viewport, so a run takes roughly as many times
+longer as viewports selected (capped at 10). Findings record the viewport
+they were seen at and are never merged across viewports, so a mobile-only
+issue stays distinct from its desktop namesake. With multiple viewports,
+screenshots are grouped into one subdirectory per viewport.
+
+Omitting `--viewport` tests a single 1280x720 window, exactly as before.
 
 ### Test suites
 
