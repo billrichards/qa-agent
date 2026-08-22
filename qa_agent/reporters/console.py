@@ -143,6 +143,11 @@ class ConsoleReporter(BaseReporter):
         print(f"\n{self._color('📋 FINDINGS', '1;97')}")
         print("-" * 40)
 
+        # Only annotate findings with a viewport when more than one was swept.
+        # A single-viewport run gains nothing from repeating the same size on
+        # every entry, and staying silent keeps default output unchanged.
+        show_viewport = len(session.viewports_tested) > 1
+
         # Group by severity
         severity_order = ["critical", "high", "medium", "low", "info"]
         grouped: dict[str, list] = {}
@@ -165,7 +170,7 @@ class ConsoleReporter(BaseReporter):
                 print(f"\n  {i}. {cat_emoji} {self._color(finding.title, '1')}")
                 print(f"     {finding.description}")
 
-                if finding.viewport:
+                if show_viewport and finding.viewport:
                     print(f"     📐 Viewport: {finding.viewport}")
                 if finding.url:
                     print(f"     📍 URL: {self._color(finding.url, '90')}")

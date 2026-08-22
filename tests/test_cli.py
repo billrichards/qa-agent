@@ -225,7 +225,12 @@ class TestMainParsing:
         out = capsys.readouterr()
         assert "bogusformat" in out.err or True  # warning may go to stderr
 
-    def test_bad_viewport_falls_back(self, monkeypatch, capsys):
+    def test_bad_viewport_is_fatal(self, monkeypatch, capsys):
+        """A misspelled viewport aborts the run instead of silently defaulting.
+
+        Falling back to 1280x720 would run the entire suite against a device the
+        user did not ask for and report it as a success.
+        """
         captured_config = {}
 
         def fake_init(self, config, **kwargs):
@@ -235,13 +240,15 @@ class TestMainParsing:
              patch("qa_agent.cli.QAAgent.run", return_value=_fake_session()):
             monkeypatch.setattr(sys, "argv", ["qa-agent", "--viewport", "bogus", "https://example.com"])
             import qa_agent.cli as cli_mod
-            try:
+            with pytest.raises(SystemExit) as exc:
                 cli_mod.main()
-            except SystemExit:
-                pass
 
-        assert captured_config["config"].viewport_width == 1280
-        assert captured_config["config"].viewport_height == 720
+        assert exc.value.code == 2
+        assert "config" not in captured_config
+        err = capsys.readouterr().err
+        assert "bogus" in err
+        # The error names the valid presets so the fix is obvious.
+        assert "mobile" in err
 
     def test_valid_viewport_parsed(self, monkeypatch):
         captured_config = {}
@@ -260,6 +267,67 @@ class TestMainParsing:
 
         assert captured_config["config"].viewport_width == 1920
         assert captured_config["config"].viewport_height == 1080
+
+    def _config_for(self, monkeypatch, argv):
+        """Run main() with argv and return the TestConfig it built."""
+        captured_config = {}
+
+        def fake_init(self, config, **kwargs):
+            captured_config["config"] = config
+
+        with patch("qa_agent.cli.QAAgent.__init__", fake_init), \
+             patch("qa_agent.cli.QAAgent.run", return_value=_fake_session()):
+            monkeypatch.setattr(sys, "argv", argv)
+            import qa_agent.cli as cli_mod
+            try:
+                cli_mod.main()
+            except SystemExit:
+                pass
+
+        return captured_config["config"]
+
+    def test_no_viewport_flag_keeps_single_default(self, monkeypatch):
+        """Omitting --viewport must behave exactly as it did before presets."""
+        config = self._config_for(
+            monkeypatch, ["qa-agent", "https://example.com"]
+        )
+        assert config.viewport_names == ["1280x720"]
+        assert (config.viewport_width, config.viewport_height) == (1280, 720)
+
+    def test_viewport_preset_name(self, monkeypatch):
+        config = self._config_for(
+            monkeypatch, ["qa-agent", "--viewport", "mobile", "https://example.com"]
+        )
+        assert config.viewport_names == ["mobile"]
+        assert (config.viewport_width, config.viewport_height) == (390, 844)
+
+    def test_multiple_viewports_comma_separated(self, monkeypatch):
+        """Presets and raw sizes can be mixed in one flag, order preserved."""
+        config = self._config_for(
+            monkeypatch,
+            ["qa-agent", "--viewport", "desktop,mobile,1440x900", "https://example.com"],
+        )
+        assert config.viewport_names == ["desktop", "mobile", "1440x900"]
+        # Legacy scalars mirror the first viewport for older readers.
+        assert (config.viewport_width, config.viewport_height) == (1920, 1080)
+
+    def test_duplicate_viewports_collapse(self, monkeypatch):
+        config = self._config_for(
+            monkeypatch,
+            ["qa-agent", "--viewport", "mobile,mobile", "https://example.com"],
+        )
+        assert config.viewport_names == ["mobile"]
+
+    def test_list_viewports_prints_presets_and_exits_0(self, monkeypatch, capsys):
+        """--list-viewports works without any URL argument."""
+        monkeypatch.setattr(sys, "argv", ["qa-agent", "--list-viewports"])
+        import qa_agent.cli as cli_mod
+        with pytest.raises(SystemExit) as exc:
+            cli_mod.main()
+        assert exc.value.code == 0
+        out = capsys.readouterr().out
+        assert "mobile" in out
+        assert "1920x1080" in out
 
     def test_no_cache_without_instructions_exits_2(self, monkeypatch):
         monkeypatch.setattr(sys, "argv", ["qa-agent", "--no-cache", "https://example.com"])

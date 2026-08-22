@@ -17,6 +17,7 @@ from .config import (
 )
 from .llm_client import LLMProvider
 from .playwright_utils import ensure_chromium_installed
+from .viewports import format_preset_table, parse_viewports
 
 
 def parse_auth_config(auth_str: str | None, auth_file: str | None) -> AuthConfig | None:
@@ -72,6 +73,15 @@ Examples:
 
   # With screenshots and recording
   qa-agent --screenshots --record https://example.com
+
+  # Test the same pages at several viewports
+  qa-agent --viewport desktop,tablet,mobile https://example.com
+
+  # Mix presets with explicit sizes
+  qa-agent --viewport mobile,1440x900 https://example.com
+
+  # See the available viewport presets
+  qa-agent --list-viewports
         """,
     )
 
@@ -191,8 +201,18 @@ Examples:
     )
     parser.add_argument(
         "--viewport",
-        default="1280x720",
-        help="Viewport size as WIDTHxHEIGHT (default: 1280x720)",
+        default=None,
+        help=(
+            "Viewport(s) to test, comma-separated. Each may be a preset name, a "
+            "raw WIDTHxHEIGHT, or a named size (kiosk=1080x1920). Every page is "
+            "tested once per viewport. Use --list-viewports to see the presets. "
+            "(default: 1280x720)"
+        ),
+    )
+    parser.add_argument(
+        "--list-viewports",
+        action="store_true",
+        help="Print the available viewport presets and exit",
     )
     parser.add_argument(
         "--timeout",
@@ -320,6 +340,12 @@ Examples:
     )
     args = parser.parse_args()
 
+    # Informational flag: print the preset table and exit before any
+    # requirement on URLs kicks in.
+    if args.list_viewports:
+        print(format_preset_table())
+        sys.exit(0)
+
     # Validate: --no-cache requires instructions
     if args.no_cache and not (args.instructions or args.instructions_file):
         parser.error("--no-cache can only be used with --instructions or --instructions-file")
@@ -350,12 +376,22 @@ Examples:
     if OutputFormat.JSON not in output_formats:
         output_formats.append(OutputFormat.JSON)
 
-    # Parse viewport
+    # Parse viewports. A typo here must be fatal rather than silently falling
+    # back to a default size -- the whole run would then test the wrong device.
     try:
-        width, height = map(int, args.viewport.split("x"))
-    except ValueError:
-        print(f"Invalid viewport format: {args.viewport}. Use WIDTHxHEIGHT", file=sys.stderr)
-        width, height = 1280, 720
+        viewports = parse_viewports(args.viewport)
+    except ValueError as exc:
+        print(f"Invalid --viewport: {exc}", file=sys.stderr)
+        print("\nAvailable presets:\n", file=sys.stderr)
+        print(format_preset_table(), file=sys.stderr)
+        sys.exit(2)
+
+    if len(viewports) > TestConfig.VIEWPORTS_MAX:
+        print(
+            f"Too many viewports ({len(viewports)}); "
+            f"only the first {TestConfig.VIEWPORTS_MAX} will be tested.",
+            file=sys.stderr,
+        )
 
     # Parse authentication
     auth_config = parse_auth_config(args.auth, args.auth_file)
@@ -402,8 +438,7 @@ Examples:
         output_formats=output_formats,
         output_dir=args.output_dir,
         headless=not args.no_headless,
-        viewport_width=width,
-        viewport_height=height,
+        viewports=viewports,
         timeout=args.timeout,
         max_depth=args.max_depth,
         max_pages=args.max_pages,
