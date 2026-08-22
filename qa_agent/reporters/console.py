@@ -64,6 +64,16 @@ class ConsoleReporter(BaseReporter):
         """Print a test reliability warning."""
         print(f"  ⚠  {self._color('WARNING:', '93')} {message}")
 
+    def print_viewport_start(self, label: str):
+        """Print when starting a sweep at a new viewport.
+
+        Only emitted for multi-viewport runs, where otherwise the same pages
+        would appear to be tested repeatedly for no visible reason.
+        """
+        print(f"\n{'#'*60}")
+        print(f"📐 Viewport: {self._color(label, '1;95')}")
+        print(f"{'#'*60}")
+
     def print_page_start(self, url: str):
         """Print when starting to test a new page."""
         print(f"\n{'='*60}")
@@ -103,6 +113,14 @@ class ConsoleReporter(BaseReporter):
                     emoji = self._severity_emoji(severity)
                     color = self._severity_color(severity)
                     print(f"    {emoji} {self._color(severity.upper(), color)}: {count}")
+
+        if len(session.findings_by_viewport) > 1:
+            print(f"\n  {self._color('By Viewport:', '1')}")
+            for viewport, count in sorted(
+                session.findings_by_viewport.items(), key=lambda x: -x[1]
+            ):
+                if count > 0:
+                    print(f"    📐 {viewport}: {count}")
 
         if session.findings_by_category:
             print(f"\n  {self._color('By Category:', '1')}")
@@ -147,6 +165,8 @@ class ConsoleReporter(BaseReporter):
                 print(f"\n  {i}. {cat_emoji} {self._color(finding.title, '1')}")
                 print(f"     {finding.description}")
 
+                if finding.viewport:
+                    print(f"     📐 Viewport: {finding.viewport}")
                 if finding.url:
                     print(f"     📍 URL: {self._color(finding.url, '90')}")
                 if finding.element_selector:

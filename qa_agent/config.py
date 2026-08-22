@@ -5,6 +5,14 @@ from enum import Enum
 from typing import Literal
 
 from .llm_client import LLMProvider
+from .viewports import (
+    DEFAULT_HEIGHT,
+    DEFAULT_WIDTH,
+    MAX_DIMENSION,
+    MIN_DIMENSION,
+    Viewport,
+    coerce_viewports,
+)
 
 
 class TestMode(Enum):
@@ -64,8 +72,19 @@ class TestConfig:
 
     # Browser settings
     headless: bool = True
-    viewport_width: int = 1280
-    viewport_height: int = 720
+
+    # Viewports to sweep. Each entry runs the full page sweep in its own
+    # browser context, so findings can be attributed per device profile.
+    # Accepts Viewport objects, preset names ("mobile"), raw sizes
+    # ("1920x1080"), or dicts; normalised in __post_init__.
+    # Empty (the default) means "one viewport at viewport_width x
+    # viewport_height", preserving single-viewport behaviour.
+    viewports: list[Viewport] = field(default_factory=list)
+
+    # Legacy single-viewport size. Still fully supported as input; after
+    # __post_init__ these always mirror the first entry of ``viewports``.
+    viewport_width: int = DEFAULT_WIDTH
+    viewport_height: int = DEFAULT_HEIGHT
     timeout: int = 30000  # ms
 
     # Exploration settings
@@ -126,7 +145,13 @@ class TestConfig:
     # effective throttling via an absurdly high rate.
     RATE_LIMIT_MAX = 50.0
 
+    # Ceiling on the number of viewports swept in one run. Every viewport is a
+    # full re-sweep of every page, so the run cost is multiplied by this count.
+    VIEWPORTS_MAX = 10
+
     def __post_init__(self) -> None:
+        self._normalize_viewports()
+
         # Clamp worker count to [1, WORKERS_MAX]. Defensive against bad input
         # from CLI flags or web request bodies.
         try:
@@ -142,3 +167,46 @@ class TestConfig:
         except (TypeError, ValueError):
             rate_limit = 3.0
         self.rate_limit = 0.0 if rate_limit <= 0 else min(self.RATE_LIMIT_MAX, rate_limit)
+
+    def _normalize_viewports(self) -> None:
+        """Resolve ``viewports`` into a non-empty list of :class:`Viewport`.
+
+        Callers may pass preset names, ``WxH`` strings, dicts, or Viewport
+        objects; all are coerced here so the agent only ever sees Viewport
+        instances. When nothing is given, the legacy
+        ``viewport_width``/``viewport_height`` pair becomes the single
+        viewport, which keeps existing configs behaving exactly as before.
+
+        Invalid viewport *specs* raise (a typo like ``--viewport moblie`` must
+        not silently test the wrong size), but an out-of-range legacy
+        width/height falls back to the default rather than raising, matching
+        how ``workers`` and ``rate_limit`` treat bad input.
+        """
+        viewports = coerce_viewports(self.viewports)
+
+        if not viewports:
+            width, height = self.viewport_width, self.viewport_height
+            if not _in_dimension_range(width) or not _in_dimension_range(height):
+                width, height = DEFAULT_WIDTH, DEFAULT_HEIGHT
+            viewports = [Viewport(name=f"{width}x{height}", width=width, height=height)]
+
+        self.viewports = viewports[: self.VIEWPORTS_MAX]
+
+        # Keep the legacy scalars meaningful for existing readers (reporters,
+        # web UI, third-party SDK callers) by mirroring the first viewport.
+        self.viewport_width = self.viewports[0].width
+        self.viewport_height = self.viewports[0].height
+
+    @property
+    def viewport_names(self) -> list[str]:
+        """Names of the viewports this config will sweep, in order."""
+        return [vp.name for vp in self.viewports]
+
+
+def _in_dimension_range(value: object) -> bool:
+    """True if ``value`` is an int-like dimension within the allowed bounds."""
+    try:
+        dimension: int = int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return False
+    return MIN_DIMENSION <= dimension <= MAX_DIMENSION

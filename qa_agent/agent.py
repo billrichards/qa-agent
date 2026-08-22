@@ -29,6 +29,7 @@ from .testers import (
     WCAGComplianceTester,
 )
 from .testers.base import BaseTester
+from .viewports import Viewport
 
 
 def _extract_domain(url: str) -> str:
@@ -89,6 +90,13 @@ class QAAgent:
         # layer uses this to route the worker's stdout to the right job queue.
         self._worker_thread_init = worker_thread_init
 
+        # Viewport sweep state. ``_screenshot_base`` is the un-suffixed
+        # screenshot directory; when several viewports are swept, each sweep
+        # points config.screenshots.output_dir at a per-viewport subdirectory
+        # so agent *and* tester screenshots land together, grouped by device.
+        self._screenshot_base: str = ""  # set after output dirs are derived
+        self._current_viewport: Viewport | None = None
+
         # Concurrency state (used only when config.workers > 1).
         self._session_lock = threading.Lock()  # guards session aggregation
         self._page_indexer = PageIndexer()      # worker-safe screenshot indices
@@ -113,6 +121,7 @@ class QAAgent:
         config.output_dir = os.path.join(session_base, "qa_reports")
         config.screenshots.output_dir = os.path.join(session_base, "screenshots")
         config.recording.output_dir = os.path.join(session_base, "recordings")
+        self._screenshot_base = config.screenshots.output_dir
 
         # Initialize reporters
         self.reporters: list[BaseReporter] = []
@@ -141,6 +150,7 @@ class QAAgent:
                 "headless": self.config.headless,
                 "max_depth": self.config.max_depth if self.config.mode == TestMode.EXPLORE else None,
                 "max_pages": self.config.max_pages if self.config.mode == TestMode.EXPLORE else None,
+                "viewports": [vp.to_dict() for vp in self.config.viewports],
             }
         )
 
@@ -151,23 +161,9 @@ class QAAgent:
         if self.config.workers > 1:
             self._run_concurrent()
         else:
-            with self._factory()() as playwright:
-                self._setup_browser(playwright)
+            self._run_sequential()
 
-                try:
-                    # Authenticate if needed
-                    if self.config.auth:
-                        self._authenticate()
-
-                    # Run tests based on mode
-                    if self.config.mode == TestMode.FOCUSED:
-                        self._run_focused_mode()
-                    else:
-                        self._run_explore_mode()
-
-                finally:
-                    self._cleanup()
-
+        self._finalize_recordings()
         self.session.end_time = datetime.now()
 
         # Post-run LLM summary (opt-in)
@@ -178,6 +174,62 @@ class QAAgent:
         self._generate_reports()
 
         return self.session
+
+    def _run_sequential(self):
+        """Sweep every configured viewport on a single browser, one at a time.
+
+        Viewports run sequentially rather than in parallel: each needs its own
+        browser context anyway, and serialising them keeps the page-worker and
+        rate-limit budgets meaning the same thing they did for a single-viewport
+        run.
+        """
+        with self._factory()() as playwright:
+            for viewport in self.config.viewports:
+                if self.stop_event and self.stop_event.is_set():
+                    break
+                self._begin_viewport(viewport)
+                self._setup_browser(playwright, viewport)
+
+                try:
+                    # Authenticate if needed
+                    if self.config.auth:
+                        self._authenticate()
+
+                    # Run tests based on mode
+                    if self.config.mode == TestMode.FOCUSED:
+                        self._run_focused_mode(viewport)
+                    else:
+                        self._run_explore_mode(viewport)
+
+                finally:
+                    self._cleanup()
+
+    def _begin_viewport(self, viewport: Viewport) -> None:
+        """Reset per-sweep state and point screenshots at this viewport.
+
+        Crawl state (visited URLs, frontier, re-auth counter) is per viewport:
+        every viewport must visit the same pages, so state cannot carry over
+        from the previous sweep.
+        """
+        self._current_viewport = viewport
+        self.visited_urls = set()
+        self.urls_to_visit = []
+        self._reauth_count = 0
+        self.config.screenshots.output_dir = self._viewport_screenshot_dir(viewport)
+        if len(self.config.viewports) > 1:
+            self.console.print_viewport_start(viewport.label)
+
+    def _viewport_screenshot_dir(self, viewport: Viewport) -> str:
+        """Screenshot directory for a sweep.
+
+        Single-viewport runs keep the flat legacy layout; multi-viewport runs
+        get one subdirectory per viewport so identically-named captures of the
+        same page do not sit side by side with no way to tell them apart.
+        """
+        base = self._screenshot_base or self.config.screenshots.output_dir
+        if len(self.config.viewports) <= 1:
+            return base
+        return os.path.join(base, viewport.slug)
 
     def _generate_test_plan(self):
         """Call the AI planner to interpret instructions and build a TestPlan.
@@ -294,19 +346,23 @@ class QAAgent:
         """Launch a Chromium browser with the configured options."""
         return playwright.chromium.launch(headless=self.config.headless)
 
-    def _new_context_page(self, browser: Browser, storage_state=None) -> tuple[BrowserContext, Page]:
+    def _new_context_page(
+        self,
+        browser: Browser,
+        storage_state=None,
+        viewport: Viewport | None = None,
+    ) -> tuple[BrowserContext, Page]:
         """Create a browser context + page with the configured options.
 
         ``storage_state`` (a dict exported from a previously authenticated
         context) seeds cookies/localStorage so per-worker contexts inherit the
         logged-in session without each repeating the login flow.
+
+        ``viewport`` supplies the device profile (size plus scale factor, touch,
+        mobile flag, and user agent). Defaults to the first configured viewport.
         """
-        context_options: dict = {
-            "viewport": {
-                "width": self.config.viewport_width,
-                "height": self.config.viewport_height,
-            },
-        }
+        viewport = viewport or self.config.viewports[0]
+        context_options: dict = viewport.to_context_options()
 
         # Set up recording if enabled
         if self.config.recording.enabled:
@@ -326,10 +382,10 @@ class QAAgent:
         page = context.new_page()
         return context, page
 
-    def _setup_browser(self, playwright):
+    def _setup_browser(self, playwright, viewport: Viewport | None = None):
         """Set up the shared browser/context/page for the sequential code path."""
         self.browser = self._launch_browser(playwright)
-        self.context, self.page = self._new_context_page(self.browser)
+        self.context, self.page = self._new_context_page(self.browser, viewport=viewport)
 
         # Set up error detector
         self.error_detector = ErrorDetector(self.page, self.config)
@@ -418,7 +474,7 @@ class QAAgent:
                     msg += f"\n  {_selector_hint}"
                 self.console.print_error(msg)
 
-    def _run_focused_mode(self):
+    def _run_focused_mode(self, viewport: Viewport | None = None):
         """Run tests on specific URLs only."""
         for url in self.config.urls:
             if self.stop_event and self.stop_event.is_set():
@@ -426,10 +482,10 @@ class QAAgent:
             if url in self.visited_urls:
                 continue
 
-            self._test_page(url)
+            self._test_page(url, viewport)
             self.visited_urls.add(url)
 
-    def _run_explore_mode(self):
+    def _run_explore_mode(self, viewport: Viewport | None = None):
         """Explore and test pages, following links (sequential path)."""
         # Initialize with seed URLs
         self.urls_to_visit = list(self.config.urls)
@@ -448,7 +504,7 @@ class QAAgent:
             if current_depth > self.config.max_depth:
                 continue
 
-            self._test_page(url)
+            self._test_page(url, viewport)
             self.visited_urls.add(url)
 
             # Discover new links
@@ -473,7 +529,24 @@ class QAAgent:
         ``storage_state`` dict that seeds every worker context.
         """
         assert self.session is not None
+        # Auth is viewport-independent (cookies/localStorage), so bootstrap once
+        # and reuse the exported state across every viewport sweep.
         storage_state = self._bootstrap_auth()
+
+        for viewport in self.config.viewports:
+            if self.stop_event and self.stop_event.is_set():
+                break
+            self._begin_viewport(viewport)
+            self._run_concurrent_sweep(viewport, storage_state)
+
+    def _run_concurrent_sweep(self, viewport: Viewport, storage_state) -> None:
+        """Run one full worker-pool sweep of every target page at one viewport.
+
+        Each sweep gets a fresh :class:`Frontier`: every viewport must visit the
+        same pages, so a frontier already drained by the previous sweep would
+        make later viewports test nothing.
+        """
+        assert self.session is not None
 
         if self.config.mode == TestMode.FOCUSED:
             frontier = Frontier(
@@ -495,7 +568,7 @@ class QAAgent:
         threads = [
             threading.Thread(
                 target=self._worker_loop,
-                args=(frontier, storage_state),
+                args=(frontier, storage_state, viewport),
                 name=f"qa-worker-{i}",
                 daemon=True,
             )
@@ -506,11 +579,20 @@ class QAAgent:
         for t in threads:
             t.join()
 
-        # Surface collected recordings (one video per worker context).
-        if self._recording_paths:
-            self.session.recording_path = self._recording_paths[0]
-            if len(self._recording_paths) > 1:
-                self.session.config_summary["recording_paths"] = list(self._recording_paths)
+    def _finalize_recordings(self) -> None:
+        """Surface collected videos on the session.
+
+        One video is produced per browser context, so a run yields several once
+        there are multiple workers, multiple viewports, or both. The first is
+        kept on ``recording_path`` for backwards compatibility and the full list
+        is added to the config summary when there is more than one.
+        """
+        assert self.session is not None
+        if not self._recording_paths:
+            return
+        self.session.recording_path = self._recording_paths[0]
+        if len(self._recording_paths) > 1:
+            self.session.config_summary["recording_paths"] = list(self._recording_paths)
 
     def _bootstrap_auth(self):
         """Authenticate once and return an exported ``storage_state`` (or None)."""
@@ -532,7 +614,7 @@ class QAAgent:
                 browser.close()
         return storage_state
 
-    def _worker_loop(self, frontier: Frontier, storage_state):
+    def _worker_loop(self, frontier: Frontier, storage_state, viewport: Viewport | None = None):
         """Worker thread: own a browser, drain the frontier until exhausted."""
         if self._worker_thread_init is not None:
             try:
@@ -542,7 +624,9 @@ class QAAgent:
 
         with self._factory()() as playwright:
             browser = self._launch_browser(playwright)
-            context, page = self._new_context_page(browser, storage_state=storage_state)
+            context, page = self._new_context_page(
+                browser, storage_state=storage_state, viewport=viewport
+            )
             error_detector = ErrorDetector(page, self.config)
             if self.config.test_console_errors or self.config.test_network_errors:
                 error_detector.attach_listeners()
@@ -554,7 +638,9 @@ class QAAgent:
                         break
                     url, depth = claimed
                     try:
-                        self._test_page_on(page, error_detector, url, self._page_indexer.next())
+                        self._test_page_on(
+                            page, error_detector, url, self._page_indexer.next(), viewport
+                        )
                         if self.config.mode == TestMode.EXPLORE and depth < self.config.max_depth:
                             links = self._discover_links(page, url)
                             new_urls = [
@@ -594,20 +680,55 @@ class QAAgent:
         with self._session_lock:
             self.session.add_page_analysis(page_analysis)
 
-    def _test_page(self, url: str):
+    def _test_page(self, url: str, viewport: Viewport | None = None):
         """Test a single page on the agent's shared browser (sequential path)."""
         assert self.page is not None
         assert self.error_detector is not None
-        self._test_page_on(self.page, self.error_detector, url, self._page_indexer.next())
+        self._test_page_on(
+            self.page, self.error_detector, url, self._page_indexer.next(), viewport
+        )
 
-    def _test_page_on(self, page: Page, error_detector: "ErrorDetector", url: str, page_index: int):
+    def _stamp_viewport(
+        self,
+        viewport: Viewport | None,
+        page_analysis: PageAnalysis | None = None,
+        findings: list[Finding] | None = None,
+    ) -> None:
+        """Attribute a page result and its findings to the viewport they came from.
+
+        Without this the same issue found at desktop and mobile is
+        indistinguishable in the report, and dedup would collapse the pair into
+        one entry.
+        """
+        if viewport is None:
+            return
+        if page_analysis is not None:
+            page_analysis.viewport = viewport.name
+            page_analysis.viewport_width = viewport.width
+            page_analysis.viewport_height = viewport.height
+        for finding in findings or []:
+            if finding.viewport is None:
+                finding.viewport = viewport.name
+
+    def _test_page_on(
+        self,
+        page: Page,
+        error_detector: "ErrorDetector",
+        url: str,
+        page_index: int,
+        viewport: Viewport | None = None,
+    ):
         """Test a single page on the given page/error_detector.
 
         ``page_index`` is a globally unique, worker-safe counter used to name
         screenshots so concurrent workers never collide.
+
+        ``viewport`` is the device profile this sweep is running at; it is
+        recorded on the page result and every finding it produces.
         """
         assert page is not None
         assert self.session is not None
+        viewport = viewport or self._current_viewport
         self.console.print_page_start(url)
 
         try:
@@ -662,6 +783,7 @@ class QAAgent:
                 images_count=0,
                 findings=[finding],
             )
+            self._stamp_viewport(viewport, page_analysis, [finding])
             self._add_page_analysis(page_analysis)
             if error_detector is not None:
                 error_detector.console_messages = []
@@ -758,6 +880,7 @@ class QAAgent:
                         finding.screenshot_path = screenshot_path
 
         page_analysis.findings = all_findings
+        self._stamp_viewport(viewport, page_analysis, all_findings)
         self._add_page_analysis(page_analysis)
 
         # Reset error detector for next page
@@ -881,16 +1004,10 @@ class QAAgent:
 
     def _cleanup(self):
         """Clean up browser resources."""
-        if self.config.recording.enabled and self.context and self.page:
-            # Get video path
-            try:
-                video = self.page.video
-                if video:
-                    video_path = video.path()
-                    assert self.session is not None
-                    self.session.recording_path = str(video_path)
-            except Exception:
-                pass
+        if self.context and self.page:
+            # Collect rather than assign: a multi-viewport run closes one context
+            # per sweep, and each has its own video.
+            self._capture_recording(self.page)
 
         if self.context:
             self.context.close()

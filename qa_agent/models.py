@@ -41,6 +41,9 @@ class Finding:
     element_selector: str | None = None
     element_text: str | None = None
     screenshot_path: str | None = None
+    # Name of the viewport this was observed at (e.g. "mobile"). None for
+    # findings produced outside a viewport sweep.
+    viewport: str | None = None
     steps_to_reproduce: list[str] = field(default_factory=list)
     expected_behavior: str | None = None
     actual_behavior: str | None = None
@@ -61,6 +64,7 @@ class Finding:
             "element_selector": self.element_selector,
             "element_text": self.element_text,
             "screenshot_path": self.screenshot_path,
+            "viewport": self.viewport,
             "steps_to_reproduce": self.steps_to_reproduce,
             "expected_behavior": self.expected_behavior,
             "actual_behavior": self.actual_behavior,
@@ -92,6 +96,11 @@ class PageAnalysis:
     forms_count: int
     links_count: int
     images_count: int
+    # Viewport this page was tested at. A page appears once per swept
+    # viewport, so these disambiguate otherwise-identical entries.
+    viewport: str | None = None
+    viewport_width: int | None = None
+    viewport_height: int | None = None
     console_errors: list[str] = field(default_factory=list)
     console_warnings: list[str] = field(default_factory=list)
     network_errors: list[dict] = field(default_factory=list)
@@ -223,6 +232,7 @@ class TestSession:
     total_findings: int = 0
     findings_by_severity: dict[str, int] = field(default_factory=dict)
     findings_by_category: dict[str, int] = field(default_factory=dict)
+    findings_by_viewport: dict[str, int] = field(default_factory=dict)
     recording_path: str | None = None
     summary: "SummaryResult | None" = None
 
@@ -235,6 +245,11 @@ class TestSession:
             cat = finding.category.value
             self.findings_by_severity[sev] = self.findings_by_severity.get(sev, 0) + 1
             self.findings_by_category[cat] = self.findings_by_category.get(cat, 0) + 1
+            viewport = finding.viewport or page.viewport
+            if viewport:
+                self.findings_by_viewport[viewport] = (
+                    self.findings_by_viewport.get(viewport, 0) + 1
+                )
 
     def get_all_findings(self) -> list["Finding"]:
         """Get all findings across all pages."""
@@ -246,8 +261,11 @@ class TestSession:
     def get_deduplicated_findings(self) -> list["Finding"]:
         """Return findings with URL-pattern duplicates collapsed.
 
-        Findings that share the same title, category, severity, and normalized
-        URL pattern (e.g. ``/widget/{id}``) are merged into a single entry.
+        Findings that share the same title, category, severity, viewport, and
+        normalized URL pattern (e.g. ``/widget/{id}``) are merged into a single
+        entry. Viewport is part of the key so a mobile-only issue is never
+        folded into its desktop namesake — the same title at two viewports is
+        two distinct results.
         The merged finding's ``affected_urls`` lists every distinct URL where
         the issue occurred; ``url`` is set to the normalized pattern so it is
         still informative.  Findings that appear on only one URL are returned
@@ -259,11 +277,12 @@ class TestSession:
                 finding.title,
                 finding.category.value,
                 finding.severity.value,
+                finding.viewport,
             )
             groups.setdefault(key, []).append(finding)
 
         deduped: list[Finding] = []
-        for (_title, _cat, _sev), group in groups.items():
+        for _key, group in groups.items():
             if len(group) == 1:
                 deduped.append(group[0])
                 continue
@@ -278,6 +297,15 @@ class TestSession:
             deduped.append(merged)
 
         return deduped
+
+    @property
+    def viewports_tested(self) -> list[str]:
+        """Names of viewports actually swept, in first-tested order."""
+        names: list[str] = []
+        for page in self.pages_tested:
+            if page.viewport and page.viewport not in names:
+                names.append(page.viewport)
+        return names
 
     @property
     def status(self) -> str:
@@ -304,6 +332,7 @@ class TestSession:
             "total_findings": self.total_findings,
             "findings_by_severity": self.findings_by_severity,
             "findings_by_category": self.findings_by_category,
+            "findings_by_viewport": self.findings_by_viewport,
             "recording_path": self.recording_path,
             "status": self.status,
             "findings": [f.to_dict() for f in self.get_deduplicated_findings()],
