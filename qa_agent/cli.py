@@ -139,8 +139,8 @@ Examples:
         "--batch-file",
         help="Path to a JSON file describing multiple runs to execute concurrently. "
              "Each entry is an object with at least 'urls' and optional overrides "
-             "(mode, max_depth, max_pages, instructions, workers). Other settings are "
-             "inherited from the command-line flags.",
+             "(mode, max_depth, max_pages, instructions, workers, viewports). Other "
+             "settings are inherited from the command-line flags.",
     )
     parser.add_argument(
         "--pool-size",
@@ -510,8 +510,9 @@ def _run_batch(args, template: TestConfig) -> None:
     """Run multiple sessions concurrently from a JSON --batch-file.
 
     Each spec is an object with at least ``urls`` plus optional per-run overrides
-    (``mode``, ``max_depth``, ``max_pages``, ``instructions``, ``workers``); all
-    other settings are inherited from ``template`` (the command-line flags).
+    (``mode``, ``max_depth``, ``max_pages``, ``instructions``, ``workers``,
+    ``viewports``); all other settings are inherited from ``template`` (the
+    command-line flags).
     Exits non-zero if any session has critical/high findings or tested no pages.
     """
     import copy
@@ -545,7 +546,14 @@ def _run_batch(args, template: TestConfig) -> None:
             cfg.instructions = spec["instructions"] or None
         if "workers" in spec:
             cfg.workers = int(spec["workers"])
-        cfg.__post_init__()  # re-clamp workers after override
+        if "viewports" in spec:
+            try:
+                cfg.viewports = parse_viewports(spec["viewports"])
+            except ValueError as exc:
+                print(f"Batch spec #{i} has an invalid 'viewports': {exc}", file=sys.stderr)
+                sys.exit(2)
+        # Re-normalise: re-clamps workers and re-resolves viewports after override.
+        cfg.__post_init__()
         configs.append(cfg)
 
     print(f"Running {len(configs)} sessions (pool size {args.pool_size})…")

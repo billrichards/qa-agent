@@ -25,6 +25,12 @@ from .config import (  # noqa: E402
 )
 from .llm_client import LLMProvider  # noqa: E402
 from .models import Finding, PageAnalysis, Severity, TestSession  # noqa: E402
+from .viewports import (  # noqa: E402
+    PRESETS,
+    Viewport,
+    list_presets,
+    parse_viewports,
+)
 
 __all__ = [
     "QAAgent",
@@ -41,5 +47,9 @@ __all__ = [
     "PageAnalysis",
     "Finding",
     "Severity",
+    "Viewport",
+    "PRESETS",
+    "list_presets",
+    "parse_viewports",
     "__version__",
 ]

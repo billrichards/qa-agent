@@ -174,3 +174,82 @@ class TestDeduplication:
         assert "findings" in d
         assert isinstance(d["findings"], list)
         assert len(d["findings"]) == 1
+
+
+class TestViewportAttribution:
+    """Viewport must survive into the session aggregates and the dedup key."""
+
+    def _session(self, pages) -> TestSession:
+        session = TestSession(session_id="vp1", start_time=datetime.now(), config_summary={})
+        for page in pages:
+            session.add_page_analysis(page)
+        return session
+
+    def test_same_finding_at_two_viewports_stays_separate(self):
+        """The whole point of the viewport key: a mobile-only bug must not merge."""
+        session = self._session([
+            make_page_analysis(
+                url="https://example.com",
+                viewport="desktop",
+                findings=[make_finding("Low contrast text", viewport="desktop")],
+            ),
+            make_page_analysis(
+                url="https://example.com",
+                viewport="mobile",
+                findings=[make_finding("Low contrast text", viewport="mobile")],
+            ),
+        ])
+
+        deduped = session.get_deduplicated_findings()
+        assert len(deduped) == 2
+        assert sorted(f.viewport for f in deduped) == ["desktop", "mobile"]
+
+    def test_same_finding_same_viewport_still_collapses(self):
+        """Adding viewport to the key must not disable URL-pattern dedup."""
+        session = self._session([
+            make_page_analysis(
+                url="https://example.com",
+                viewport="mobile",
+                findings=[
+                    make_finding("Missing alt text", url="https://example.com/users/1", viewport="mobile"),
+                    make_finding("Missing alt text", url="https://example.com/users/2", viewport="mobile"),
+                ],
+            ),
+        ])
+
+        deduped = session.get_deduplicated_findings()
+        assert len(deduped) == 1
+        assert len(deduped[0].affected_urls) == 2
+
+    def test_findings_by_viewport_counts(self):
+        session = self._session([
+            make_page_analysis(viewport="desktop", findings=[
+                make_finding("A", viewport="desktop"),
+                make_finding("B", viewport="desktop"),
+            ]),
+            make_page_analysis(viewport="mobile", findings=[make_finding("A", viewport="mobile")]),
+        ])
+        assert session.findings_by_viewport == {"desktop": 2, "mobile": 1}
+
+    def test_viewports_tested_preserves_first_seen_order(self):
+        session = self._session([
+            make_page_analysis(url="https://example.com/a", viewport="desktop"),
+            make_page_analysis(url="https://example.com/b", viewport="mobile"),
+            make_page_analysis(url="https://example.com/c", viewport="desktop"),
+        ])
+        assert session.viewports_tested == ["desktop", "mobile"]
+
+    def test_no_viewport_leaves_aggregates_empty(self):
+        """Single-viewport sessions built without viewport data stay unchanged."""
+        session = self._session([make_page_analysis(findings=[make_finding("A")])])
+        assert session.viewports_tested == []
+        assert session.findings_by_viewport == {}
+
+    def test_finding_to_dict_includes_viewport(self):
+        assert make_finding("A", viewport="mobile").to_dict()["viewport"] == "mobile"
+
+    def test_session_to_dict_includes_viewport_breakdown(self):
+        session = self._session([
+            make_page_analysis(viewport="mobile", findings=[make_finding("A", viewport="mobile")]),
+        ])
+        assert session.to_dict()["findings_by_viewport"] == {"mobile": 1}

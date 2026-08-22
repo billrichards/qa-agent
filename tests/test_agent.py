@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from typing import Any, Literal
 from unittest.mock import MagicMock, patch
 
@@ -804,3 +805,131 @@ class TestRateLimiting:
                 p.stop()
 
         assert spy.call_count == len(session.pages_tested) == 3
+
+
+class TestViewportSweep:
+    """The agent runs the whole page sweep once per configured viewport."""
+
+    def _patch_testers(self):
+        from unittest.mock import patch as _patch
+        targets = [
+            "qa_agent.agent.KeyboardTester.run",
+            "qa_agent.agent.MouseTester.run",
+            "qa_agent.agent.FormTester.run",
+            "qa_agent.agent.AccessibilityTester.run",
+            "qa_agent.agent.ErrorDetector.run",
+            "qa_agent.agent.ErrorDetector.attach_listeners",
+            "qa_agent.agent.ErrorDetector.get_summary",
+        ]
+        return [_patch(t, return_value=[]) for t in targets]
+
+    def _run(self, config):
+        agent, page = _make_agent(config)
+        patchers = self._patch_testers()
+        for p in patchers:
+            p.start()
+        try:
+            return agent.run(), page
+        finally:
+            for p in patchers:
+                p.stop()
+
+    def test_each_page_is_tested_once_per_viewport(self):
+        config = _make_config(
+            urls=["https://example.com/a", "https://example.com/b"],
+            viewports=["desktop", "mobile"],
+        )
+        session, _ = self._run(config)
+
+        assert len(session.pages_tested) == 4
+        assert session.viewports_tested == ["desktop", "mobile"]
+
+    def test_page_results_record_their_viewport(self):
+        config = _make_config(urls=["https://example.com"], viewports=["desktop", "mobile"])
+        session, _ = self._run(config)
+
+        recorded = {(p.viewport, p.viewport_width, p.viewport_height) for p in session.pages_tested}
+        assert recorded == {("desktop", 1920, 1080), ("mobile", 390, 844)}
+
+    def test_single_viewport_run_tests_each_page_once(self):
+        """Default behaviour is unchanged: one sweep, one page result."""
+        config = _make_config(urls=["https://example.com"])
+        session, _ = self._run(config)
+        assert len(session.pages_tested) == 1
+
+    def test_context_receives_device_emulation(self):
+        """Presets must apply UA/touch/DPR, not just a size."""
+        config = _make_config(urls=["https://example.com"], viewports=["mobile"])
+        agent, _ = _make_agent(config)
+        browser = MagicMock()
+        agent._new_context_page(browser, viewport=config.viewports[0])
+
+        opts = browser.new_context.call_args.kwargs
+        assert opts["viewport"] == {"width": 390, "height": 844}
+        assert opts["is_mobile"] is True
+        assert opts["has_touch"] is True
+        assert opts["device_scale_factor"] == 3
+
+    def test_findings_are_attributed_to_their_viewport(self):
+        from qa_agent.models import Finding, FindingCategory, Severity
+
+        finding_template = Finding(
+            title="Low contrast text",
+            description="d",
+            category=FindingCategory.ACCESSIBILITY,
+            severity=Severity.MEDIUM,
+            url="https://example.com",
+        )
+        config = _make_config(urls=["https://example.com"], viewports=["desktop", "mobile"])
+        agent, _ = _make_agent(config)
+
+        from unittest.mock import patch as _patch
+        # A fresh Finding per call: the agent stamps them in place.
+        with _patch("qa_agent.agent.AccessibilityTester.run",
+                    side_effect=lambda: [replace(finding_template)]), \
+             _patch("qa_agent.agent.KeyboardTester.run", return_value=[]), \
+             _patch("qa_agent.agent.MouseTester.run", return_value=[]), \
+             _patch("qa_agent.agent.FormTester.run", return_value=[]), \
+             _patch("qa_agent.agent.ErrorDetector.run", return_value=[]), \
+             _patch("qa_agent.agent.ErrorDetector.attach_listeners"), \
+             _patch("qa_agent.agent.ErrorDetector.get_summary"):
+            session = agent.run()
+
+        assert session.findings_by_viewport == {"desktop": 1, "mobile": 1}
+        # Same title at two viewports must stay two distinct results.
+        assert len(session.get_deduplicated_findings()) == 2
+
+    def test_crawl_state_resets_between_viewports(self):
+        """Without a reset the second viewport would skip every visited URL."""
+        config = _make_config(
+            urls=["https://example.com/a", "https://example.com/b"],
+            viewports=["desktop", "mobile"],
+        )
+        session, _ = self._run(config)
+
+        per_viewport: dict[str, set[str]] = {}
+        for page in session.pages_tested:
+            per_viewport.setdefault(page.viewport or "", set()).add(page.url)
+        assert per_viewport["desktop"] == per_viewport["mobile"]
+        assert len(per_viewport["desktop"]) == 2
+
+    def test_screenshots_split_per_viewport_only_when_sweeping_many(self, tmp_path):
+        from qa_agent.config import ScreenshotConfig
+
+        multi = _make_config(
+            urls=["https://example.com"],
+            viewports=["desktop", "mobile"],
+            screenshots=ScreenshotConfig(output_dir=str(tmp_path)),
+        )
+        agent, _ = _make_agent(multi)
+        agent._screenshot_base = str(tmp_path)
+        assert agent._viewport_screenshot_dir(multi.viewports[0]).endswith("desktop")
+
+        single = _make_config(
+            urls=["https://example.com"],
+            screenshots=ScreenshotConfig(output_dir=str(tmp_path)),
+        )
+        agent2, _ = _make_agent(single)
+        agent2._screenshot_base = str(tmp_path)
+        # Single-viewport runs keep the flat legacy layout.
+        assert agent2._viewport_screenshot_dir(single.viewports[0]) == str(tmp_path)

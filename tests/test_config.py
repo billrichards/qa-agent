@@ -1,5 +1,7 @@
 """Tests for qa_agent/config.py — default values and dataclass integrity."""
 
+import pytest
+
 from qa_agent.config import (
     AuthConfig,
     LLMProvider,
@@ -9,6 +11,7 @@ from qa_agent.config import (
     TestConfig,
     TestMode,
 )
+from qa_agent.viewports import Viewport
 
 
 class TestTestConfigDefaults:
@@ -154,3 +157,56 @@ class TestOutputFormat:
         assert OutputFormat.MARKDOWN.value == "markdown"
         assert OutputFormat.JSON.value == "json"
         assert OutputFormat.PDF.value == "pdf"
+
+
+class TestConfigViewports:
+    """TestConfig normalises whatever viewport shape a caller passes."""
+
+    def test_default_is_single_legacy_viewport(self):
+        """No viewports given must behave exactly like the pre-feature default."""
+        config = TestConfig()
+        assert config.viewport_names == ["1280x720"]
+        assert (config.viewport_width, config.viewport_height) == (1280, 720)
+
+    def test_legacy_scalars_seed_the_single_viewport(self):
+        config = TestConfig(viewport_width=1024, viewport_height=768)
+        assert config.viewport_names == ["1024x768"]
+        assert config.viewports[0].width == 1024
+
+    def test_preset_names_are_resolved(self):
+        config = TestConfig(viewports=["mobile"])
+        vp = config.viewports[0]
+        assert (vp.width, vp.height) == (390, 844)
+        # Presets carry full device emulation, not just a size.
+        assert vp.is_mobile and vp.has_touch
+
+    def test_mixed_specs_preserve_order(self):
+        config = TestConfig(viewports=["desktop", "1440x900", "mobile"])
+        assert config.viewport_names == ["desktop", "1440x900", "mobile"]
+
+    def test_legacy_scalars_mirror_first_viewport(self):
+        """Existing readers of viewport_width/height keep seeing a real value."""
+        config = TestConfig(viewports=["mobile", "desktop"])
+        assert (config.viewport_width, config.viewport_height) == (390, 844)
+
+    def test_dict_input_is_coerced(self):
+        config = TestConfig(viewports=[{"name": "kiosk", "width": 1080, "height": 1920}])
+        assert config.viewport_names == ["kiosk"]
+
+    def test_viewport_objects_pass_through(self):
+        vp = Viewport(name="custom", width=800, height=600)
+        assert TestConfig(viewports=[vp]).viewports == [vp]
+
+    def test_viewports_are_capped(self):
+        config = TestConfig(viewports=[f"{600 + i}x800" for i in range(20)])
+        assert len(config.viewports) == TestConfig.VIEWPORTS_MAX
+
+    def test_invalid_spec_raises(self):
+        """A typo must not silently resolve to some other size."""
+        with pytest.raises(ValueError):
+            TestConfig(viewports=["moblie"])
+
+    def test_out_of_range_legacy_scalars_fall_back(self):
+        """Bad legacy width/height degrade to the default, matching workers/rate_limit."""
+        config = TestConfig(viewport_width=-5, viewport_height=0)
+        assert config.viewport_names == ["1280x720"]
