@@ -13,6 +13,7 @@ import pytest
 # Import app — this replaces sys.stdout with _MultiplexedStdout at import time.
 # That's fine: _MultiplexedStdout falls back to _original_stdout when no thread-local
 # stream is set, so test output is unaffected.
+from qa_agent.config import TestConfig
 from qa_agent.web import server as srv
 from qa_agent.web.server import (
     OUTPUT_DIR,
@@ -650,3 +651,77 @@ class TestApiServerConfig:
     def test_build_config_workers_defaults_to_1(self):
         config = _build_config({"urls": ["https://example.com"]})
         assert config.workers == 1
+
+
+# ---------------------------------------------------------------------------
+# Viewports
+# ---------------------------------------------------------------------------
+
+class TestViewports:
+    """The web UI must reach the same viewport feature the CLI exposes."""
+
+    def test_api_viewports_lists_presets(self, client):
+        resp = client.get("/api/viewports")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        names = [p["name"] for p in data["presets"]]
+        assert "mobile" in names and "desktop" in names
+        # Enough detail for the form to label each checkbox.
+        assert all({"name", "width", "height"} <= set(p) for p in data["presets"])
+        assert data["default"] == {"width": 1280, "height": 720}
+
+    def test_body_viewports_list_of_presets(self):
+        config = _build_config({
+            "urls": ["https://example.com"],
+            "viewports": ["desktop", "mobile"],
+        })
+        assert config.viewport_names == ["desktop", "mobile"]
+
+    def test_body_viewports_mixed_presets_and_sizes(self):
+        config = _build_config({
+            "urls": ["https://example.com"],
+            "viewports": ["tablet", "1440x900"],
+        })
+        assert config.viewport_names == ["tablet", "1440x900"]
+
+    def test_legacy_width_height_still_honoured(self):
+        """Older API clients posting the scalar pair must keep working."""
+        config = _build_config({
+            "urls": ["https://example.com"],
+            "viewport_width": 1600,
+            "viewport_height": 900,
+        })
+        assert config.viewport_names == ["1600x900"]
+        assert (config.viewport_width, config.viewport_height) == (1600, 900)
+
+    def test_no_viewport_keys_uses_single_default(self):
+        config = _build_config({"urls": ["https://example.com"]})
+        assert config.viewport_names == ["1280x720"]
+
+    def test_bad_viewport_spec_falls_back_to_default(self):
+        """A malformed request must not abort the run, unlike the CLI.
+
+        The web form builds this list from checkboxes, so an unusable value is
+        a client bug rather than a user typo that would mislead them.
+        """
+        config = _build_config({
+            "urls": ["https://example.com"],
+            "viewports": ["not-a-real-preset"],
+        })
+        assert config.viewport_names == ["1280x720"]
+
+    def test_viewports_capped(self):
+        config = _build_config({
+            "urls": ["https://example.com"],
+            "viewports": [f"{600 + i}x800" for i in range(20)],
+        })
+        assert len(config.viewports) == TestConfig.VIEWPORTS_MAX
+
+    def test_run_form_renders_viewport_controls(self, client):
+        html = client.get("/").get_data(as_text=True)
+        assert 'id="viewport-presets"' in html
+        assert 'name="viewport_custom"' in html
+
+    def test_server_config_exposes_viewport_cap(self, client):
+        data = client.get("/api/server-config").get_json()
+        assert data["viewports_max"] == TestConfig.VIEWPORTS_MAX

@@ -6,6 +6,10 @@
   const form = document.getElementById('run-form');
   if (!form) return;
 
+  // Render viewport presets from the server registry, so the checkbox list
+  // never drifts from the presets the backend actually accepts.
+  loadViewportPresets();
+
   // Apply rerun config from session storage if present
   const rerunConfig = sessionStorage.getItem('qa_rerun_config');
   if (rerunConfig) {
@@ -115,8 +119,7 @@ function collectFormData(form) {
     output_dir: fd.get('output_dir') || null,
     headless: !!fd.get('headless'),
     workers: parseInt(fd.get('workers') || '1', 10),
-    viewport_width: parseInt(fd.get('viewport_width') || '1280', 10),
-    viewport_height: parseInt(fd.get('viewport_height') || '720', 10),
+    viewports: collectViewports(fd),
     timeout: parseInt(fd.get('timeout') || '30000', 10),
     max_depth: parseInt(fd.get('max_depth') || '3', 10),
     max_pages: parseInt(fd.get('max_pages') || '100', 10),
@@ -156,6 +159,94 @@ function collectFormData(form) {
 }
 
 
+// ── Viewports ──────────────────────────────────────────────────────────────────
+
+// A config may be restored before the async preset fetch resolves; hold the
+// selection here and apply it once the checkboxes exist.
+let _pendingViewports = null;
+
+async function loadViewportPresets() {
+  const container = document.getElementById('viewport-presets');
+  if (!container) return;
+
+  let presets = [];
+  try {
+    const res = await fetch('/api/viewports');
+    if (res.ok) presets = (await res.json()).presets || [];
+  } catch (_) {
+    // Leave the list empty; custom sizes and the default still work.
+  }
+
+  container.innerHTML = '';
+  for (const vp of presets) {
+    const label = document.createElement('label');
+    label.className = 'check-label';
+
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.name = 'viewport_preset';
+    input.value = vp.name;
+
+    const text = document.createElement('span');
+    text.textContent = ` ${vp.name} (${vp.width}\u00d7${vp.height})`;
+
+    label.append(input, text);
+    if (vp.description) label.title = vp.description;
+    container.appendChild(label);
+  }
+
+  if (_pendingViewports) {
+    const pending = _pendingViewports;
+    _pendingViewports = null;
+    applyViewports(pending);
+  }
+}
+
+function collectViewports(fd) {
+  // Preset names first, then any custom sizes typed alongside them.
+  const names = fd.getAll('viewport_preset');
+  const custom = (fd.get('viewport_custom') || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  // An empty list makes the server fall back to a single default viewport,
+  // which is what an untouched form should do.
+  return names.concat(custom);
+}
+
+function applyViewports(cfg) {
+  const form = document.getElementById('run-form');
+  if (!form) return;
+
+  // Accept both the new list and the legacy scalar pair from older saved configs.
+  let names = cfg.viewports;
+  if (!names || !names.length) {
+    if (cfg.viewport_width && cfg.viewport_height) {
+      names = [`${cfg.viewport_width}x${cfg.viewport_height}`];
+    } else {
+      return;
+    }
+  }
+  names = names.map((v) => (typeof v === 'string' ? v : v && v.name)).filter(Boolean);
+
+  const boxes = form.querySelectorAll('input[name="viewport_preset"]');
+  if (!boxes.length) {
+    _pendingViewports = cfg;  // presets not rendered yet
+    return;
+  }
+
+  const known = new Set();
+  boxes.forEach((box) => {
+    box.checked = names.includes(box.value);
+    known.add(box.value);
+  });
+
+  // Anything that is not a preset goes back into the custom field.
+  const customEl = form.querySelector('#viewport_custom');
+  if (customEl) customEl.value = names.filter((n) => !known.has(n)).join(', ');
+}
+
+
 // ── Apply a config object back to the form ─────────────────────────────────────
 function applyConfig(cfg) {
   const form = document.getElementById('run-form');
@@ -172,8 +263,7 @@ function applyConfig(cfg) {
   }
   setCheck(form, 'headless', cfg.headless !== false);
   setNum(form, 'workers', cfg.workers);
-  setNum(form, 'viewport_width', cfg.viewport_width);
-  setNum(form, 'viewport_height', cfg.viewport_height);
+  applyViewports(cfg);
   setNum(form, 'timeout', cfg.timeout);
   setNum(form, 'max_depth', cfg.max_depth);
   setNum(form, 'max_pages', cfg.max_pages);

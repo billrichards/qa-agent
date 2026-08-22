@@ -26,6 +26,7 @@ from ..config import (
     TestMode,
 )
 from ..llm_client import LLMProvider
+from ..viewports import DEFAULT_HEIGHT, DEFAULT_WIDTH, coerce_viewports, list_presets
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _HERE = Path(__file__).resolve().parent      # qa_agent/web/
@@ -369,6 +370,17 @@ def api_server_config_get():
         "pool_size": _pool_size,
         "pool_size_max": _POOL_SIZE_MAX,
         "workers_max": 16,
+        "viewports_max": TestConfig.VIEWPORTS_MAX,
+    })
+
+
+@app.route("/api/viewports", methods=["GET"])
+def api_viewports():
+    """The viewport preset registry, for rendering the run form."""
+    return jsonify({
+        "presets": [vp.to_dict() for vp in list_presets()],
+        "default": {"width": DEFAULT_WIDTH, "height": DEFAULT_HEIGHT},
+        "max": TestConfig.VIEWPORTS_MAX,
     })
 
 
@@ -700,6 +712,38 @@ def _parse_llm_provider(value: str) -> LLMProvider:
         return LLMProvider.ANTHROPIC
 
 
+def _parse_body_viewports(body: dict) -> list:
+    """Resolve the viewport list from a run request body.
+
+    Accepts the new ``viewports`` key (a list of preset names, WxH strings,
+    dicts, or a comma-separated string) and falls back to the legacy
+    ``viewport_width``/``viewport_height`` pair so older API clients and saved
+    configurations keep working unchanged.
+
+    An unusable spec falls back to the default rather than aborting the run:
+    unlike the CLI, the web form builds this list from checkboxes the user
+    picked, so a bad value means a malformed request, not a silent typo that
+    would mislead someone reading the report.
+    """
+    raw = body.get("viewports")
+    if raw:
+        try:
+            viewports = coerce_viewports(raw)
+        except (ValueError, TypeError):
+            viewports = []
+        if viewports:
+            return viewports[: TestConfig.VIEWPORTS_MAX]
+
+    try:
+        width = int(body.get("viewport_width", DEFAULT_WIDTH))
+        height = int(body.get("viewport_height", DEFAULT_HEIGHT))
+    except (TypeError, ValueError):
+        width, height = DEFAULT_WIDTH, DEFAULT_HEIGHT
+
+    # TestConfig turns an empty list plus these scalars into one viewport.
+    return coerce_viewports([{"name": f"{width}x{height}", "width": width, "height": height}])
+
+
 def _build_config(body: dict) -> TestConfig:
     """Convert JSON request body into a TestConfig."""
     urls = body["urls"]
@@ -744,6 +788,8 @@ def _build_config(body: dict) -> TestConfig:
             headers=headers,
         )
 
+    viewports = _parse_body_viewports(body)
+
     ss_data = body.get("screenshots") or {}
     rec_data = body.get("recording") or {}
 
@@ -761,8 +807,7 @@ def _build_config(body: dict) -> TestConfig:
         output_formats=output_formats,
         output_dir=str(body.get("output_dir") or OUTPUT_DIR),
         headless=bool(body.get("headless", True)),
-        viewport_width=int(body.get("viewport_width", 1280)),
-        viewport_height=int(body.get("viewport_height", 720)),
+        viewports=viewports,
         timeout=int(body.get("timeout", 30000)),
         max_depth=int(body.get("max_depth", 3)),
         max_pages=int(body.get("max_pages", 100)),
