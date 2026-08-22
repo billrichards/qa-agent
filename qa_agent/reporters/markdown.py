@@ -34,6 +34,11 @@ class MarkdownReporter(BaseReporter):
         """Build the complete Markdown report."""
         lines = []
 
+        # Viewport detail is only meaningful when several were swept; a
+        # single-viewport report stays exactly as it was.
+        viewports = session.viewports_tested
+        multi_viewport = len(viewports) > 1
+
         # Header
         lines.append("# QA Agent Test Report")
         lines.append("")
@@ -45,6 +50,8 @@ class MarkdownReporter(BaseReporter):
             lines.append(f"**Duration:** {duration:.1f} seconds")
 
         lines.append(f"**Mode:** {session.config_summary.get('mode', 'N/A')}")
+        if multi_viewport:
+            lines.append(f"**Viewports:** {', '.join(viewports)}")
         lines.append("")
 
         # Summary
@@ -65,6 +72,17 @@ class MarkdownReporter(BaseReporter):
                 if count > 0:
                     emoji = self._severity_emoji(severity)
                     lines.append(f"| {emoji} {severity.upper()} | {count} |")
+            lines.append("")
+
+        # Viewport breakdown
+        if multi_viewport and session.findings_by_viewport:
+            lines.append("### Findings by Viewport")
+            lines.append("")
+            lines.append("| Viewport | Count |")
+            lines.append("| --- | --- |")
+            for viewport in viewports:
+                count = session.findings_by_viewport.get(viewport, 0)
+                lines.append(f"| 📐 {viewport} | {count} |")
             lines.append("")
 
         # Category breakdown
@@ -104,6 +122,10 @@ class MarkdownReporter(BaseReporter):
         for page in session.pages_tested:
             finding_count = len(page.findings)
             label = page.title or page.url
+            if multi_viewport and page.viewport:
+                # The same URL appears once per viewport, so without this the
+                # list reads as duplicate entries.
+                label = f"{label} — {page.viewport}"
             if finding_count == 0:
                 lines.append(f"- [{label}]({page.url}) - ✅")
             else:
@@ -151,7 +173,9 @@ class MarkdownReporter(BaseReporter):
 
                 for i, finding in enumerate(grouped[severity], 1):
                     cat_emoji = self._category_emoji(finding.category.value)
-                    lines.extend(self._format_finding(finding, i, cat_emoji))
+                    lines.extend(
+                        self._format_finding(finding, i, cat_emoji, multi_viewport)
+                    )
                     lines.append("")
         elif not session.pages_tested:
             lines.append("## ⚠️ No Pages Tested")
@@ -234,7 +258,13 @@ class MarkdownReporter(BaseReporter):
         """
         return re.sub(r'(?<!`)</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>(?!`)', r'`\g<0>`', text)
 
-    def _format_finding(self, finding: "Finding", index: int, emoji: str) -> list[str]:
+    def _format_finding(
+        self,
+        finding: "Finding",
+        index: int,
+        emoji: str,
+        show_viewport: bool = False,
+    ) -> list[str]:
         """Format a single finding as Markdown, with screenshot paths relative to the report file."""
         lines = []
 
@@ -255,6 +285,10 @@ class MarkdownReporter(BaseReporter):
                 lines.append("</details>")
             else:
                 lines.append(f"**URL:** [{finding.url}]({finding.url})")
+            lines.append("")
+
+        if show_viewport and finding.viewport:
+            lines.append(f"**Viewport:** 📐 {finding.viewport}")
             lines.append("")
 
         if finding.element_selector:

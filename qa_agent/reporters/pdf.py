@@ -234,6 +234,11 @@ class PDFReporter(BaseReporter):
         """Build the complete HTML content for PDF generation."""
         lines = ['<!DOCTYPE html>', '<html>', '<head>', '<meta charset="UTF-8">', '</head>', '<body>']
 
+        # Viewport detail only appears when several were swept, so a
+        # single-viewport report is unchanged.
+        viewports = session.viewports_tested
+        multi_viewport = len(viewports) > 1
+
         # Header
         lines.append('<h1>QA Agent Test Report</h1>')
 
@@ -247,6 +252,11 @@ class PDFReporter(BaseReporter):
             lines.append(f'<p><span class="label">Duration:</span> {duration:.1f} seconds</p>')
 
         lines.append(f'<p><span class="label">Mode:</span> {session.config_summary.get("mode", "N/A")}</p>')
+        if multi_viewport:
+            lines.append(
+                f'<p><span class="label">Viewports:</span> '
+                f'{self._escape_html(", ".join(viewports))}</p>'
+            )
         lines.append('</div>')
 
         # Summary
@@ -267,6 +277,18 @@ class PDFReporter(BaseReporter):
                         f'<tr><td class="severity-{severity}">{emoji} {severity.upper()}</td>'
                         f'<td>{count}</td></tr>'
                     )
+            lines.append('</table>')
+
+        # Viewport breakdown table
+        if multi_viewport and session.findings_by_viewport:
+            lines.append('<h3>Findings by Viewport</h3>')
+            lines.append('<table>')
+            lines.append('<tr><th>Viewport</th><th>Count</th></tr>')
+            for viewport in viewports:
+                count = session.findings_by_viewport.get(viewport, 0)
+                lines.append(
+                    f'<tr><td>📐 {self._escape_html(viewport)}</td><td>{count}</td></tr>'
+                )
             lines.append('</table>')
 
         # Category breakdown table
@@ -291,6 +313,10 @@ class PDFReporter(BaseReporter):
             else:
                 status = f'<span class="warning">⚠ {finding_count} issue(s)</span>'
             title = self._escape_html(page.title or page.url)
+            if multi_viewport and page.viewport:
+                # Each URL is listed once per viewport; label them so the
+                # repeats are readable rather than looking like duplicates.
+                title = f'{title} — {self._escape_html(page.viewport)}'
             lines.append(f'<li><strong>{title}</strong><br/>{page.url} — {status}</li>')
         lines.append('</ul>')
 
@@ -324,7 +350,9 @@ class PDFReporter(BaseReporter):
                 lines.append(f'<h3>{emoji} {severity.upper()} Severity</h3>')
 
                 for i, finding in enumerate(grouped[severity], 1):
-                    lines.extend(self._format_finding_html(finding, i, severity))
+                    lines.extend(
+                        self._format_finding_html(finding, i, severity, multi_viewport)
+                    )
         else:
             lines.append('<h2>✅ No Issues Found</h2>')
             lines.append('<p>All tests passed without detecting any issues.</p>')
@@ -341,7 +369,13 @@ class PDFReporter(BaseReporter):
 
         return '\n'.join(lines)
 
-    def _format_finding_html(self, finding: "Finding", index: int, severity: str) -> list[str]:
+    def _format_finding_html(
+        self,
+        finding: "Finding",
+        index: int,
+        severity: str,
+        show_viewport: bool = False,
+    ) -> list[str]:
         """Format a single finding as HTML."""
         lines = []
 
@@ -376,6 +410,12 @@ class PDFReporter(BaseReporter):
                     f'<p><span class="label">URL:</span> '
                     f'<span class="code">{self._escape_html(finding.url)}</span></p>'
                 )
+
+        if show_viewport and finding.viewport:
+            lines.append(
+                f'<p><span class="label">Viewport:</span> '
+                f'📐 {self._escape_html(finding.viewport)}</p>'
+            )
 
         if finding.element_selector:
             lines.append(

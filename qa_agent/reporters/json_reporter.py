@@ -53,6 +53,8 @@ class JSONReporter(BaseReporter):
                 "unique_findings": len(session.get_deduplicated_findings()),
                 "findings_by_severity": session.findings_by_severity,
                 "findings_by_category": session.findings_by_category,
+                "findings_by_viewport": session.findings_by_viewport,
+                "viewports_tested": session.viewports_tested,
                 "status": session.status,
             },
             "pages": [
@@ -64,6 +66,9 @@ class JSONReporter(BaseReporter):
                     "forms_count": page.forms_count,
                     "links_count": page.links_count,
                     "images_count": page.images_count,
+                    "viewport": page.viewport,
+                    "viewport_width": page.viewport_width,
+                    "viewport_height": page.viewport_height,
                     "console_errors": page.console_errors,
                     "network_errors": page.network_errors,
                     "findings_count": len(page.findings),

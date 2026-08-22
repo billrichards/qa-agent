@@ -35,6 +35,9 @@ def make_finding(
 def make_page_analysis(
     url: str = "https://example.com",
     findings: list[Finding] | None = None,
+    viewport: str | None = None,
+    viewport_width: int | None = None,
+    viewport_height: int | None = None,
 ) -> PageAnalysis:
     return PageAnalysis(
         url=url,
@@ -44,8 +47,41 @@ def make_page_analysis(
         forms_count=1,
         links_count=3,
         images_count=2,
+        viewport=viewport,
+        viewport_width=viewport_width,
+        viewport_height=viewport_height,
         findings=findings or [],
     )
+
+
+def make_multi_viewport_session(session_id: str = "vp901234") -> TestSession:
+    """A session where the same page was swept at two viewports.
+
+    Both pages carry the same finding title so tests can assert that viewport
+    keeps them distinct instead of collapsing them into one.
+    """
+    session = TestSession(
+        session_id=session_id,
+        start_time=datetime(2024, 1, 1, 12, 0, 0),
+        end_time=datetime(2024, 1, 1, 12, 5, 0),
+        config_summary={"mode": "focused", "urls": ["https://example.com"]},
+    )
+    for name, width, height in (("desktop", 1920, 1080), ("mobile", 390, 844)):
+        session.add_page_analysis(
+            make_page_analysis(
+                viewport=name,
+                viewport_width=width,
+                viewport_height=height,
+                findings=[
+                    make_finding(
+                        "Images missing alt attribute",
+                        severity=Severity.HIGH,
+                        viewport=name,
+                    )
+                ],
+            )
+        )
+    return session
 
 
 def make_session(

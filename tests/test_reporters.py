@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -11,7 +12,12 @@ from qa_agent.models import TestSession
 from qa_agent.reporters.console import ConsoleReporter
 from qa_agent.reporters.json_reporter import JSONReporter
 from qa_agent.reporters.markdown import MarkdownReporter
-from tests.conftest import make_finding, make_session, make_session_with_findings
+from tests.conftest import (
+    make_finding,
+    make_multi_viewport_session,
+    make_session,
+    make_session_with_findings,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -330,3 +336,85 @@ class TestPDFReporter:
         from pathlib import Path
         assert Path(path).exists()
         assert Path(path).stat().st_size > 0
+
+
+# ---------------------------------------------------------------------------
+# Viewport reporting
+# ---------------------------------------------------------------------------
+
+class TestViewportReporting:
+    """Every reporter must distinguish findings by the viewport they came from.
+
+    The same page is swept once per viewport, so without this the reports read
+    as unexplained duplicates -- and a mobile-only bug is indistinguishable
+    from its desktop namesake.
+    """
+
+    def test_markdown_lists_viewports_and_breakdown(self, tmp_path):
+        session = make_multi_viewport_session()
+        reporter = MarkdownReporter(str(tmp_path))
+        content = Path(reporter.generate(session)).read_text(encoding="utf-8")
+
+        assert "**Viewports:** desktop, mobile" in content
+        assert "Findings by Viewport" in content
+        assert "| 📐 desktop | 1 |" in content
+        assert "| 📐 mobile | 1 |" in content
+        # Repeated URLs in "Pages Tested" are disambiguated by viewport.
+        assert "Test Page — desktop" in content
+        assert "Test Page — mobile" in content
+
+    def test_markdown_omits_viewport_for_single_viewport_run(self, tmp_path):
+        """A single-viewport report must look exactly as it did before."""
+        session = make_session_with_findings()
+        reporter = MarkdownReporter(str(tmp_path))
+        content = Path(reporter.generate(session)).read_text(encoding="utf-8")
+
+        assert "Findings by Viewport" not in content
+        assert "**Viewports:**" not in content
+
+    def test_json_exposes_viewport_fields(self, tmp_path):
+        session = make_multi_viewport_session()
+        reporter = JSONReporter(str(tmp_path))
+        data = json.loads(Path(reporter.generate(session)).read_text(encoding="utf-8"))
+
+        assert data["summary"]["viewports_tested"] == ["desktop", "mobile"]
+        assert data["summary"]["findings_by_viewport"] == {"desktop": 1, "mobile": 1}
+
+        pages = {(p["viewport"], p["viewport_width"], p["viewport_height"]) for p in data["pages"]}
+        assert pages == {("desktop", 1920, 1080), ("mobile", 390, 844)}
+
+        # Same title at two viewports stays two findings rather than merging.
+        assert sorted(f["viewport"] for f in data["findings"]) == ["desktop", "mobile"]
+
+    def test_console_prints_viewport_breakdown(self, capsys):
+        session = make_multi_viewport_session()
+        ConsoleReporter(use_colors=False).generate(session)
+        out = capsys.readouterr().out
+
+        assert "By Viewport:" in out
+        assert "desktop: 1" in out
+        assert "mobile: 1" in out
+
+    def test_console_omits_viewport_for_single_viewport_run(self, capsys):
+        ConsoleReporter(use_colors=False).generate(make_session_with_findings())
+        out = capsys.readouterr().out
+        assert "By Viewport:" not in out
+        assert "Viewport:" not in out
+
+    def test_console_viewport_banner_labels_sweep(self, capsys):
+        ConsoleReporter(use_colors=False).print_viewport_start("mobile (390x844)")
+        assert "mobile (390x844)" in capsys.readouterr().out
+
+    def test_pdf_html_includes_viewport_sections(self):
+        from qa_agent.reporters.pdf import PDFReporter
+
+        html = PDFReporter()._build_html(make_multi_viewport_session())
+        assert "Findings by Viewport" in html
+        assert "Viewports:" in html
+        assert "desktop" in html and "mobile" in html
+
+    def test_pdf_html_omits_viewport_for_single_viewport_run(self):
+        from qa_agent.reporters.pdf import PDFReporter
+
+        html = PDFReporter()._build_html(make_session_with_findings())
+        assert "Findings by Viewport" not in html
